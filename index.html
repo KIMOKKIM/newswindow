@@ -10,30 +10,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- 상단 배너 -->
-    <div class="top-banner">
-        <div class="container top-inner">
-            <span class="date"></span>
-            <ul class="top-links">
-                <li><a href="#">전체기사</a></li>
-                <li><a href="#">페이스북</a></li>
-                <li><a href="#">트위터</a></li>
-                <li><a href="#">카카오스토리</a></li>
-                <li><a href="#">RSS</a></li>
-            </ul>
+    <!-- 상단 광고 배너 -->
+    <div class="header-ads">
+        <div class="container header-ads-inner">
+            <div class="ad-slot ad-left"><!-- 광고 영역 --></div>
+            <div class="ad-slot ad-center"></div>
+            <div class="ad-slot ad-right"><!-- 광고 영역 --></div>
         </div>
     </div>
 
-    <!-- 헤더 -->
-    <header class="header">
-        <div class="container header-inner">
-            <a href="index.html" class="logo">
-                <span class="logo-text">뉴스의창</span>
+    <!-- 로고·타이틀 (뉴스의 창) -->
+    <div class="logo-section">
+        <div class="container">
+            <a href="index.html" class="logo-block">
+                <img src="images/logo-header.png" alt="뉴스의 창 - 정론 · 직필 · 신속 KOREA PRESS" class="logo-img">
             </a>
+        </div>
+    </div>
+
+    <!-- 네비게이션 바 -->
+    <header class="header nav-bar">
+        <div class="container header-inner">
+            <button class="menu-btn nav-menu-btn" aria-label="메뉴 열기" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
             <nav class="nav" aria-label="주 메뉴">
                 <ul class="nav-list">
-                    <li><a href="#">HOME</a></li>
-                    <li><a href="#">전체기사</a></li>
                     <li><a href="#">정치</a></li>
                     <li><a href="#">경제</a></li>
                     <li><a href="#">전국</a></li>
@@ -43,19 +45,15 @@
                     <li><a href="#">기획</a></li>
                     <li><a href="#">국제</a></li>
                     <li><a href="#">TOP뉴스</a></li>
-                    <li><a href="#">로그인</a></li>
-                    <li><a href="#">회원가입</a></li>
+                    <li><a href="#" class="nav-highlight">TV뉴스의창</a></li>
+                    <li><a href="#" class="nav-highlight">뉴스의창사업단</a></li>
                 </ul>
             </nav>
             <div class="header-actions">
-                <form class="search-form" action="#" method="get">
-                    <input type="text" name="q" placeholder="기사검색" class="search-input" aria-label="기사 검색">
-                    <button type="submit" class="search-btn">검색</button>
-                </form>
+                <button type="button" class="search-icon-btn" aria-label="기사 검색">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </button>
             </div>
-            <button class="menu-btn" aria-label="메뉴 열기" aria-expanded="false">
-                <span></span><span></span><span></span>
-            </button>
         </div>
     </header>
 

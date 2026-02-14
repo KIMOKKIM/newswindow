@@ -1,6 +1,10 @@
 # 뉴스의창 프로젝트 - GitHub 백업 스크립트
 # 사용법: PowerShell에서 .\backup.ps1 실행 (또는 코딩 마칠 때 실행)
 
+# 한글 출력 깨짐 방지
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
