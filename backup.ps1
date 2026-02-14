@@ -24,8 +24,12 @@ git add -A
 git commit -m $msg
 
 # 원격 저장소가 있으면 push
-$remote = git remote get-url origin 2>$null
-if ($remote) {
+$prevErr = $ErrorActionPreference
+$ErrorActionPreference = "SilentlyContinue"
+$null = git remote get-url origin 2>$null
+$hasRemote = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $prevErr
+if ($hasRemote) {
     git push origin HEAD
     Write-Host "GitHub 백업 완료: $msg"
 } else {
