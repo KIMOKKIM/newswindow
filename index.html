@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>뉴스의창 - 인터넷 신문</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- 상단 배너 -->
+    <div class="top-banner">
+        <div class="container top-inner">
+            <span class="date"></span>
+            <ul class="top-links">
+                <li><a href="#">전체기사</a></li>
+                <li><a href="#">페이스북</a></li>
+                <li><a href="#">트위터</a></li>
+                <li><a href="#">카카오스토리</a></li>
+                <li><a href="#">RSS</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="container header-inner">
+            <a href="index.html" class="logo">
+                <span class="logo-text">뉴스의창</span>
+            </a>
+            <nav class="nav" aria-label="주 메뉴">
+                <ul class="nav-list">
+                    <li><a href="#">HOME</a></li>
+                    <li><a href="#">전체기사</a></li>
+                    <li><a href="#">정치</a></li>
+                    <li><a href="#">경제</a></li>
+                    <li><a href="#">전국</a></li>
+                    <li><a href="#">사회</a></li>
+                    <li><a href="#">문화</a></li>
+                    <li><a href="#">생활</a></li>
+                    <li><a href="#">기획</a></li>
+                    <li><a href="#">국제</a></li>
+                    <li><a href="#">TOP뉴스</a></li>
+                    <li><a href="#">로그인</a></li>
+                    <li><a href="#">회원가입</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <form class="search-form" action="#" method="get">
+                    <input type="text" name="q" placeholder="기사검색" class="search-input" aria-label="기사 검색">
+                    <button type="submit" class="search-btn">검색</button>
+                </form>
+            </div>
+            <button class="menu-btn" aria-label="메뉴 열기" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="main container">
+        <!-- 메인 헤드라인 -->
+        <section class="headline-section">
+            <article class="headline-main">
+                <a href="#">
+                    <h2>권향엽 의원 대표발의 '개인정보 보호법' 개정안 국회 본회의 통과</h2>
+                    <p class="meta"><span class="category">뉴스플러스</span> | 2026-02-13</p>
+                </a>
+            </article>
+            <div class="headline-list">
+                <a href="#">안호영 의원, 이원택의원 주장 정면 반박. '메모리 생산 메가팹' 전북 유치 공식 촉구</a>
+                <span class="meta">뉴스플러스 | 2026-02-13</span>
+                <a href="#">정일영 의원, 제2차 인천도시철도망 구축계획 승인 환영</a>
+                <span class="meta">여의도동정 | 2026-02-13</span>
+                <a href="#">김현정 의원, 신평동 침수 피해 근원 해결 위한 수리시설 개보수 사업 37억 2천만 원 확정</a>
+                <span class="meta">정치 | 2026-02-13</span>
+                <a href="#">맹성규 의원, '한국형 선시티'조성 위한「은퇴자마을 조성 특별법」 국회 본회의 통과</a>
+                <span class="meta">뉴스플러스 | 2026-02-13</span>
+            </div>
+        </section>
+
+        <div class="content-grid">
+            <!-- 왼쪽: 카테고리별 섹션 -->
+            <div class="content-main">
+                <!-- 정치 -->
+                <section class="news-section">
+                    <h3 class="section-title"><a href="#">정치</a></h3>
+                    <ul class="section-list">
+                        <li><a href="#">강석주 시의원, 한의약 난임치료 성과공유 및 발전방향 토론회 참석</a></li>
+                        <li><a href="#">장태용 서울특별시의회 행정자치위원장, '서울미래인재재단'출범 이끌며 인재지원 판 바꿨다</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">임춘대 위원장,'2025년 서울 정책지원관 아카데미 하반기 수료식'참석</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">문성호 서울시의원, "강북횡단선 재구축 및 재도전의 성공을 위한 간절한 호소"</a><span class="date">2026-02-13</span></li>
+                    </ul>
+                </section>
+
+                <!-- 경제 -->
+                <section class="news-section">
+                    <h3 class="section-title"><a href="#">경제</a></h3>
+                    <ul class="section-list">
+                        <li><a href="#">2025년 벤처투자 역대 두 번째 실적 유니콘기업 27개사 등 제3벤처붐 본격 시작</a></li>
+                        <li><a href="#">제1차 '한미 전략적 투자 MOU 이행위원회' 개최</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">다주택자 대출 만기연장 관련 全 금융권 「긴급 점검회의」 개최</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">제469차 무역위원회, 태국산 섬유판 등 무역구제조치 3건 심의･의결</a><span class="date">2026-02-13</span></li>
+                    </ul>
+                </section>
+
+                <!-- 전국 -->
+                <section class="news-section">
+                    <h3 class="section-title"><a href="#">전국</a></h3>
+                    <ul class="section-list">
+                        <li><a href="#">동두천시의회, 2026년 설 명절맞이 사회복지시설 격려 방문</a></li>
+                        <li><a href="#">상주시, '친환경농업지원 심화교육' 교육 개최</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">예천군, '2026년 주거 환경·공공 인프라 구축' 에 총력</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">구리경찰서-자율방범대, 설 명절 앞두고 '안전한 우리 동네'합동 순찰 전개</a><span class="date">2026-02-12</span></li>
+                    </ul>
+                </section>
+
+                <!-- 사회 -->
+                <section class="news-section">
+                    <h3 class="section-title"><a href="#">사회</a></h3>
+                    <ul class="section-list">
+                        <li><a href="#">2026년 마약류 관리 더 안전해집니다</a></li>
+                        <li><a href="#">공직자의 민간에 대한 '부모찬스' 채용 등 부정청탁 금지</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">감미료 섭취수준은 안전... 식품별로 사용기준 구체화 추진</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">식약처, 사우디와 손잡고 K-푸드 할랄인증 지원 나선다</a><span class="date">2026-02-13</span></li>
+                    </ul>
+                </section>
+
+                <!-- 문화 -->
+                <section class="news-section">
+                    <h3 class="section-title"><a href="#">문화</a></h3>
+                    <ul class="section-list">
+                        <li><a href="#">넥슨 '아크 레이더스', 글로벌 시상식 'D.I.C.E 어워드'서 '올해의 온라인 게임' 부문 수상</a></li>
+                        <li><a href="#">넥슨, '메이플스토리M' 신규 캐릭터 '일리움' 및 신규 보스 '칼로스' 업데이트</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">한울원자력본부, 피아노 마스터 클래스 성료</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">윤종신-넬-자이언티-안신애 프로듀서 합류, '역대급' 라인업 완성</a><span class="date">2026-02-13</span></li>
+                    </ul>
+                </section>
+
+                <!-- 기획 / 국제 2열 -->
+                <div class="two-col-sections">
+                    <section class="news-section">
+                        <h3 class="section-title"><a href="#">기획</a></h3>
+                        <ul class="section-list">
+                            <li><a href="#">뉴스의창(포토) 애기봉평화생태공원, 설날 연휴 휴무없이 정상 운영</a></li>
+                            <li><a href="#">LH, 설맞이 국가유공자 환우 대상 사회공헌 활동</a><span class="date">2026-02-13</span></li>
+                            <li><a href="#">대한항공, '대형 우주 안테나 전개 시스템' 개발 속도</a><span class="date">2026-02-12</span></li>
+                        </ul>
+                    </section>
+                    <section class="news-section">
+                        <h3 class="section-title"><a href="#">국제</a></h3>
+                        <ul class="section-list">
+                            <li><a href="#">키움증권, 위불(Webull)과 외국인통합계좌 협업</a></li>
+                            <li><a href="#">KAI, 항공을 넘어 우주로 사우디와의 협력 확대 노린다.</a><span class="date">2026-02-13</span></li>
+                            <li><a href="#">삼성전자, KBIS 2026서 美 특화 가전 앞세워 브랜드 위상 강화</a><span class="date">2026-02-12</span></li>
+                        </ul>
+                    </section>
+                </div>
+
+                <!-- TV 뉴스 -->
+                <section class="tv-section">
+                    <h3 class="section-title">TV 뉴스의창</h3>
+                    <div class="tv-list">
+                        <article class="tv-item">
+                            <a href="#">
+                                <div class="tv-thumb"></div>
+                                <h4>왔다! 내 밥친구 무려 13분 | 삼계탕 오찬 및 경복궁 산책</h4>
+                            </a>
+                        </article>
+                        <article class="tv-item">
+                            <a href="#">
+                                <div class="tv-thumb"></div>
+                                <h4>'그냥' 드릴 수 있어 행복합니다 | 충주 푸드마켓 그냥드림 코너 방문</h4>
+                            </a>
+                        </article>
+                        <article class="tv-item">
+                            <a href="#">
+                                <div class="tv-thumb"></div>
+                                <h4>뜨끈한 국밥, 소주 한 잔 그리고 사람 사는 이야기</h4>
+                            </a>
+                        </article>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 오른쪽: 사이드바 -->
+            <aside class="sidebar">
+                <section class="side-box">
+                    <h3 class="side-title">Weekly News</h3>
+                    <ul class="side-list">
+                        <li><a href="#">2026년 마약류 관리 더 안전해집니다</a></li>
+                        <li><a href="#">공직자의 민간에 대한 '부모찬스' 채용 등 부정청탁 금지</a></li>
+                        <li><a href="#">감미료 섭취수준은 안전... 식품별로 사용기준 구체화 추진</a></li>
+                        <li><a href="#">강석주 시의원, 한의약 난임치료 성과공유 및 발전방향 토론회 참석</a></li>
+                    </ul>
+                </section>
+
+                <section class="side-box issue-focus">
+                    <h3 class="side-title">이슈포커스</h3>
+                    <article class="focus-item">
+                        <a href="#">
+                            <strong>동두천시의회, 2026년 설 명절맞이 사회복지시설 격려 방문</strong>
+                            <p>[뉴스의창=기자] 동두천시의회(의장 김승호)는 지난 12일 설 명절을 맞아 관내 사...</p>
+                        </a>
+                    </article>
+                    <article class="focus-item">
+                        <a href="#">
+                            <strong>상주시, '친환경농업지원 심화교육' 교육 개최</strong>
+                            <p>[뉴스의창=기자] 상주시농업기술센터는 지난 12일부터 4회에 걸쳐 '친환경 ...</p>
+                        </a>
+                    </article>
+                </section>
+
+                <section class="side-box">
+                    <h3 class="side-title">많이 본 기사</h3>
+                    <ol class="rank-list">
+                        <li><a href="#">[칼럼] 영주시, 왜 발전하지 못했나?</a></li>
+                        <li><a href="#">[칼럼] 제천시, 고향에서 한우 2마리로 출발, 수백억대 자산가로</a></li>
+                        <li><a href="#">[칼럼] 제천시, 건축과 공무원 '막말 행태 심각'</a></li>
+                        <li><a href="#">백년해로해요..한국으로 날아온 반가운 형제</a></li>
+                    </ol>
+                </section>
+
+                <section class="side-box people">
+                    <h3 class="side-title">피플인 포커스</h3>
+                    <article class="people-item">
+                        <a href="#">
+                            <strong>박정원 두산 회장, 잇따른 현장경영…주요 사업장 일일이 살피며 성장에 박차</strong>
+                            <p>[뉴스의창=기자] 박정원 두산그룹 회장이 연초부...</p>
+                        </a>
+                    </article>
+                </section>
+
+                <section class="side-box">
+                    <h3 class="side-title">포토갤러리</h3>
+                    <article class="photo-item">
+                        <a href="#">
+                            <div class="photo-thumb"></div>
+                            <strong>뉴스의창(포토) 애기봉평화생태공원, 설날 연휴 휴무없이 정상 운영</strong>
+                            <p>[뉴스의창=기자] (재)김포문화재단은 설날 연휴 기간 동안 애기봉평화생태공원을 휴무...</p>
+                        </a>
+                    </article>
+                </section>
+            </aside>
+        </div>
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+        <div class="footer-links">
+            <div class="container">
+                <a href="#">신문사소개</a>
+                <a href="#">고충처리인</a>
+                <a href="#">기사제보</a>
+                <a href="#">광고문의</a>
+                <a href="#">불편신고</a>
+                <a href="#">개인정보취급방침</a>
+                <a href="#">청소년보호정책</a>
+                <a href="#">이메일무단수집거부</a>
+                <a href="#">RSS</a>
+            </div>
+        </div>
+        <div class="footer-info container">
+            <p class="footer-brand">뉴스의창</p>
+            <address>
+                서울특별시 강서구 양천로 400-12 더리브골드타워 1225호<br>
+                대표전화 : 02-3789-9114, 02-734-3114 | 팩스 : 02-778-6996<br>
+                종합일간지 제호 : 뉴스의창 | 등록번호 : 서울 가 361호 | 등록일자 : 2003-10-24<br>
+                인터넷신문 제호 : 뉴스의창(인터넷) | 인터넷 등록번호 : 서울 아 00618<br>
+                발행인 : 뉴스의창(주) | 편집인 : 뉴스의창 | 청소년보호책임자 : 정미숙<br>
+                보도자료 및 제보 : news@newswindow.co.kr
+            </address>
+            <p class="copyright">Copyright © 2026 뉴스의창. All rights reserved.</p>
+            <p class="footer-note">본지는 신문윤리강령 및 그 실천 요강을 준수하며, 제휴기사 등 일부 내용은 본지의 공식 견해와 다를 수 있습니다.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
