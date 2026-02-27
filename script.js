@@ -12,6 +12,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // 모바일 하위 메뉴 토글
+    document.querySelectorAll('.nav-has-dropdown > a').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            if (window.innerWidth <= 768) {
+                e.preventDefault();
+                this.parentElement.classList.toggle('is-expanded');
+            }
+        });
+    });
+
     // 검색 버튼 클릭 (폼 제출은 기본 동작, 필요시 확장)
     const searchForm = document.querySelector('.search-form');
     if (searchForm) {
@@ -24,7 +34,21 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 날짜 표시 업데이트
+    // 상단 헤더 날짜 표시 업데이트
+    const topHeaderDateEl = document.getElementById('topHeaderDate');
+    if (topHeaderDateEl) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+        const w = weekdays[now.getDay()];
+        topHeaderDateEl.textContent = 'UPDATED: ' + y + '-' + m + '-' + d + ' ' + h + ':' + min + ' (' + w + ')';
+    }
+
+    // 기존 날짜 표시 업데이트 (.top-banner .date)
     const dateEl = document.querySelector('.top-banner .date');
     if (dateEl) {
         const now = new Date();

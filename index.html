@@ -10,21 +10,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- 상단 광고 배너 -->
-    <div class="header-ads">
-        <div class="container header-ads-inner">
-            <div class="ad-slot ad-left"><!-- 광고 영역 --></div>
-            <div class="ad-slot ad-center"></div>
-            <div class="ad-slot ad-right"><!-- 광고 영역 --></div>
+    <!-- 상단 헤더바: 업데이트 시간 + 글로벌 링크 -->
+    <div class="top-header-bar">
+        <div class="container top-header-inner">
+            <span class="top-header-date" id="topHeaderDate">UPDATED: 2026-02-27 10:01 (금)</span>
+            <nav class="top-header-links">
+                <a href="index.html">HOME</a>
+                <span class="top-header-sep">|</span>
+                <a href="#">전체기사</a>
+                <span class="top-header-sep">|</span>
+                <a href="#">로그인</a>
+                <span class="top-header-sep">|</span>
+                <a href="#">회원가입</a>
+            </nav>
         </div>
     </div>
 
-    <!-- 로고·타이틀 (뉴스의 창) -->
+    <!-- 로고·타이틀 (뉴스의 창) + 하단 광고창 2개 -->
     <div class="logo-section">
-        <div class="container">
+        <div class="container logo-section-inner">
+            <a href="https://www.nonghyup.com/main/psniMain.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-left" title="NH농협 - 아침밥이 보약!">
+                <img src="images/nonghyup-banner.png" alt="NH농협 아침밥이 보약! 아침부터 활약!" class="partner-banner-img">
+            </a>
             <a href="index.html" class="logo-block">
                 <img src="images/logo-header.png" alt="뉴스의 창 - 정론 · 직필 · 신속 KOREA PRESS" class="logo-img">
             </a>
+            <div class="ad-slot ad-logo-right"><!-- 광고 영역 --></div>
         </div>
     </div>
 
@@ -36,17 +47,65 @@
             </button>
             <nav class="nav" aria-label="주 메뉴">
                 <ul class="nav-list">
-                    <li><a href="#">정치</a></li>
-                    <li><a href="#">경제</a></li>
-                    <li><a href="#">전국</a></li>
-                    <li><a href="#">사회</a></li>
-                    <li><a href="#">문화</a></li>
-                    <li><a href="#">생활</a></li>
-                    <li><a href="#">기획</a></li>
+                    <li class="nav-has-dropdown">
+                        <a href="#">정치</a>
+                        <ul class="nav-dropdown">
+                            <li><a href="#">최신기사</a></li>
+                            <li><a href="#">지방자치</a></li>
+                            <li><a href="#">외교</a></li>
+                            <li><a href="#">북한</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-has-dropdown">
+                        <a href="#">경제</a>
+                        <ul class="nav-dropdown">
+                            <li><a href="#">금융</a></li>
+                            <li><a href="#">부동산</a></li>
+                            <li><a href="#">AI/IT</a></li>
+                            <li><a href="#">자동차</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-has-dropdown">
+                        <a href="#">사회</a>
+                        <ul class="nav-dropdown">
+                            <li><a href="#">시사</a></li>
+                            <li><a href="#">건강/의료</a></li>
+                            <li><a href="#">교육</a></li>
+                            <li><a href="#">리조트&테마</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-has-dropdown">
+                        <a href="#">문화</a>
+                        <ul class="nav-dropdown">
+                            <li><a href="#">대중음악</a></li>
+                            <li><a href="#">행사&공연</a></li>
+                            <li><a href="#">갤러리</a></li>
+                            <li><a href="#">문학</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-has-dropdown">
+                        <a href="#">전국</a>
+                        <ul class="nav-dropdown">
+                            <li><a href="#">서울</a></li>
+                            <li><a href="#">경기</a></li>
+                            <li><a href="#">강원</a></li>
+                            <li><a href="#">충청</a></li>
+                            <li><a href="#">영남</a></li>
+                            <li><a href="#">호남</a></li>
+                            <li><a href="#">제주</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-has-dropdown">
+                        <a href="#">이슈</a>
+                        <ul class="nav-dropdown">
+                            <li><a href="#">연예&스포츠</a></li>
+                            <li><a href="#">뷰티</a></li>
+                            <li><a href="#">여행&음식</a></li>
+                        </ul>
+                    </li>
                     <li><a href="#">국제</a></li>
-                    <li><a href="#">TOP뉴스</a></li>
-                    <li><a href="#" class="nav-highlight">TV뉴스의창</a></li>
-                    <li><a href="#" class="nav-highlight">뉴스의창사업단</a></li>
+                    <li><a href="#">칼럼</a></li>
+                    <li><a href="#" class="nav-highlight">포토뉴스&영상</a></li>
                 </ul>
             </nav>
             <div class="header-actions">
@@ -85,6 +144,7 @@
                 <!-- 정치 -->
                 <section class="news-section">
                     <h3 class="section-title"><a href="#">정치</a></h3>
+                    <p class="section-subcats"><a href="#">최신기사</a> · <a href="#">지방자치</a> · <a href="#">외교</a> · <a href="#">북한</a></p>
                     <ul class="section-list">
                         <li><a href="#">강석주 시의원, 한의약 난임치료 성과공유 및 발전방향 토론회 참석</a></li>
                         <li><a href="#">장태용 서울특별시의회 행정자치위원장, '서울미래인재재단'출범 이끌며 인재지원 판 바꿨다</a><span class="date">2026-02-13</span></li>
@@ -96,6 +156,7 @@
                 <!-- 경제 -->
                 <section class="news-section">
                     <h3 class="section-title"><a href="#">경제</a></h3>
+                    <p class="section-subcats"><a href="#">금융</a> · <a href="#">부동산</a> · <a href="#">AI/IT</a> · <a href="#">자동차</a></p>
                     <ul class="section-list">
                         <li><a href="#">2025년 벤처투자 역대 두 번째 실적 유니콘기업 27개사 등 제3벤처붐 본격 시작</a></li>
                         <li><a href="#">제1차 '한미 전략적 투자 MOU 이행위원회' 개최</a><span class="date">2026-02-13</span></li>
@@ -104,20 +165,10 @@
                     </ul>
                 </section>
 
-                <!-- 전국 -->
-                <section class="news-section">
-                    <h3 class="section-title"><a href="#">전국</a></h3>
-                    <ul class="section-list">
-                        <li><a href="#">동두천시의회, 2026년 설 명절맞이 사회복지시설 격려 방문</a></li>
-                        <li><a href="#">상주시, '친환경농업지원 심화교육' 교육 개최</a><span class="date">2026-02-13</span></li>
-                        <li><a href="#">예천군, '2026년 주거 환경·공공 인프라 구축' 에 총력</a><span class="date">2026-02-13</span></li>
-                        <li><a href="#">구리경찰서-자율방범대, 설 명절 앞두고 '안전한 우리 동네'합동 순찰 전개</a><span class="date">2026-02-12</span></li>
-                    </ul>
-                </section>
-
                 <!-- 사회 -->
                 <section class="news-section">
                     <h3 class="section-title"><a href="#">사회</a></h3>
+                    <p class="section-subcats"><a href="#">시사</a> · <a href="#">건강/의료</a> · <a href="#">교육</a> · <a href="#">리조트&테마</a></p>
                     <ul class="section-list">
                         <li><a href="#">2026년 마약류 관리 더 안전해집니다</a></li>
                         <li><a href="#">공직자의 민간에 대한 '부모찬스' 채용 등 부정청탁 금지</a><span class="date">2026-02-13</span></li>
@@ -129,6 +180,7 @@
                 <!-- 문화 -->
                 <section class="news-section">
                     <h3 class="section-title"><a href="#">문화</a></h3>
+                    <p class="section-subcats"><a href="#">대중음악</a> · <a href="#">행사&공연</a> · <a href="#">갤러리</a> · <a href="#">문학</a></p>
                     <ul class="section-list">
                         <li><a href="#">넥슨 '아크 레이더스', 글로벌 시상식 'D.I.C.E 어워드'서 '올해의 온라인 게임' 부문 수상</a></li>
                         <li><a href="#">넥슨, '메이플스토리M' 신규 캐릭터 '일리움' 및 신규 보스 '칼로스' 업데이트</a><span class="date">2026-02-13</span></li>
@@ -137,29 +189,53 @@
                     </ul>
                 </section>
 
-                <!-- 기획 / 국제 2열 -->
+                <!-- 전국 -->
+                <section class="news-section">
+                    <h3 class="section-title"><a href="#">전국</a></h3>
+                    <p class="section-subcats"><a href="#">서울</a> · <a href="#">경기</a> · <a href="#">강원</a> · <a href="#">충청</a> · <a href="#">영남</a> · <a href="#">호남</a> · <a href="#">제주</a></p>
+                    <ul class="section-list">
+                        <li><a href="#">동두천시의회, 2026년 설 명절맞이 사회복지시설 격려 방문</a></li>
+                        <li><a href="#">상주시, '친환경농업지원 심화교육' 교육 개최</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">예천군, '2026년 주거 환경·공공 인프라 구축' 에 총력</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">구리경찰서-자율방범대, 설 명절 앞두고 '안전한 우리 동네'합동 순찰 전개</a><span class="date">2026-02-12</span></li>
+                    </ul>
+                </section>
+
+                <!-- 이슈 -->
+                <section class="news-section">
+                    <h3 class="section-title"><a href="#">이슈</a></h3>
+                    <p class="section-subcats"><a href="#">연예&스포츠</a> · <a href="#">뷰티</a> · <a href="#">여행&음식</a></p>
+                    <ul class="section-list">
+                        <li><a href="#">넥슨 '아크 레이더스', 글로벌 시상식 'D.I.C.E 어워드'서 '올해의 온라인 게임' 부문 수상</a></li>
+                        <li><a href="#">넥슨, '메이플스토리M' 신규 캐릭터 '일리움' 및 신규 보스 '칼로스' 업데이트</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">윤종신-넬-자이언티-안신애 프로듀서 합류, '역대급' 라인업 완성</a><span class="date">2026-02-13</span></li>
+                        <li><a href="#">키움증권, 위불(Webull)과 외국인통합계좌 협업</a><span class="date">2026-02-13</span></li>
+                    </ul>
+                </section>
+
+                <!-- 국제 / 칼럼 2열 -->
                 <div class="two-col-sections">
-                    <section class="news-section">
-                        <h3 class="section-title"><a href="#">기획</a></h3>
-                        <ul class="section-list">
-                            <li><a href="#">뉴스의창(포토) 애기봉평화생태공원, 설날 연휴 휴무없이 정상 운영</a></li>
-                            <li><a href="#">LH, 설맞이 국가유공자 환우 대상 사회공헌 활동</a><span class="date">2026-02-13</span></li>
-                            <li><a href="#">대한항공, '대형 우주 안테나 전개 시스템' 개발 속도</a><span class="date">2026-02-12</span></li>
-                        </ul>
-                    </section>
                     <section class="news-section">
                         <h3 class="section-title"><a href="#">국제</a></h3>
                         <ul class="section-list">
-                            <li><a href="#">키움증권, 위불(Webull)과 외국인통합계좌 협업</a></li>
                             <li><a href="#">KAI, 항공을 넘어 우주로 사우디와의 협력 확대 노린다.</a><span class="date">2026-02-13</span></li>
                             <li><a href="#">삼성전자, KBIS 2026서 美 특화 가전 앞세워 브랜드 위상 강화</a><span class="date">2026-02-12</span></li>
+                            <li><a href="#">글로벌 반도체 수급 변화와 한국 기업의 대응 전략</a><span class="date">2026-02-12</span></li>
+                        </ul>
+                    </section>
+                    <section class="news-section">
+                        <h3 class="section-title"><a href="#">칼럼</a></h3>
+                        <ul class="section-list">
+                            <li><a href="#">[칼럼] 영주시, 왜 발전하지 못했나?</a></li>
+                            <li><a href="#">[칼럼] 제천시, 고향에서 한우 2마리로 출발, 수백억대 자산가로</a><span class="date">2026-02-13</span></li>
+                            <li><a href="#">[칼럼] 제천시, 건축과 공무원 '막말 행태 심각'</a><span class="date">2026-02-13</span></li>
                         </ul>
                     </section>
                 </div>
 
-                <!-- TV 뉴스 -->
+                <!-- 포토뉴스&영상 -->
                 <section class="tv-section">
-                    <h3 class="section-title">TV 뉴스의창</h3>
+                    <h3 class="section-title"><a href="#">포토뉴스&영상</a></h3>
                     <div class="tv-list">
                         <article class="tv-item">
                             <a href="#">
@@ -249,28 +325,29 @@
     <footer class="footer">
         <div class="footer-links">
             <div class="container">
-                <a href="#">신문사소개</a>
-                <a href="#">고충처리인</a>
-                <a href="#">기사제보</a>
-                <a href="#">광고문의</a>
-                <a href="#">불편신고</a>
-                <a href="#">개인정보취급방침</a>
+                <a href="#">회사소개</a>
+                <a href="#">개인채용</a>
+                <a href="#">개인정보처리방침</a>
                 <a href="#">청소년보호정책</a>
-                <a href="#">이메일무단수집거부</a>
-                <a href="#">RSS</a>
+                <a href="#">이용약관</a>
+                <a href="#">광고안내</a>
+                <a href="#">제휴안내</a>
+                <a href="#">콘텐츠구매/저작권규약</a>
+                <a href="#">고충처리</a>
+                <a href="#">보도윤리강령</a>
             </div>
         </div>
         <div class="footer-info container">
-            <p class="footer-brand">뉴스의창</p>
+            <p class="footer-brand">뉴스의 창 회사소개</p>
             <address>
-                서울특별시 강서구 양천로 400-12 더리브골드타워 1225호<br>
-                대표전화 : 02-3789-9114, 02-734-3114 | 팩스 : 02-778-6996<br>
-                종합일간지 제호 : 뉴스의창 | 등록번호 : 서울 가 361호 | 등록일자 : 2003-10-24<br>
-                인터넷신문 제호 : 뉴스의창(인터넷) | 인터넷 등록번호 : 서울 아 00618<br>
-                발행인 : 뉴스의창(주) | 편집인 : 뉴스의창 | 청소년보호책임자 : 정미숙<br>
-                보도자료 및 제보 : news@newswindow.co.kr
+                서울시 서초구 양재대로2길 22-16 호반파크1관<br>
+                대표전화 : 02-2168-9200<br>
+                등록번호 : 서울 아04494 | 등록일자 : 2017년 04월 27일<br>
+                사업자명 : 전자신문인터넷 | 사업자번호 : 107-81-80959<br>
+                발행인·편집인 : 장경욱 | 청소년보호책임자 : 김태권
             </address>
-            <p class="copyright">Copyright © 2026 뉴스의창. All rights reserved.</p>
+            <p class="footer-copyright-notice">뉴스의 창의 모든 기사(콘텐츠)는 저작권법의 보호를 받습니다. 또한 무단 배포 복사 전재 등을 금지합니다.</p>
+            <p class="copyright">Copyright by 뉴스의 창 All rights reserved.</p>
             <p class="footer-note">본지는 신문윤리강령 및 그 실천 요강을 준수하며, 제휴기사 등 일부 내용은 본지의 공식 견해와 다를 수 있습니다.</p>
         </div>
     </footer>
