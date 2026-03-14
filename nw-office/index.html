@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>뉴스의창 스태프 - 기자 / 편집장 / 관리자</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .nw-wrap { max-width: 720px; margin: 40px auto; padding: 0 20px; text-align: center; }
+    .nw-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .nw-sub { color: #666; margin-bottom: 32px; }
+    .nw-cards { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .nw-card { width: 200px; padding: 24px; border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer; transition: all .2s; }
+    .nw-card:hover { border-color: #2d7dd2; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+    .nw-card h3 { font-size: 18px; margin: 0 0 12px; }
+    .nw-card p { font-size: 13px; color: #666; margin: 0 0 16px; }
+    .nw-btn { display: inline-block; padding: 10px 20px; border-radius: 4px; font-size: 14px; font-weight: 600; text-decoration: none; margin: 4px; }
+    .nw-btn-login { background: #2d7dd2; color: #fff; border: none; }
+    .nw-btn-signup { background: #fff; color: #2d7dd2; border: 2px solid #2d7dd2; }
+    .nw-btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="nw-wrap">
+    <h1 class="nw-title">뉴스의창 스태프</h1>
+    <p class="nw-sub">기자, 편집장, 관리자 전용 페이지입니다.</p>
+
+    <div class="nw-cards">
+      <div class="nw-card">
+        <h3>기자</h3>
+        <p>기사 작성 및 제보</p>
+        <a href="login.html?role=reporter" class="nw-btn nw-btn-login">로그인</a>
+        <a href="signup.html?role=reporter" class="nw-btn nw-btn-signup">회원가입</a>
+      </div>
+      <div class="nw-card">
+        <h3>편집장</h3>
+        <p>기사 승인 및 편집</p>
+        <a href="login.html?role=editor_in_chief" class="nw-btn nw-btn-login">로그인</a>
+        <a href="signup.html?role=editor_in_chief" class="nw-btn nw-btn-signup">회원가입</a>
+      </div>
+      <div class="nw-card">
+        <h3>관리자</h3>
+        <p>시스템 및 사용자 관리</p>
+        <a href="login.html?role=admin" class="nw-btn nw-btn-login">로그인</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

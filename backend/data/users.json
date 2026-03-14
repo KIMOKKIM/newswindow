@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "userid": "teomok1",
+    "password_hash": "$2a$10$iZbZphGK7zBk5IWcltDrEewW2zRCkAYIGxvI.O.yFzQyCsP5iExzO",
+    "name": "관리자",
+    "email": "admin@newswindow.kr",
+    "role": "admin",
+    "created_at": "2026-03-14 04:58:49"
+  }
+]

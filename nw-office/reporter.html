@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기자 대시보드 - 뉴스의창</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .nw-wrap { max-width: 800px; margin: 24px auto; padding: 0 20px; }
+    .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .nw-title { font-size: 20px; font-weight: 700; }
+    .nw-logout { color: #2d7dd2; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="nw-wrap">
+    <div class="nw-header">
+      <h1 class="nw-title">기자 대시보드</h1>
+      <span class="nw-logout" id="logout">로그아웃</span>
+    </div>
+    <p>기사 작성 및 제보 기능은 추후 구현됩니다.</p>
+  </div>
+  <script>
+    const token = localStorage.getItem('accessToken');
+    const role = localStorage.getItem('role');
+
+    if (!token || role !== 'reporter') {
+      window.location.href = 'login.html?role=reporter';
+    }
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('role');
+      localStorage.removeItem('name');
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

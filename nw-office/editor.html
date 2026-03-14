@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>편집장 대시보드 - 뉴스의창</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .nw-wrap { max-width: 800px; margin: 24px auto; padding: 0 20px; }
+    .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .nw-title { font-size: 20px; font-weight: 700; }
+    .nw-logout { color: #2d7dd2; cursor: pointer; }
+    .nw-table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; }
+    .nw-table th, .nw-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+    .nw-table th { background: #f5f5f5; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="nw-wrap">
+    <div class="nw-header">
+      <h1 class="nw-title">편집장 대시보드</h1>
+      <span class="nw-logout" id="logout">로그아웃</span>
+    </div>
+    <p>등록된 기자 목록</p>
+    <table class="nw-table">
+      <thead>
+        <tr><th>아이디</th><th>이름</th><th>이메일</th><th>가입일</th></tr>
+      </thead>
+      <tbody id="reporterList"></tbody>
+    </table>
+  </div>
+  <script>
+    const API = 'http://127.0.0.1:3001';
+    const token = localStorage.getItem('accessToken');
+    const role = localStorage.getItem('role');
+
+    if (!token || role !== 'editor_in_chief') {
+      window.location.href = 'login.html?role=editor_in_chief';
+    }
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('role');
+      localStorage.removeItem('name');
+      window.location.href = 'index.html';
+    });
+
+    async function loadReporters() {
+      const res = await fetch(`${API}/api/users`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = 'login.html?role=editor_in_chief';
+        return;
+      }
+      const users = await res.json();
+      const reporters = users.filter(u => u.role === 'reporter');
+      const tbody = document.getElementById('reporterList');
+      tbody.innerHTML = reporters.length === 0
+        ? '<tr><td colspan="4">등록된 기자가 없습니다.</td></tr>'
+        : reporters.map(u => `
+            <tr>
+              <td>${u.userid}</td>
+              <td>${u.name}</td>
+              <td>${u.email}</td>
+              <td>${u.created_at ? u.created_at.slice(0, 10) : ''}</td>
+            </tr>
+          `).join('');
+    }
+
+    loadReporters();
+  </script>
+</body>
+</html>
