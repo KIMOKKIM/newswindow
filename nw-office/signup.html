@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>스태프 회원가입 - 뉴스의창</title>
   <link rel="stylesheet" href="../styles.css">
-  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" async></script>
   <style>
     .nw-wrap { max-width: 420px; margin: 40px auto; padding: 0 20px; }
     .nw-title { font-size: 22px; font-weight: 700; margin-bottom: 24px; text-align: center; }
@@ -44,7 +44,7 @@
   </div>
   <div class="nw-wrap">
     <h1 class="nw-title" id="pageTitle">스태프 회원가입</h1>
-    <form class="nw-form" id="signupForm">
+    <form class="nw-form" id="signupForm" novalidate>
       <div class="row">
         <label>아이디</label>
         <div class="dup-row nw-hide" id="dupRow">
@@ -62,6 +62,7 @@
       <div class="row">
         <label>비밀번호확인</label>
         <input type="password" id="passwordConfirm" name="passwordConfirm" required placeholder="비밀번호 확인" />
+        <span id="pwdMatchMsg" class="msg" style="display:none;"></span>
       </div>
       <div class="row">
         <label>이름</label>
@@ -95,7 +96,7 @@
         <div class="ssn-row">
           <input type="text" id="ssn1" placeholder="앞 6자리" maxlength="6" pattern="[0-9]*" inputmode="numeric" />
           <span>-</span>
-          <input type="text" id="ssn2" placeholder="뒤 7자리" maxlength="7" pattern="[0-9]*" inputmode="numeric" />
+          <input type="text" id="ssn2" placeholder="뒤 7자리" maxlength="7" inputmode="numeric" data-masked />
         </div>
       </div>
       <div class="row nw-hide" id="reporterExtra2">
@@ -111,7 +112,11 @@
       </div>
       <div class="row nw-hide" id="reporterExtra4">
         <label></label>
-        <input type="text" id="address" name="address" placeholder="상세주소" />
+        <input type="text" id="address" placeholder="기본주소" readonly />
+      </div>
+      <div class="row nw-hide" id="reporterExtra5">
+        <label>상세주소</label>
+        <input type="text" id="addressDetail" placeholder="상세주소 입력 (동, 호수 등)" />
       </div>
       <div id="errorMsg" class="error" style="display:none;"></div>
       <button type="submit">회원가입</button>
@@ -136,7 +141,7 @@
       if (roleParam === 'reporter') {
         dupRow.classList.remove('nw-hide');
         document.getElementById('useridPlain').classList.add('nw-hide');
-        ['reporterExtra', 'reporterExtra2', 'reporterExtra3', 'reporterExtra4'].forEach(id => document.getElementById(id).classList.remove('nw-hide'));
+        ['reporterExtra', 'reporterExtra2', 'reporterExtra3', 'reporterExtra4', 'reporterExtra5'].forEach(id => document.getElementById(id).classList.remove('nw-hide'));
         document.getElementById('btnAddress').classList.remove('nw-hide');
       } else {
         document.getElementById('useridPlain').classList.remove('nw-hide');
@@ -149,12 +154,22 @@
             oncomplete: function (data) {
               document.getElementById('postcode').value = data.zonecode || '';
               document.getElementById('address').value = (data.roadAddress || data.jibunAddress) || '';
+              document.getElementById('addressDetail').placeholder = '상세주소 입력 (동, 호수 등)';
               document.getElementById('postcode-layer').style.display = 'none';
             }
           }).embed(document.getElementById('postcode-embed'));
           document.getElementById('postcode-layer').style.display = 'block';
         });
         document.getElementById('postcode-close').addEventListener('click', () => { document.getElementById('postcode-layer').style.display = 'none'; });
+        document.getElementById('phone').addEventListener('input', function () {
+          let v = this.value.replace(/\D/g, '').slice(0, 11);
+          if (v.length > 0 && v[0] !== '0') v = '0' + v;
+          if (v.startsWith('010') && v.length > 3) {
+            this.value = '010-' + v.slice(3, 7) + (v.length > 7 ? '-' + v.slice(7) : '');
+          } else {
+            this.value = v;
+          }
+        });
       }
       const domainSelect = document.getElementById('emailDomainSelect');
       const domainDirect = document.getElementById('emailDomainDirect');
@@ -175,7 +190,48 @@
         domainSelect.classList.remove('nw-hide');
         domainSelect.value = '';
       });
+
+      function checkPwdMatch() {
+        const pwd = document.getElementById('password').value;
+        const confirm = document.getElementById('passwordConfirm').value;
+        const msg = document.getElementById('pwdMatchMsg');
+        if (!confirm) { msg.style.display = 'none'; return; }
+        msg.style.display = 'inline';
+        if (pwd === confirm) {
+          msg.textContent = '비밀번호가 일치합니다.';
+          msg.className = 'msg';
+        } else {
+          msg.textContent = '비밀번호가 일치하지 않습니다.';
+          msg.className = 'msg error';
+        }
+      }
+      document.getElementById('password').addEventListener('input', checkPwdMatch);
+      document.getElementById('password').addEventListener('change', checkPwdMatch);
+      document.getElementById('passwordConfirm').addEventListener('input', checkPwdMatch);
+      document.getElementById('passwordConfirm').addEventListener('change', checkPwdMatch);
+
+      let ssn2Real = '';
       if (roleParam === 'reporter') {
+        const ssn2El = document.getElementById('ssn2');
+        ssn2El.addEventListener('keydown', (e) => {
+          if (e.key === 'Backspace') {
+            ssn2Real = ssn2Real.slice(0, -1);
+            ssn2El.value = '*'.repeat(ssn2Real.length);
+            e.preventDefault();
+            return;
+          }
+          if (e.key.length === 1 && /[0-9]/.test(e.key) && ssn2Real.length < 7) {
+            ssn2Real += e.key;
+            ssn2El.value = '*'.repeat(ssn2Real.length);
+            e.preventDefault();
+          }
+        });
+        ssn2El.addEventListener('paste', (e) => {
+          e.preventDefault();
+          const pasted = (e.clipboardData?.getData('text') || '').replace(/\D/g, '');
+          ssn2Real = (ssn2Real + pasted).slice(0, 7);
+          ssn2El.value = '*'.repeat(ssn2Real.length);
+        });
         document.getElementById('btnCheck').addEventListener('click', async () => {
           const uid = document.getElementById('userid').value.trim();
           const msg = document.getElementById('dupMsg');
@@ -201,6 +257,7 @@
 
       document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const userid = (roleParam === 'reporter' ? document.getElementById('userid') : document.getElementById('useridPlain')).value.trim();
         const password = document.getElementById('password').value;
         const passwordConfirm = document.getElementById('passwordConfirm').value;
@@ -232,12 +289,13 @@
         const payload = { userid, password, name, email, role: roleParam };
         if (roleParam === 'reporter') {
           const s1 = document.getElementById('ssn1').value.trim();
-          const s2 = document.getElementById('ssn2').value.trim();
+          const s2 = ssn2Real;
           payload.ssn = (s1 && s2) ? s1 + '-' + s2 : '';
           payload.phone = document.getElementById('phone').value.trim();
           const postcode = document.getElementById('postcode').value.trim();
           const addr = document.getElementById('address').value.trim();
-          payload.address = (postcode ? postcode + ' ' : '') + addr;
+          const addrDetail = document.getElementById('addressDetail').value.trim();
+          payload.address = [postcode, addr, addrDetail].filter(Boolean).join(' ');
         }
 
         try {
@@ -252,10 +310,13 @@
             err.style.display = 'block';
             return;
           }
-          alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
+          const msg = (roleParam === 'reporter' || roleParam === 'editor_in_chief')
+            ? '회원가입이 완료되었습니다. 편집장 및 관리자 대시보드 기자리스트에 반영됩니다. 로그인 페이지로 이동합니다.'
+            : '회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.';
+          alert(msg);
           window.location.href = `login.html?role=${roleParam}`;
         } catch (e) {
-          err.textContent = '서버에 연결할 수 없습니다.';
+          err.textContent = '서버에 연결할 수 없습니다. (백엔드 실행 여부 확인: http://127.0.0.1:3001) - ' + (e.message || String(e));
           err.style.display = 'block';
         }
       });

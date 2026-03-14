@@ -6,13 +6,36 @@
   <title>편집장 대시보드 - 뉴스의창</title>
   <link rel="stylesheet" href="../styles.css">
   <style>
-    .nw-wrap { max-width: 800px; margin: 24px auto; padding: 0 20px; }
+    .nw-wrap { max-width: 900px; margin: 24px auto; padding: 0 20px; }
     .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .nw-title { font-size: 20px; font-weight: 700; }
     .nw-logout { color: #2d7dd2; cursor: pointer; }
+    .nw-section { margin-bottom: 32px; }
+    .nw-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
     .nw-table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; }
     .nw-table th, .nw-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
     .nw-table th { background: #f5f5f5; font-weight: 600; }
+    .nw-section:first-child .nw-table th:nth-child(1), .nw-section:first-child .nw-table td:nth-child(1) { min-width: 80px; }
+    .nw-section:first-child .nw-table th:nth-child(2), .nw-section:first-child .nw-table td:nth-child(2) { min-width: 160px; }
+    .nw-section:first-child .nw-table th:nth-child(3), .nw-section:first-child .nw-table td:nth-child(3) { min-width: 110px; }
+    .nw-section:first-child .nw-table th:nth-child(4), .nw-section:first-child .nw-table td:nth-child(4) { min-width: 110px; }
+    .nw-section:first-child .nw-table th:nth-child(5), .nw-section:first-child .nw-table td:nth-child(5) { min-width: 200px; }
+    .nw-section:first-child .nw-table th:nth-child(6), .nw-section:first-child .nw-table td:nth-child(6) { min-width: 100px; }
+    .nw-table .btn-approve { padding: 4px 10px; background: #2d7dd2; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+    .nw-table .btn-reject { padding: 4px 10px; background: #c00; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .nw-table .article-title-link { color: #2d7dd2; cursor: pointer; text-decoration: none; }
+    .nw-table .article-title-link:hover { text-decoration: underline; }
+    .nw-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; overflow: auto; }
+    .nw-modal.show { display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; }
+    .nw-modal-inner { background: #fff; border-radius: 8px; padding: 32px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .nw-modal-close { float: right; cursor: pointer; font-size: 24px; color: #666; line-height: 1; }
+    .preview-article h1 { font-size: 22px; margin: 0 0 8px; line-height: 1.4; }
+    .preview-article .preview-subtitle { font-size: 16px; color: #555; margin-bottom: 12px; }
+    .preview-article .preview-meta { font-size: 13px; color: #888; margin-bottom: 20px; }
+    .preview-article .preview-body { font-size: 15px; line-height: 1.8; }
+    .preview-article .preview-body p { margin: 0 0 16px; }
+    .preview-article .preview-img { max-width: 100%; height: auto; border-radius: 6px; margin: 12px 0; display: block; vertical-align: middle; }
+.preview-article .preview-block { margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -21,14 +44,36 @@
       <h1 class="nw-title">편집장 대시보드</h1>
       <span class="nw-logout" id="logout">로그아웃</span>
     </div>
-    <p>등록된 기자 목록</p>
-    <table class="nw-table">
-      <thead>
-        <tr><th>아이디</th><th>이름</th><th>이메일</th><th>가입일</th></tr>
-      </thead>
-      <tbody id="reporterList"></tbody>
-    </table>
+
+    <div class="nw-section">
+      <h2>기자리스트</h2>
+      <table class="nw-table">
+        <thead>
+          <tr><th>이름</th><th>이메일</th><th>주민번호</th><th>전화번호</th><th>주소</th><th>가입일</th></tr>
+        </thead>
+        <tbody id="reporterList"></tbody>
+      </table>
+    </div>
+
+    <div class="nw-section">
+      <h2>기사리스트</h2>
+      <table class="nw-table">
+        <thead>
+          <tr><th>번호</th><th>제목</th><th>작성자</th><th>상태</th><th>등록일</th><th>승인/반려</th></tr>
+        </thead>
+        <tbody id="articleList"></tbody>
+      </table>
+    </div>
   </div>
+
+  <div class="nw-modal" id="previewModal">
+    <div class="nw-modal-inner">
+      <span class="nw-modal-close" id="previewModalClose">×</span>
+      <h2 style="margin:0 0 20px;">기사 내용 보기</h2>
+      <div class="preview-article" id="previewContent"></div>
+    </div>
+  </div>
+
   <script>
     const API = 'http://127.0.0.1:3001';
     const token = localStorage.getItem('accessToken');
@@ -46,29 +91,145 @@
     });
 
     async function loadReporters() {
-      const res = await fetch(`${API}/api/users`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch(`${API}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401 || res.status === 403) {
         window.location.href = 'login.html?role=editor_in_chief';
         return;
       }
-      const users = await res.json();
-      const reporters = users.filter(u => u.role === 'reporter');
+      const reporters = await res.json();
       const tbody = document.getElementById('reporterList');
       tbody.innerHTML = reporters.length === 0
-        ? '<tr><td colspan="4">등록된 기자가 없습니다.</td></tr>'
+        ? '<tr><td colspan="6">등록된 기자가 없습니다.</td></tr>'
         : reporters.map(u => `
-            <tr>
-              <td>${u.userid}</td>
-              <td>${u.name}</td>
-              <td>${u.email}</td>
-              <td>${u.created_at ? u.created_at.slice(0, 10) : ''}</td>
-            </tr>
-          `).join('');
+          <tr>
+            <td>${u.name}</td>
+            <td>${u.email}</td>
+            <td>${u.ssn || '-'}</td>
+            <td>${u.phone || '-'}</td>
+            <td>${u.address || '-'}</td>
+            <td>${u.created_at ? u.created_at.slice(0, 10) : ''}</td>
+          </tr>
+        `).join('');
     }
 
+    async function loadArticles() {
+      const res = await fetch(`${API}/api/articles`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = 'login.html?role=editor_in_chief';
+        return;
+      }
+      const articles = await res.json();
+      const tbody = document.getElementById('articleList');
+      tbody.innerHTML = articles.length === 0
+        ? '<tr><td colspan="6">등록된 기사가 없습니다.</td></tr>'
+        : articles.map(a => {
+          const statusText = a.status === 'published' ? '게시' : a.status === 'rejected' ? '반려' : a.status === 'draft' ? '임시저장' : '승인대기';
+          const canAct = a.status !== 'published' && a.status !== 'rejected';
+          return `
+          <tr>
+            <td>${a.id}</td>
+            <td><a href="#" class="article-title-link" data-id="${a.id}">${a.title || '-'}</a></td>
+            <td>${a.author_name || '-'}</td>
+            <td>${statusText}</td>
+            <td>${a.created_at ? a.created_at.slice(0, 10) : ''}</td>
+            <td>
+              ${canAct ? `<button type="button" class="btn-approve" data-id="${a.id}">승인</button><button type="button" class="btn-reject" data-id="${a.id}">반려</button>` : '-'}
+            </td>
+          </tr>
+        `}).join('');
+
+      tbody.querySelectorAll('.btn-approve').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.preventDefault(); doArticleAction(btn.dataset.id, 'approve'); });
+      });
+      tbody.querySelectorAll('.btn-reject').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.preventDefault(); doArticleAction(btn.dataset.id, 'reject'); });
+      });
+    }
+
+    document.getElementById('articleList').addEventListener('click', (e) => {
+      const link = e.target.closest('.article-title-link');
+      if (!link) return;
+      e.preventDefault();
+      showArticlePreview(link.dataset.id);
+    });
+
+    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    async function showArticlePreview(id) {
+      try {
+        const res = await fetch(`${API}/api/articles/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || '기사를 불러올 수 없습니다.');
+          return;
+        }
+        const a = await res.json();
+        let html = `<h1>${escapeHtml(a.title || '(제목 없음)')}</h1>`;
+        if (a.subtitle) html += `<p class="preview-subtitle">${escapeHtml(a.subtitle)}</p>`;
+        html += `<p class="preview-meta">${a.category ? escapeHtml(a.category) + ' | ' : ''}${escapeHtml(a.author_name || '')}</p><div class="preview-body">`;
+        const c1 = a.content1 || '', c2 = a.content2 || '', c3 = a.content3 || '';
+        const hasBlocks = c1 || c2 || c3 || a.image1 || a.image2 || a.image3;
+        if (hasBlocks) {
+          html += '<div class="preview-block"></div>'.repeat(3);
+        } else if (a.content) {
+          html += `<p>${escapeHtml(a.content).replace(/\n/g, '</p><p>')}</p>`;
+        }
+        html += '</div>';
+        const wrap = document.getElementById('previewContent');
+        wrap.innerHTML = html;
+        const blocks = wrap.querySelectorAll('.preview-block');
+        const addBlock = (idx, img, content) => {
+          const block = blocks[idx];
+          if (!block) return;
+          if (img && (String(img).startsWith('data:') || String(img).trim())) {
+            const el = document.createElement('img');
+            el.src = String(img).startsWith('data:') ? img : `data:image/jpeg;base64,${img}`;
+            el.alt = '';
+            el.className = 'preview-img';
+            block.appendChild(el);
+          }
+          if (content) {
+            content.split(/\n/).forEach(para => {
+              const p = document.createElement('p');
+              p.textContent = para;
+              block.appendChild(p);
+            });
+          }
+        };
+        if (hasBlocks) {
+          addBlock(0, a.image1, c1);
+          addBlock(1, a.image2, c2);
+          addBlock(2, a.image3, c3);
+        }
+        document.getElementById('previewModal').classList.add('show');
+      } catch (e) {
+        alert('미리보기를 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+
+    async function doArticleAction(id, action) {
+      const res = await fetch(`${API}/api/articles/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        alert(data.message || (action === 'approve' ? '승인되었습니다.' : '반려되었습니다.'));
+        loadArticles();
+      } else {
+        alert(data.error || '처리 실패');
+      }
+    }
+
+    document.getElementById('previewModalClose').addEventListener('click', () => {
+      document.getElementById('previewModal').classList.remove('show');
+    });
+    document.getElementById('previewModal').addEventListener('click', (e) => {
+      if (e.target.id === 'previewModal') e.target.classList.remove('show');
+    });
+
     loadReporters();
+    loadArticles();
   </script>
 </body>
 </html>

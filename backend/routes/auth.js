@@ -21,7 +21,7 @@ authRouter.post('/login', (req, res) => {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
     const token = jwt.sign(
-      { id: row.id, userid: row.userid, role: row.role },
+      { id: row.id, userid: row.userid, role: row.role, name: row.name },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -48,7 +48,12 @@ authRouter.post('/signup', async (req, res) => {
     db.prepare(
       'INSERT INTO users (userid, password_hash, name, email, role, ssn, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(userid, hash, name, email, role, ssn || '', phone || '', address || '');
-    res.status(201).json({ message: '회원가입 완료', role });
+    res.status(201).json({
+      message: '회원가입 완료',
+      role,
+      dashboardInfo: (role === 'reporter' || role === 'editor_in_chief')
+        ? '편집장 및 관리자 대시보드 기자리스트에 반영됩니다.' : null
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -4,14 +4,30 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
+import { articlesRouter } from './routes/articles.js';
 import { db } from './db/db.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const corsOrigin = process.env.CORS_ORIGIN || 'http://127.0.0.1:8080';
-
-app.use(cors({ origin: corsOrigin, credentials: true }));
-app.use(express.json());
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5500,http://127.0.0.1:5501,http://localhost:5501,http://127.0.0.1:3000,http://localhost:3000').split(',');
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || corsOrigins.includes(origin) || origin.startsWith('http://127.0.0.1:') || origin.startsWith('http://localhost:'))
+      cb(null, true);
+    else
+      cb(null, corsOrigins[0]);
+  },
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use((req, res, next) => {
+  const _json = res.json.bind(res);
+  res.json = (body) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return _json(body);
+  };
+  next();
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
@@ -19,14 +35,26 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/articles', articlesRouter);
 
 async function start() {
-  const adminExists = db.prepare('SELECT * FROM users WHERE userid = ?').get('teomok1');
-  if (!adminExists) {
-    const hash = await bcrypt.hash('teomok$123', 10);
+  const hash = await bcrypt.hash('teomok$123', 10);
+  // 편집장: teomok1
+  const t1 = db.prepare('SELECT * FROM users WHERE userid = ?').get('teomok1');
+  if (!t1) {
     db.prepare('INSERT INTO users (userid, password_hash, name, email, role) VALUES (?, ?, ?, ?, ?)')
-      .run('teomok1', hash, '관리자', 'admin@newswindow.kr', 'admin');
-    console.log('Seed: admin teomok1 created');
+      .run('teomok1', hash, '편집장', 'editor@newswindow.kr', 'editor_in_chief');
+    console.log('Seed: 편집장 teomok1 created');
+  } else if (t1.role !== 'editor_in_chief') {
+    db.prepare('UPDATE users SET role = ? WHERE userid = ?').run('editor_in_chief', 'teomok1');
+    console.log('Seed: teomok1 role updated to editor_in_chief');
+  }
+  // 관리자: admin1 (테스트용)
+  const a1 = db.prepare('SELECT * FROM users WHERE userid = ?').get('admin1');
+  if (!a1) {
+    db.prepare('INSERT INTO users (userid, password_hash, name, email, role) VALUES (?, ?, ?, ?, ?)')
+      .run('admin1', hash, '관리자', 'admin@newswindow.kr', 'admin');
+    console.log('Seed: 관리자 admin1 created');
   }
   app.listen(PORT, () => {
     console.log(`Backend running at http://127.0.0.1:${PORT}`);

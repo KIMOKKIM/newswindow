@@ -5,34 +5,278 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>기자 대시보드 - 뉴스의창</title>
   <link rel="stylesheet" href="../styles.css">
+  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" async></script>
   <style>
     .nw-wrap { max-width: 800px; margin: 24px auto; padding: 0 20px; }
     .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .nw-title { font-size: 20px; font-weight: 700; }
     .nw-logout { color: #2d7dd2; cursor: pointer; }
+    .nw-welcome { font-size: 18px; margin-bottom: 20px; padding: 16px; background: #f0f8ff; border-radius: 8px; }
+    .nw-btns { display: flex; gap: 12px; margin-bottom: 24px; }
+    .nw-btn { padding: 10px 20px; background: #2d7dd2; color: #fff; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .nw-btn:hover { background: #246bb8; }
+    .nw-btn-outline { background: #fff; color: #2d7dd2; border: 2px solid #2d7dd2; }
+    .nw-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .nw-table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; }
+    .nw-table th, .nw-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+    .nw-table th { background: #f5f5f5; font-weight: 600; }
+    .nw-modal { display: none; position: fixed; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); z-index: 1000; overflow: auto; }
+    .nw-modal.show { display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; }
+    .nw-modal-inner { background: #fff; border-radius: 8px; padding: 24px; max-width: 420px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .nw-modal h3 { margin: 0 0 20px; font-size: 18px; }
+    .nw-form .row { margin-bottom: 14px; }
+    .nw-form label { display: block; font-size: 13px; margin-bottom: 4px; font-weight: 600; }
+    .nw-form input, .nw-form select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .nw-form .email-row, .nw-form .ssn-row, .nw-form .addr-row { display: flex; gap: 8px; align-items: center; }
+    .nw-form .ssn-row input { flex: 0 1 80px; text-align: center; }
+    .nw-form .addr-row input { flex: 1; }
+    .nw-form .form-note { font-size: 12px; color: #666; margin-top: 4px; }
+    .nw-form button[type="submit"] { width: 100%; padding: 12px; background: #2d7dd2; color: #fff; border: none; border-radius: 4px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .nw-form .error { color: #c00; font-size: 13px; margin-top: 6px; }
+    .nw-modal-close { float: right; cursor: pointer; font-size: 20px; color: #666; }
+    #postcode-layer { display:none; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:420px; max-width:90%; height:460px; z-index: 2000; border:1px solid #333; background:#fff; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+    #postcode-layer .close-btn { display:block; text-align:right; padding:4px 8px; background:#2d7dd2; color:#fff; font-size:12px; cursor:pointer; }
+    .nw-hide { display: none !important; }
+    .status-pending { color: #f90; }
+    .status-published { color: #2d7dd2; }
+    .status-rejected { color: #c00; }
+    .status-draft { color: #888; }
   </style>
 </head>
 <body>
+  <div id="postcode-layer">
+    <div class="close-btn" id="postcode-close">닫기 ✕</div>
+    <div id="postcode-embed" style="width:100%;height:430px;"></div>
+  </div>
+
   <div class="nw-wrap">
     <div class="nw-header">
       <h1 class="nw-title">기자 대시보드</h1>
       <span class="nw-logout" id="logout">로그아웃</span>
     </div>
-    <p>기사 작성 및 제보 기능은 추후 구현됩니다.</p>
+    <p class="nw-welcome" id="welcomeMsg">OOO 기자님 환영합니다.</p>
+    <div class="nw-btns">
+      <a href="article-write.html" class="nw-btn" style="text-decoration:none;">기사작성</a>
+      <button type="button" class="nw-btn nw-btn-outline" id="btnProfile">회원정보 수정</button>
+    </div>
+    <div class="nw-section">
+      <h2>내 기사 목록</h2>
+      <table class="nw-table">
+        <thead>
+          <tr><th>번호</th><th>제목</th><th>상태</th><th>등록일</th></tr>
+        </thead>
+        <tbody id="articleList"></tbody>
+      </table>
+    </div>
   </div>
+
+  <!-- 회원정보 수정 모달 -->
+  <div class="nw-modal" id="profileModal">
+    <div class="nw-modal-inner">
+      <span class="nw-modal-close" id="profileModalClose">×</span>
+      <h3>회원정보 수정</h3>
+      <form id="profileForm">
+        <div class="row">
+          <label>아이디</label>
+          <input type="text" id="pUserid" readonly disabled />
+        </div>
+        <div class="row">
+          <label>비밀번호 (변경 시에만 입력)</label>
+          <input type="password" id="pPassword" placeholder="변경할 비밀번호" />
+          <p class="form-note">영문, 특수문자, 숫자 8자 이상</p>
+        </div>
+        <div class="row">
+          <label>이름</label>
+          <input type="text" id="pName" required placeholder="이름" />
+        </div>
+        <div class="row">
+          <label>이메일</label>
+          <div class="email-row">
+            <input type="text" id="pEmailId" placeholder="이메일 아이디" style="flex:1" />
+            <span>@</span>
+            <input type="text" id="pEmailDomain" placeholder="도메인" style="flex:1" />
+          </div>
+        </div>
+        <div class="row">
+          <label>주민번호</label>
+          <div class="ssn-row">
+            <input type="text" id="pSsn1" placeholder="앞 6자리" maxlength="6" style="flex:0 1 70px" />
+            <span>-</span>
+            <input type="text" id="pSsn2" placeholder="뒤 7자리" maxlength="7" style="flex:0 1 70px" />
+          </div>
+        </div>
+        <div class="row">
+          <label>전화번호</label>
+          <input type="tel" id="pPhone" placeholder="010-0000-0000" />
+        </div>
+        <div class="row">
+          <label>주소</label>
+          <div class="addr-row">
+            <input type="text" id="pPostcode" placeholder="우편번호" readonly />
+            <button type="button" id="pBtnAddress">찾기</button>
+          </div>
+        </div>
+        <div class="row">
+          <input type="text" id="pAddress" placeholder="기본주소" readonly />
+        </div>
+        <div class="row">
+          <label>상세주소</label>
+          <input type="text" id="pAddressDetail" placeholder="상세주소" />
+        </div>
+        <div id="profileError" class="error" style="display:none;"></div>
+        <button type="submit">저장</button>
+      </form>
+    </div>
+  </div>
+
   <script>
+    const API = 'http://127.0.0.1:3001';
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
+    const name = localStorage.getItem('name') || '';
 
     if (!token || role !== 'reporter') {
       window.location.href = 'login.html?role=reporter';
     }
+
+    document.getElementById('welcomeMsg').textContent = (name || '기자') + ' 기자님 환영합니다.';
 
     document.getElementById('logout').addEventListener('click', () => {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('role');
       localStorage.removeItem('name');
       window.location.href = 'index.html';
+    });
+
+    async function loadArticles() {
+      const res = await fetch(`${API}/api/articles`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
+      const list = await res.json();
+      const tbody = document.getElementById('articleList');
+      const statusMap = { draft: '임시저장', pending: '승인대기', published: '게시', rejected: '반려' };
+      tbody.innerHTML = list.length === 0
+        ? '<tr><td colspan="4">작성한 기사가 없습니다.</td></tr>'
+        : list.map(a => `
+          <tr>
+            <td>${a.id}</td>
+            <td><a href="article-write.html?id=${a.id}" style="color:#2d7dd2;">${a.title || '-'}</a></td>
+            <td><span class="status-${a.status}">${statusMap[a.status] || a.status}</span></td>
+            <td>${a.created_at ? a.created_at.slice(0, 10) : ''}</td>
+          </tr>
+        `).join('');
+    }
+    loadArticles();
+
+    // 회원정보 수정 모달
+    async function loadProfile() {
+      const res = await fetch(`${API}/api/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
+      const u = await res.json();
+      document.getElementById('pUserid').value = u.userid || '';
+      document.getElementById('pName').value = u.name || '';
+      const [emailId = '', domain = ''] = (u.email || '').split('@');
+      document.getElementById('pEmailId').value = emailId;
+      document.getElementById('pEmailDomain').value = domain;
+      const [ssn1 = '', ssn2 = ''] = (u.ssn || '').split('-');
+      document.getElementById('pSsn1').value = ssn1;
+      document.getElementById('pSsn2').value = ssn2;
+      document.getElementById('pPhone').value = u.phone || '';
+      const addrStr = u.address || '';
+      const addrParts = addrStr.split(' ');
+      const postcode = addrParts[0] && /^\d{5}$/.test(addrParts[0]) ? addrParts[0] : '';
+      const restAddr = postcode ? addrParts.slice(1).join(' ') : addrStr;
+      document.getElementById('pPostcode').value = postcode;
+      document.getElementById('pAddress').value = restAddr;
+      document.getElementById('pAddressDetail').value = '';
+    }
+
+    document.getElementById('btnProfile').addEventListener('click', async () => {
+      await loadProfile();
+      document.getElementById('pPassword').value = '';
+      document.getElementById('profileError').style.display = 'none';
+      document.getElementById('profileModal').classList.add('show');
+    });
+    document.getElementById('profileModalClose').addEventListener('click', () => {
+      document.getElementById('profileModal').classList.remove('show');
+    });
+    document.getElementById('profileModal').addEventListener('click', (e) => {
+      if (e.target.id === 'profileModal') e.target.classList.remove('show');
+    });
+
+    document.getElementById('pBtnAddress').addEventListener('click', () => {
+      if (!window.daum || !window.daum.Postcode) { alert('주소 검색 서비스를 불러올 수 없습니다.'); return; }
+      new daum.Postcode({
+        oncomplete: function (data) {
+          document.getElementById('pPostcode').value = data.zonecode || '';
+          document.getElementById('pAddress').value = (data.roadAddress || data.jibunAddress) || '';
+          document.getElementById('postcode-layer').style.display = 'none';
+        }
+      }).embed(document.getElementById('postcode-embed'));
+      document.getElementById('postcode-layer').style.display = 'block';
+    });
+    document.getElementById('postcode-close').addEventListener('click', () => {
+      document.getElementById('postcode-layer').style.display = 'none';
+    });
+
+    document.getElementById('pPhone').addEventListener('input', function () {
+      let v = this.value.replace(/\D/g, '').slice(0, 11);
+      if (v.length > 0 && v[0] !== '0') v = '0' + v;
+      if (v.startsWith('010') && v.length > 3) {
+        this.value = '010-' + v.slice(3, 7) + (v.length > 7 ? '-' + v.slice(7) : '');
+      } else this.value = v;
+    });
+
+    function isValidPassword(pw) {
+      if (pw.length < 8) return false;
+      return /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw) && /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(pw);
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('pName').value.trim();
+      const emailId = document.getElementById('pEmailId').value.trim();
+      const domain = document.getElementById('pEmailDomain').value.trim();
+      const email = (emailId && domain) ? emailId + '@' + domain : '';
+      const ssn1 = document.getElementById('pSsn1').value.trim();
+      const ssn2 = document.getElementById('pSsn2').value.trim();
+      const ssn = (ssn1 && ssn2) ? ssn1 + '-' + ssn2 : '';
+      const phone = document.getElementById('pPhone').value.trim();
+      const postcode = document.getElementById('pPostcode').value.trim();
+      const addr = document.getElementById('pAddress').value.trim();
+      const addrDetail = document.getElementById('pAddressDetail').value.trim();
+      const address = [postcode, addr, addrDetail].filter(Boolean).join(' ');
+      const password = document.getElementById('pPassword').value;
+      const err = document.getElementById('profileError');
+      err.style.display = 'none';
+      if (!email) {
+        err.textContent = '이메일을 입력해주세요.';
+        err.style.display = 'block';
+        return;
+      }
+      if (password && !isValidPassword(password)) {
+        err.textContent = '비밀번호는 영문, 특수문자, 숫자 8자 이상으로 입력해주세요.';
+        err.style.display = 'block';
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/api/users/me`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name, email, ssn, phone, address, password: password || undefined })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          err.textContent = data.error || '수정 실패';
+          err.style.display = 'block';
+          return;
+        }
+        localStorage.setItem('name', name);
+        document.getElementById('welcomeMsg').textContent = name + ' 기자님 환영합니다.';
+        document.getElementById('profileModal').classList.remove('show');
+      } catch (e) {
+        err.textContent = '서버에 연결할 수 없습니다.';
+        err.style.display = 'block';
+      }
     });
   </script>
 </body>

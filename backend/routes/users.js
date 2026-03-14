@@ -30,6 +30,47 @@ usersRouter.get('/check', (req, res) => {
   res.json({ available: !row });
 });
 
+// GET /api/users/me — 기자 본인 정보
+usersRouter.get('/me', authMiddleware, (req, res) => {
+  if (req.user.role !== 'reporter') {
+    return res.status(403).json({ error: '기자 전용' });
+  }
+  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!row) return res.status(404).json({ error: '사용자 없음' });
+  res.json({
+    id: row.id,
+    userid: row.userid,
+    name: row.name,
+    email: row.email,
+    ssn: row.ssn || '',
+    phone: row.phone || '',
+    address: row.address || ''
+  });
+});
+
+// PATCH /api/users/me — 기자 본인 정보 수정
+usersRouter.patch('/me', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'reporter') {
+    return res.status(403).json({ error: '기자 전용' });
+  }
+  const bcrypt = (await import('bcryptjs')).default;
+  const { name, email, ssn, phone, address, password } = req.body;
+  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!row) return res.status(404).json({ error: '사용자 없음' });
+  const updates = [
+    name !== undefined ? name : row.name,
+    email !== undefined ? email : row.email,
+    ssn !== undefined ? ssn : (row.ssn || ''),
+    phone !== undefined ? phone : (row.phone || ''),
+    address !== undefined ? address : (row.address || ''),
+    password ? await bcrypt.hash(password, 10) : row.password_hash
+  ];
+  db.prepare(
+    'UPDATE users SET name = ?, email = ?, ssn = ?, phone = ?, address = ?, password_hash = ? WHERE id = ?'
+  ).run(...updates, req.user.id);
+  res.json({ message: '수정되었습니다.' });
+});
+
 // GET /api/users — 관리자 전용 사용자 목록
 usersRouter.get('/', authMiddleware, (req, res) => {
   if (req.user.role === 'admin') {

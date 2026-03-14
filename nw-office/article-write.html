@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기사 작성 - 뉴스의창</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    * { box-sizing: border-box; }
+    .nw-wrap { max-width: 900px; margin: 24px auto; padding: 0 24px; width: 100%; }
+    .nw-form { width: 100%; }
+    .nw-form .row, #articleForm .nw-form-row { margin-bottom: 20px; width: 100%; display: block; }
+    .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+    .nw-title { font-size: 20px; font-weight: 700; }
+    .nw-back { color: #2d7dd2; cursor: pointer; }
+    .nw-form label { display: block; font-size: 14px; margin-bottom: 8px; font-weight: 600; color: #333; }
+    #articleForm input[type="text"], #articleForm input[type="email"], #articleForm input:not([type="file"]),
+    #articleForm select, #articleForm textarea {
+      width: 100% !important; max-width: 100%; min-width: 0; padding: 12px 14px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 15px; transition: border-color .15s; display: block; box-sizing: border-box;
+    }
+    .nw-form input:focus, .nw-form select:focus, .nw-form textarea:focus {
+      outline: none; border-color: #2d7dd2; box-shadow: 0 0 0 2px rgba(45,125,210,.15);
+    }
+    .nw-form textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
+    .nw-form input[readonly] { background: #f8f9fa; color: #666; }
+    #articleForm .file-wrap {
+      width: 100% !important; max-width: 100%; min-width: 0; padding: 16px; border: 2px dashed #ddd; border-radius: 8px;
+      background: #fafafa; text-align: center; transition: border-color .15s, background .15s;
+    }
+    .nw-form .file-wrap:hover, .nw-form .file-wrap.dragover { border-color: #2d7dd2; background: #f0f7ff; }
+    .nw-form .file-wrap input[type="file"] { display: none; }
+    .nw-form .file-trigger { display: inline-block; padding: 8px 16px; background: #2d7dd2; color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .nw-form .file-trigger:hover { background: #246bb8; }
+    .nw-form .file-list { margin-top: 8px; font-size: 13px; color: #666; }
+    .content-block { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+    .content-block:last-of-type { border-bottom: none; }
+    .nw-btns { display: flex; gap: 12px; margin-top: 28px; padding-top: 24px; border-top: 1px solid #eee; flex-wrap: wrap; }
+    .nw-btn { padding: 12px 24px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .nw-btn-draft { background: #6c757d; color: #fff; }
+    .nw-btn-spell { background: #5a6268; color: #fff; }
+    .nw-btn-preview { background: #6f42c1; color: #fff; }
+    .nw-btn-complete { background: #2d7dd2; color: #fff; }
+    .nw-btn-submit { background: #198754; color: #fff; }
+    .nw-btn:hover { opacity: 0.9; }
+    .nw-error { color: #c00; font-size: 13px; margin-top: 8px; }
+    .nw-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; overflow: auto; }
+    .nw-modal.show { display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; }
+    .nw-modal-inner { background: #fff; border-radius: 8px; padding: 32px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .nw-modal-close { float: right; cursor: pointer; font-size: 24px; color: #666; line-height: 1; }
+    .preview-article h1 { font-size: 22px; margin: 0 0 8px; line-height: 1.4; }
+    .preview-article .preview-subtitle { font-size: 16px; color: #555; margin-bottom: 12px; }
+    .preview-article .preview-meta { font-size: 13px; color: #888; margin-bottom: 20px; }
+    .preview-article .preview-body { font-size: 15px; line-height: 1.8; }
+    .preview-article .preview-body p { margin: 0 0 16px; }
+    .preview-article .preview-img { max-width: 100%; height: auto; border-radius: 6px; margin: 12px 0; display: block; }
+  </style>
+</head>
+<body>
+  <div class="nw-wrap">
+    <div class="nw-header">
+      <h1 class="nw-title">기사 작성</h1>
+      <span class="nw-back" id="btnBack">← 대시보드로 돌아가기</span>
+    </div>
+    <form id="articleForm" class="nw-form" onsubmit="return false;">
+      <div class="row nw-form-row">
+        <label>제목</label>
+        <input type="text" id="title" required placeholder="기사 제목을 입력하세요" />
+      </div>
+      <div class="row nw-form-row">
+        <label>부제목</label>
+        <input type="text" id="subtitle" placeholder="부제목을 입력하세요" />
+      </div>
+      <div class="row nw-form-row">
+        <label>기자명</label>
+        <input type="text" id="authorName" readonly placeholder="자동입력" />
+      </div>
+      <div class="row nw-form-row">
+        <label>카테고리</label>
+        <select id="category">
+          <option value="">선택하세요</option>
+          <option value="정치">정치</option>
+          <option value="경제">경제</option>
+          <option value="사회">사회</option>
+          <option value="문화">문화</option>
+          <option value="스포츠">스포츠</option>
+          <option value="국제">국제</option>
+          <option value="IT/과학">IT/과학</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+
+      <div class="content-block">
+        <label>이미지 1 첨부</label>
+        <div class="file-wrap" id="fileWrap1">
+          <input type="file" id="image1" accept="image/*" />
+          <span class="file-trigger" id="fileTrigger1">이미지 파일 선택</span>
+          <div class="file-list" id="fileList1"></div>
+        </div>
+      </div>
+      <div class="row nw-form-row content-block">
+        <label>내용 1</label>
+        <textarea id="content1" placeholder="첫 번째 본문 내용을 입력하세요"></textarea>
+      </div>
+
+      <div class="content-block">
+        <label>이미지 2 첨부</label>
+        <div class="file-wrap" id="fileWrap2">
+          <input type="file" id="image2" accept="image/*" />
+          <span class="file-trigger" id="fileTrigger2">이미지 파일 선택</span>
+          <div class="file-list" id="fileList2"></div>
+        </div>
+      </div>
+      <div class="row nw-form-row content-block">
+        <label>내용 2</label>
+        <textarea id="content2" placeholder="두 번째 본문 내용을 입력하세요"></textarea>
+      </div>
+
+      <div class="content-block">
+        <label>이미지 3 첨부</label>
+        <div class="file-wrap" id="fileWrap3">
+          <input type="file" id="image3" accept="image/*" />
+          <span class="file-trigger" id="fileTrigger3">이미지 파일 선택</span>
+          <div class="file-list" id="fileList3"></div>
+        </div>
+      </div>
+      <div class="row nw-form-row content-block">
+        <label>내용 3</label>
+        <textarea id="content3" placeholder="세 번째 본문 내용을 입력하세요"></textarea>
+      </div>
+
+      <div id="errorMsg" class="nw-error" style="display:none;"></div>
+      <div class="nw-btns">
+        <button type="button" class="nw-btn nw-btn-draft" id="btnDraft">임시저장</button>
+        <button type="button" class="nw-btn nw-btn-spell" id="btnSpell">맞춤법검사</button>
+        <button type="button" class="nw-btn nw-btn-preview" id="btnPreview">미리보기</button>
+        <button type="button" class="nw-btn nw-btn-complete" id="btnComplete">작성완료</button>
+        <button type="button" class="nw-btn nw-btn-submit" id="btnSubmit">송고</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="nw-modal" id="previewModal">
+    <div class="nw-modal-inner">
+      <span class="nw-modal-close" id="previewModalClose">×</span>
+      <h2 style="margin:0 0 20px;">미리보기</h2>
+      <div class="preview-article" id="previewContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://127.0.0.1:3001';
+    const token = localStorage.getItem('accessToken');
+    const role = localStorage.getItem('role');
+    const name = localStorage.getItem('name') || '';
+
+    if (!token || role !== 'reporter') {
+      window.location.href = 'login.html?role=reporter';
+    }
+
+    document.getElementById('authorName').value = name;
+
+    [1,2,3].forEach(n => {
+      const wrap = document.getElementById('fileWrap' + n);
+      const input = document.getElementById('image' + n);
+      const trigger = document.getElementById('fileTrigger' + n);
+      const list = document.getElementById('fileList' + n);
+      trigger.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => {
+        list.textContent = input.files.length ? `선택됨: ${input.files[0].name}` : '';
+      });
+      wrap.addEventListener('dragover', (e) => { e.preventDefault(); wrap.classList.add('dragover'); });
+      wrap.addEventListener('dragleave', () => wrap.classList.remove('dragover'));
+      wrap.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wrap.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+          input.files = e.dataTransfer.files;
+          list.textContent = `선택됨: ${e.dataTransfer.files[0].name}`;
+        }
+      });
+    });
+
+    const params = new URLSearchParams(location.search);
+    const editId = params.get('id');
+
+    document.getElementById('btnBack').addEventListener('click', () => {
+      window.location.href = 'reporter.html';
+    });
+
+    function showErr(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.style.display = msg ? 'block' : 'none';
+    }
+
+    function getFormData() {
+      const data = {
+        title: document.getElementById('title').value.trim(),
+        subtitle: document.getElementById('subtitle').value.trim(),
+        category: document.getElementById('category').value,
+        content1: document.getElementById('content1').value.trim(),
+        content2: document.getElementById('content2').value.trim(),
+        content3: document.getElementById('content3').value.trim()
+      };
+      return data;
+    }
+
+    async function fileToBase64(file) {
+      return new Promise((res) => {
+        if (!file) { res(''); return; }
+        const r = new FileReader();
+        r.onload = () => res(r.result || '');
+        r.readAsDataURL(file);
+      });
+    }
+
+    async function getFormDataWithImages() {
+      const d = getFormData();
+      d.image1 = await fileToBase64(document.getElementById('image1').files[0]);
+      d.image2 = await fileToBase64(document.getElementById('image2').files[0]);
+      d.image3 = await fileToBase64(document.getElementById('image3').files[0]);
+      return d;
+    }
+
+    async function loadArticle() {
+      if (!editId) return;
+      try {
+        const res = await fetch(`${API}/api/articles/${editId}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
+        if (!res.ok) return;
+        const a = await res.json();
+        document.getElementById('title').value = a.title || '';
+        document.getElementById('subtitle').value = a.subtitle || '';
+        document.getElementById('category').value = a.category || '';
+        document.getElementById('content1').value = a.content1 || '';
+        document.getElementById('content2').value = a.content2 || '';
+        document.getElementById('content3').value = a.content3 || '';
+        window._loadedImages = { image1: a.image1, image2: a.image2, image3: a.image3 };
+      } catch (e) {}
+    }
+    loadArticle();
+    if (!window._loadedImages) window._loadedImages = {};
+
+    async function saveArticle(status) {
+      const d = await getFormDataWithImages();
+      if (!d.title) { showErr('제목을 입력해주세요.'); return; }
+      showErr('');
+      try {
+        let res;
+        if (editId) {
+          res = await fetch(`${API}/api/articles/${editId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ ...d, status })
+          });
+        } else {
+          res = await fetch(`${API}/api/articles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ ...d, status })
+          });
+        }
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
+        if (!res.ok) { showErr(data.error || '저장 실패'); return; }
+        if (!editId) window.location.search = '?id=' + data.id;
+        if (status === 'draft') alert('임시저장되었습니다.');
+        else if (status === 'pending') alert('송고되었습니다. 편집장 승인을 기다립니다.');
+        else alert('저장되었습니다.');
+      } catch (e) { showErr('서버에 연결할 수 없습니다.'); }
+    }
+
+    function showPreview() {
+      const title = document.getElementById('title').value.trim() || '(제목 없음)';
+      const subtitle = document.getElementById('subtitle').value.trim();
+      const author = name || '기자';
+      const category = document.getElementById('category').value;
+      const c1 = document.getElementById('content1').value.trim();
+      const c2 = document.getElementById('content2').value.trim();
+      const c3 = document.getElementById('content3').value.trim();
+      const f1 = document.getElementById('image1').files[0];
+      const f2 = document.getElementById('image2').files[0];
+      const f3 = document.getElementById('image3').files[0];
+      const loaded = window._loadedImages || {};
+
+      let html = `<h1>${title}</h1>`;
+      if (subtitle) html += `<p class="preview-subtitle">${subtitle}</p>`;
+      html += `<p class="preview-meta">${category ? category + ' | ' : ''}${author}</p><div class="preview-body">`;
+
+      const addBlock = (imgFile, imgBase64, content) => {
+        if (imgFile) {
+          const url = URL.createObjectURL(imgFile);
+          html += `<img src="${url}" alt="" class="preview-img" onload="URL.revokeObjectURL(this.src)" />`;
+        } else if (imgBase64) {
+          html += `<img src="${imgBase64}" alt="" class="preview-img" />`;
+        }
+        if (content) html += `<p>${content.replace(/\n/g, '</p><p>')}</p>`;
+      };
+      addBlock(f1, loaded.image1, c1);
+      addBlock(f2, loaded.image2, c2);
+      addBlock(f3, loaded.image3, c3);
+
+      html += '</div>';
+      document.getElementById('previewContent').innerHTML = html;
+      document.getElementById('previewModal').classList.add('show');
+    }
+
+    document.getElementById('btnPreview').addEventListener('click', showPreview);
+    document.getElementById('previewModalClose').addEventListener('click', () => {
+      document.getElementById('previewModal').classList.remove('show');
+    });
+    document.getElementById('previewModal').addEventListener('click', (e) => {
+      if (e.target.id === 'previewModal') e.target.classList.remove('show');
+    });
+
+    document.getElementById('btnDraft').addEventListener('click', (e) => { e.preventDefault(); saveArticle('draft'); });
+    document.getElementById('btnComplete').addEventListener('click', (e) => { e.preventDefault(); saveArticle('pending'); });
+    document.getElementById('btnSubmit').addEventListener('click', (e) => { e.preventDefault(); saveArticle('pending'); });
+
+    document.getElementById('btnSpell').addEventListener('click', () => {
+      const c = document.getElementById('content1').value + document.getElementById('content2').value + document.getElementById('content3').value;
+      alert(c ? '맞춤법 검사 기능은 추후 외부 API 연동 시 활성화됩니다.' : '내용을 입력한 후 맞춤법 검사를 실행해주세요.');
+    });
+  </script>
+</body>
+</html>

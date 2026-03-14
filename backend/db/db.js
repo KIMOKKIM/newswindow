@@ -48,20 +48,37 @@ export const db = {
           users.push(rec);
           save();
         }
-        if (sql.includes('UPDATE users SET role = ?')) {
+        if (sql.includes('UPDATE users SET role = ?') && sql.includes('WHERE userid = ?')) {
+          const [role, userid] = args;
+          const u = users.find(x => x.userid === userid);
+          if (u) { u.role = role; save(); }
+        } else if (sql.includes('UPDATE users SET role = ?')) {
           const [role, id] = args;
           const u = users.find(x => x.id === Number(id));
           if (u) { u.role = role; save(); }
+        }
+        if (sql.includes('UPDATE users SET') && sql.includes('WHERE id = ?')) {
+          const u = users.find(x => x.id === Number(args[args.length - 1]));
+          if (u) {
+            const updates = args.slice(0, -1);
+            if (updates[0] !== undefined) u.name = updates[0];
+            if (updates[1] !== undefined) u.email = updates[1];
+            if (updates[2] !== undefined) u.ssn = updates[2];
+            if (updates[3] !== undefined) u.phone = updates[3];
+            if (updates[4] !== undefined) u.address = updates[4];
+            if (updates[5] !== undefined) u.password_hash = updates[5];
+            save();
+          }
         }
       },
       all(...args) {
         if (sql.includes('WHERE role = ?')) {
           return users.filter(u => u.role === args[0]).reverse().map(u => ({
-            id: u.id, userid: u.userid, name: u.name, email: u.email, role: u.role, created_at: u.created_at
+            id: u.id, userid: u.userid, name: u.name, email: u.email, role: u.role, created_at: u.created_at, ssn: u.ssn || '', phone: u.phone || '', address: u.address || ''
           }));
         }
         return [...users].reverse().map(u => ({
-          id: u.id, userid: u.userid, name: u.name, email: u.email, role: u.role, created_at: u.created_at
+          id: u.id, userid: u.userid, name: u.name, email: u.email, role: u.role, created_at: u.created_at, ssn: u.ssn || '', phone: u.phone || '', address: u.address || ''
         }));
       }
     };

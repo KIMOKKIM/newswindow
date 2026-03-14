@@ -5,7 +5,74 @@
     "password_hash": "$2a$10$iZbZphGK7zBk5IWcltDrEewW2zRCkAYIGxvI.O.yFzQyCsP5iExzO",
     "name": "관리자",
     "email": "admin@newswindow.kr",
-    "role": "admin",
+    "role": "editor_in_chief",
     "created_at": "2026-03-14 04:58:49"
+  },
+  {
+    "id": 2,
+    "userid": "testreporter",
+    "password_hash": "$2a$10$k3JTZLnnL9A33bKTiZqFdO8x6tcKKyUeh2kvrqAhBiGa/w9R11dma",
+    "name": "?????",
+    "email": "test@naver.com",
+    "role": "reporter",
+    "created_at": "2026-03-14 05:39:32",
+    "ssn": "900101-1234567",
+    "address": "12345 서울시 강남구 테스트로 123"
+  },
+  {
+    "id": 3,
+    "userid": "verify",
+    "password_hash": "$2a$10$2fGSMEvrV/Qf95ZQmIiCkOnN79CVKmb9AMtpRr7PkeAYVp.TOyOhe",
+    "name": "검증기자",
+    "email": "verify@naver.com",
+    "role": "reporter",
+    "created_at": "2026-03-14 05:48:39",
+    "ssn": "850615-2345678",
+    "address": "04567 서울시 서초구 검증동 45"
+  },
+  {
+    "id": 5,
+    "userid": "testnew",
+    "password_hash": "$2a$10$T5Q82fjgDSDYx4Ly3L.o7uaSmMPK3GZtwPAt5lLjwG51DMnqLcWZO",
+    "name": "신규기자",
+    "email": "new@test.com",
+    "role": "reporter",
+    "created_at": "2026-03-14 06:03:04",
+    "ssn": "950101-2123456",
+    "phone": "010-1234-5678",
+    "address": "12345 서울시 마포구 테스트주소 99"
+  },
+  {
+    "id": 7,
+    "userid": "teomok3",
+    "password_hash": "$2a$10$zA8AFGb6jMx.0zLsub9sl.M8JrKTeIxSdpnYTAD70aRXnCwUhyYVm",
+    "name": "김SAMPLE",
+    "email": "kmspain@naver.com",
+    "role": "reporter",
+    "created_at": "2026-03-14 06:10:42",
+    "ssn": "651231-1458793",
+    "phone": "010-1235-8947",
+    "address": "17027 경기 용인시 처인구 포곡읍 둔전로65번길 20 104동203호(태영맨션)"
+  },
+  {
+    "id": 8,
+    "userid": "teomok2",
+    "password_hash": "$2a$10$mlELqR8pRyhaDWGdAIiwIuIiZ6MI2MS80djVDt708mRS2JYXTPize",
+    "name": "김기목",
+    "email": "teomok1@gmail.com",
+    "role": "reporter",
+    "created_at": "2026-03-14 06:26:51",
+    "ssn": "620703-1384919",
+    "phone": "010-3091-0703",
+    "address": "06775 서울 서초구 마방로10길 15 B동309호"
+  },
+  {
+    "id": 9,
+    "userid": "admin1",
+    "password_hash": "$2a$10$8fdwL/AJXvjK5MrvqlxjxeTU2A9BpGkPeCcxKzeoME2s.PMc2eNyq",
+    "name": "관리자",
+    "email": "admin@newswindow.kr",
+    "role": "admin",
+    "created_at": "2026-03-14 07:32:12"
   }
 ]
