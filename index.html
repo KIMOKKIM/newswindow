@@ -10,6 +10,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- 최상위: 좌 사이드광고 | 중앙 콘텐츠 | 우 사이드광고 -->
+    <div class="page-wrapper">
+        <!-- 좌측 세로 광고 (데스크톱만, sticky) -->
+        <aside class="side-ad side-ad-left" aria-label="좌측 광고">
+            <div class="side-ad-inner">
+                <a href="#" id="sideAdLeftLink" class="side-ad-link" target="_blank" rel="noopener noreferrer">
+                    <img id="sideAdLeftImg" src="" alt="좌측 광고" class="side-ad-img" width="180" height="400">
+                </a>
+            </div>
+        </aside>
+
+        <!-- 중앙: 기존 헤더·메뉴·메인·푸터 (max-width 유지) -->
+        <div class="page-center">
     <!-- 상단 헤더바: 업데이트 시간 + 글로벌 링크 -->
     <div class="top-header-bar">
         <div class="container top-header-inner">
@@ -326,6 +339,13 @@
         </div>
     </main>
 
+    <!-- 푸터 바로 위: 스폰서/광고 롤링 배너 (무한 좌측 흐름, hover 시 일시정지) -->
+    <section class="footer-ad-section" aria-label="스폰서 배너">
+        <div class="footer-ad-wrap">
+            <div class="footer-ad-track" id="footerAdTrack"></div>
+        </div>
+    </section>
+
     <!-- 푸터 -->
     <footer class="footer">
         <div class="footer-links">
@@ -354,6 +374,20 @@
             <p class="footer-note">본지는 신문윤리강령 및 그 실천 요강을 준수하며, 제휴기사 등 일부 내용은 본지의 공식 견해와 다를 수 있습니다.</p>
         </div>
     </footer>
+
+        </div>
+        <!-- /.page-center -->
+
+        <!-- 우측 세로 광고 (데스크톱만, sticky) -->
+        <aside class="side-ad side-ad-right" aria-label="우측 광고">
+            <div class="side-ad-inner">
+                <a href="#" id="sideAdRightLink" class="side-ad-link" target="_blank" rel="noopener noreferrer">
+                    <img id="sideAdRightImg" src="" alt="우측 광고" class="side-ad-img" width="180" height="400">
+                </a>
+            </div>
+        </aside>
+    </div>
+    <!-- /.page-wrapper -->
 
     <script src="script.js"></script>
 </body>
