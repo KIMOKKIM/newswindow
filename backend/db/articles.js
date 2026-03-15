@@ -47,6 +47,7 @@ export const articlesDb = {
   insert(data) {
     const id = articles.length ? Math.max(...articles.map(a => a.id)) + 1 : 1;
     const allContent = [data.content1, data.content2, data.content3].filter(Boolean).join('\n');
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
     const rec = {
       id,
       title: data.title || '',
@@ -57,9 +58,11 @@ export const articlesDb = {
       content: data.content || allContent,
       content1: data.content1 || '', content2: data.content2 || '', content3: data.content3 || '',
       image1: data.image1 || '', image2: data.image2 || '', image3: data.image3 || '',
+      image1_caption: data.image1_caption || '', image2_caption: data.image2_caption || '', image3_caption: data.image3_caption || '',
       summary: data.summary || allContent.slice(0, 200) || '',
       status: data.status || 'pending',
-      created_at: new Date().toISOString().replace('T', ' ').slice(0, 19)
+      created_at: now,
+      updated_at: now
     };
     articles.push(rec);
     save();
@@ -78,8 +81,10 @@ export const articlesDb = {
       content: a.content || '',
       content1: a.content1, content2: a.content2, content3: a.content3,
       image1: a.image1, image2: a.image2, image3: a.image3,
+      image1_caption: a.image1_caption || '', image2_caption: a.image2_caption || '', image3_caption: a.image3_caption || '',
       status: a.status || 'pending',
-      created_at: a.created_at || ''
+      created_at: a.created_at || '',
+      updated_at: a.updated_at || a.created_at || ''
     };
   },
   update(id, authorId, data) {
@@ -95,8 +100,12 @@ export const articlesDb = {
     if (data.image1 !== undefined) a.image1 = data.image1;
     if (data.image2 !== undefined) a.image2 = data.image2;
     if (data.image3 !== undefined) a.image3 = data.image3;
+    if (data.image1_caption !== undefined) a.image1_caption = data.image1_caption;
+    if (data.image2_caption !== undefined) a.image2_caption = data.image2_caption;
+    if (data.image3_caption !== undefined) a.image3_caption = data.image3_caption;
     if (data.summary !== undefined) a.summary = data.summary;
     if (data.status !== undefined) a.status = data.status;
+    a.updated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
     save();
     return true;
   },

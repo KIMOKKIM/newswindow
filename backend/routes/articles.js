@@ -51,7 +51,7 @@ articlesRouter.post('/', authMiddleware, (req, res) => {
   if (req.user.role !== 'reporter') {
     return res.status(403).json({ error: '기자만 기사를 작성할 수 있습니다.' });
   }
-  const { title, subtitle, category, content, content1, content2, content3, image1, image2, image3, status } = req.body;
+  const { title, subtitle, category, content, content1, content2, content3, image1, image2, image3, image1_caption, image2_caption, image3_caption, status } = req.body;
   const row = articlesDb.insert({
     title: title || '',
     subtitle: subtitle || '',
@@ -59,6 +59,7 @@ articlesRouter.post('/', authMiddleware, (req, res) => {
     content: content || '',
     content1: content1 || '', content2: content2 || '', content3: content3 || '',
     image1: image1 || '', image2: image2 || '', image3: image3 || '',
+    image1_caption: image1_caption || '', image2_caption: image2_caption || '', image3_caption: image3_caption || '',
     status: status || 'pending',
     authorId: req.user.id,
     authorName: req.user.name || ''
@@ -69,9 +70,9 @@ articlesRouter.post('/', authMiddleware, (req, res) => {
 // PATCH /api/articles/:id — 기자: 본인 기사 수정 (임시저장/작성완료/송고)
 articlesRouter.patch('/:id', authMiddleware, (req, res) => {
   if (req.user.role === 'reporter') {
-    const { title, subtitle, category, content, content1, content2, content3, image1, image2, image3, status } = req.body;
+    const { title, subtitle, category, content, content1, content2, content3, image1, image2, image3, image1_caption, image2_caption, image3_caption, status } = req.body;
     const ok = articlesDb.update(req.params.id, req.user.id, {
-      title, subtitle, category, content, content1, content2, content3, image1, image2, image3, status
+      title, subtitle, category, content, content1, content2, content3, image1, image2, image3, image1_caption, image2_caption, image3_caption, status
     });
     if (!ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
     return res.json({ message: '수정되었습니다.' });

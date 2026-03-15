@@ -32,7 +32,10 @@
     .nw-form .file-wrap input[type="file"] { display: none; }
     .nw-form .file-trigger { display: inline-block; padding: 8px 16px; background: #2d7dd2; color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; }
     .nw-form .file-trigger:hover { background: #246bb8; }
-    .nw-form .file-list { margin-top: 8px; font-size: 13px; color: #666; }
+    .nw-form .file-list { margin-top: 8px; font-size: 13px; color: #666; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .nw-form .file-list .file-name { color: #333; }
+    .nw-form .file-delete { padding: 4px 10px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    .nw-form .file-delete:hover { background: #c82333; }
     .content-block { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
     .content-block:last-of-type { border-bottom: none; }
     .nw-btns { display: flex; gap: 12px; margin-top: 28px; padding-top: 24px; border-top: 1px solid #eee; flex-wrap: wrap; }
@@ -49,11 +52,14 @@
     .nw-modal-inner { background: #fff; border-radius: 8px; padding: 32px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; }
     .nw-modal-close { float: right; cursor: pointer; font-size: 24px; color: #666; line-height: 1; }
     .preview-article h1 { font-size: 22px; margin: 0 0 8px; line-height: 1.4; }
-    .preview-article .preview-subtitle { font-size: 16px; color: #555; margin-bottom: 12px; }
+    .preview-article .preview-subtitle { font-size: 16px; font-weight: 700; color: #555; margin-bottom: 12px; white-space: pre-line; }
     .preview-article .preview-meta { font-size: 13px; color: #888; margin-bottom: 20px; }
     .preview-article .preview-body { font-size: 15px; line-height: 1.8; }
     .preview-article .preview-body p { margin: 0 0 16px; }
     .preview-article .preview-img { max-width: 100%; height: auto; border-radius: 6px; margin: 12px 0; display: block; }
+    .preview-article .preview-img-caption { font-size: 13px; color: #666; margin: -4px 0 16px 0; line-height: 1.5; }
+    .nw-form .img-caption { margin-top: 8px; }
+    .nw-form .caption-preview { display: block; font-size: 13px; color: #666; margin-top: 6px; line-height: 1.5; min-height: 1.5em; }
   </style>
 </head>
 <body>
@@ -69,7 +75,7 @@
       </div>
       <div class="row nw-form-row">
         <label>부제목</label>
-        <input type="text" id="subtitle" placeholder="부제목을 입력하세요" />
+        <textarea id="subtitle" rows="2" placeholder="부제목을 입력하세요 (두 행까지)"></textarea>
       </div>
       <div class="row nw-form-row">
         <label>기자명</label>
@@ -79,14 +85,36 @@
         <label>카테고리</label>
         <select id="category">
           <option value="">선택하세요</option>
-          <option value="정치">정치</option>
-          <option value="경제">경제</option>
-          <option value="사회">사회</option>
-          <option value="문화">문화</option>
-          <option value="스포츠">스포츠</option>
+          <option value="정치-최신뉴스">정치-최신뉴스</option>
+          <option value="정치-지방자치">정치-지방자치</option>
+          <option value="정치-외교">정치-외교</option>
+          <option value="정치-북한">정치-북한</option>
+          <option value="경제-금융">경제-금융</option>
+          <option value="경제-부동산">경제-부동산</option>
+          <option value="경제-AI/IT">경제-AI/IT</option>
+          <option value="경제-자동차">경제-자동차</option>
+          <option value="사회-시사">사회-시사</option>
+          <option value="사회-건강/의료">사회-건강/의료</option>
+          <option value="사회-교육">사회-교육</option>
+          <option value="사회-리조트&amp;테마">사회-리조트&amp;테마</option>
+          <option value="문화-대중음악">문화-대중음악</option>
+          <option value="문화-행사&amp;공연">문화-행사&amp;공연</option>
+          <option value="문화-갤러리">문화-갤러리</option>
+          <option value="문화-문학">문화-문학</option>
+          <option value="뉴스포커스">뉴스포커스</option>
+          <option value="전국-서울">전국-서울</option>
+          <option value="전국-경기">전국-경기</option>
+          <option value="전국-강원">전국-강원</option>
+          <option value="전국-충청">전국-충청</option>
+          <option value="전국-영남">전국-영남</option>
+          <option value="전국-호남">전국-호남</option>
+          <option value="전국-제주">전국-제주</option>
+          <option value="이슈-연예&amp;스포츠">이슈-연예&amp;스포츠</option>
+          <option value="이슈-뷰티">이슈-뷰티</option>
+          <option value="이슈-여행&amp;음식">이슈-여행&amp;음식</option>
           <option value="국제">국제</option>
-          <option value="IT/과학">IT/과학</option>
-          <option value="기타">기타</option>
+          <option value="칼럼">칼럼</option>
+          <option value="포토뉴스&amp;영상">포토뉴스&amp;영상</option>
         </select>
       </div>
 
@@ -96,6 +124,11 @@
           <input type="file" id="image1" accept="image/*" />
           <span class="file-trigger" id="fileTrigger1">이미지 파일 선택</span>
           <div class="file-list" id="fileList1"></div>
+        </div>
+        <div class="img-caption">
+          <label>이미지 1 설명</label>
+          <input type="text" id="image1_caption" placeholder="예: 서울의 한 오피스텔 건물에서 관계자가 전기 계량기를 살펴보고 있다." />
+          <span class="caption-preview" id="image1_caption_preview" aria-live="polite"></span>
         </div>
       </div>
       <div class="row nw-form-row content-block">
@@ -110,6 +143,11 @@
           <span class="file-trigger" id="fileTrigger2">이미지 파일 선택</span>
           <div class="file-list" id="fileList2"></div>
         </div>
+        <div class="img-caption">
+          <label>이미지 2 설명</label>
+          <input type="text" id="image2_caption" placeholder="예: 서울의 한 오피스텔 건물에서 관계자가 전기 계량기를 살펴보고 있다." />
+          <span class="caption-preview" id="image2_caption_preview" aria-live="polite"></span>
+        </div>
       </div>
       <div class="row nw-form-row content-block">
         <label>내용 2</label>
@@ -122,6 +160,11 @@
           <input type="file" id="image3" accept="image/*" />
           <span class="file-trigger" id="fileTrigger3">이미지 파일 선택</span>
           <div class="file-list" id="fileList3"></div>
+        </div>
+        <div class="img-caption">
+          <label>이미지 3 설명</label>
+          <input type="text" id="image3_caption" placeholder="예: 서울의 한 오피스텔 건물에서 관계자가 전기 계량기를 살펴보고 있다." />
+          <span class="caption-preview" id="image3_caption_preview" aria-live="polite"></span>
         </div>
       </div>
       <div class="row nw-form-row content-block">
@@ -160,15 +203,33 @@
 
     document.getElementById('authorName').value = name;
 
+    function updateImageSlotDisplay(n) {
+      const input = document.getElementById('image' + n);
+      const list = document.getElementById('fileList' + n);
+      const loaded = window._loadedImages || {};
+      const loadedImg = loaded['image' + n];
+      const hasFile = input.files && input.files[0];
+      const hasLoaded = loadedImg && String(loadedImg).trim();
+      if (!hasFile && !hasLoaded) {
+        list.innerHTML = '';
+        return;
+      }
+      const label = hasFile ? `선택됨: ${input.files[0].name}` : '저장된 이미지';
+      list.innerHTML = `<span class="file-name">${label}</span><button type="button" class="file-delete" data-slot="${n}">삭제</button>`;
+      list.querySelector('.file-delete').addEventListener('click', () => {
+        input.value = '';
+        if (window._loadedImages) window._loadedImages['image' + n] = '';
+        updateImageSlotDisplay(n);
+      });
+    }
+
     [1,2,3].forEach(n => {
       const wrap = document.getElementById('fileWrap' + n);
       const input = document.getElementById('image' + n);
       const trigger = document.getElementById('fileTrigger' + n);
       const list = document.getElementById('fileList' + n);
       trigger.addEventListener('click', () => input.click());
-      input.addEventListener('change', () => {
-        list.textContent = input.files.length ? `선택됨: ${input.files[0].name}` : '';
-      });
+      input.addEventListener('change', () => updateImageSlotDisplay(n));
       wrap.addEventListener('dragover', (e) => { e.preventDefault(); wrap.classList.add('dragover'); });
       wrap.addEventListener('dragleave', () => wrap.classList.remove('dragover'));
       wrap.addEventListener('drop', (e) => {
@@ -176,13 +237,17 @@
         wrap.classList.remove('dragover');
         if (e.dataTransfer.files.length) {
           input.files = e.dataTransfer.files;
-          list.textContent = `선택됨: ${e.dataTransfer.files[0].name}`;
+          updateImageSlotDisplay(n);
         }
       });
     });
+    [1, 2, 3].forEach(n => {
+      const input = document.getElementById('image' + n + '_caption');
+      if (input) input.addEventListener('input', () => updateCaptionPreview(n));
+    });
 
     const params = new URLSearchParams(location.search);
-    const editId = params.get('id');
+    let editId = params.get('id');
 
     document.getElementById('btnBack').addEventListener('click', () => {
       window.location.href = 'reporter.html';
@@ -194,6 +259,29 @@
       el.style.display = msg ? 'block' : 'none';
     }
 
+    function getCaptionSuffix() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return ' ' + y + '.' + m + '.' + day + ' (ⓒ뉴스의창, 무단 전재-재배포 금지)';
+    }
+    function stripCaptionSuffix(str) {
+      if (!str || typeof str !== 'string') return '';
+      return str.replace(/\s+\d{4}\.\d{2}\.\d{2}\s*\(ⓒ뉴스의창[^)]*\)\s*$/, '').trim();
+    }
+    function updateCaptionPreview(n) {
+      const input = document.getElementById('image' + n + '_caption');
+      const preview = document.getElementById('image' + n + '_caption_preview');
+      if (!input || !preview) return;
+      const v = input.value.trim();
+      preview.textContent = v ? v + getCaptionSuffix() : '';
+    }
+    function getFullCaption(inputValue) {
+      const v = (inputValue || '').trim();
+      return v ? v + getCaptionSuffix() : '';
+    }
+
     function getFormData() {
       const data = {
         title: document.getElementById('title').value.trim(),
@@ -201,7 +289,10 @@
         category: document.getElementById('category').value,
         content1: document.getElementById('content1').value.trim(),
         content2: document.getElementById('content2').value.trim(),
-        content3: document.getElementById('content3').value.trim()
+        content3: document.getElementById('content3').value.trim(),
+        image1_caption: getFullCaption(document.getElementById('image1_caption').value),
+        image2_caption: getFullCaption(document.getElementById('image2_caption').value),
+        image3_caption: getFullCaption(document.getElementById('image3_caption').value)
       };
       return data;
     }
@@ -217,9 +308,13 @@
 
     async function getFormDataWithImages() {
       const d = getFormData();
-      d.image1 = await fileToBase64(document.getElementById('image1').files[0]);
-      d.image2 = await fileToBase64(document.getElementById('image2').files[0]);
-      d.image3 = await fileToBase64(document.getElementById('image3').files[0]);
+      const loaded = window._loadedImages || {};
+      const f1 = document.getElementById('image1').files[0];
+      const f2 = document.getElementById('image2').files[0];
+      const f3 = document.getElementById('image3').files[0];
+      d.image1 = f1 ? await fileToBase64(f1) : (loaded.image1 || '');
+      d.image2 = f2 ? await fileToBase64(f2) : (loaded.image2 || '');
+      d.image3 = f3 ? await fileToBase64(f3) : (loaded.image3 || '');
       return d;
     }
 
@@ -236,7 +331,12 @@
         document.getElementById('content1').value = a.content1 || '';
         document.getElementById('content2').value = a.content2 || '';
         document.getElementById('content3').value = a.content3 || '';
+        document.getElementById('image1_caption').value = stripCaptionSuffix(a.image1_caption || '');
+        document.getElementById('image2_caption').value = stripCaptionSuffix(a.image2_caption || '');
+        document.getElementById('image3_caption').value = stripCaptionSuffix(a.image3_caption || '');
+        [1, 2, 3].forEach(updateCaptionPreview);
         window._loadedImages = { image1: a.image1, image2: a.image2, image3: a.image3 };
+        [1, 2, 3].forEach(updateImageSlotDisplay);
       } catch (e) {}
     }
     loadArticle();
@@ -264,7 +364,14 @@
         const data = await res.json().catch(() => ({}));
         if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
         if (!res.ok) { showErr(data.error || '저장 실패'); return; }
-        if (!editId) window.location.search = '?id=' + data.id;
+        if (!editId) {
+          if (status === 'draft') {
+            editId = String(data.id);
+            history.replaceState(null, '', '?id=' + editId);
+          } else {
+            window.location.search = '?id=' + data.id;
+          }
+        }
         if (status === 'draft') alert('임시저장되었습니다.');
         else if (status === 'pending') alert('송고되었습니다. 편집장 승인을 기다립니다.');
         else alert('저장되었습니다.');
@@ -279,6 +386,9 @@
       const c1 = document.getElementById('content1').value.trim();
       const c2 = document.getElementById('content2').value.trim();
       const c3 = document.getElementById('content3').value.trim();
+      const cap1 = getFullCaption(document.getElementById('image1_caption').value);
+      const cap2 = getFullCaption(document.getElementById('image2_caption').value);
+      const cap3 = getFullCaption(document.getElementById('image3_caption').value);
       const f1 = document.getElementById('image1').files[0];
       const f2 = document.getElementById('image2').files[0];
       const f3 = document.getElementById('image3').files[0];
@@ -286,20 +396,22 @@
 
       let html = `<h1>${title}</h1>`;
       if (subtitle) html += `<p class="preview-subtitle">${subtitle}</p>`;
-      html += `<p class="preview-meta">${category ? category + ' | ' : ''}${author}</p><div class="preview-body">`;
+      const authorDisplay = (author && author !== '기자') ? author + ' 기자' : author;
+      html += `<p class="preview-meta">${category ? category + ' | ' : ''}${authorDisplay}</p><div class="preview-body">`;
 
-      const addBlock = (imgFile, imgBase64, content) => {
+      const addBlock = (imgFile, imgBase64, content, caption) => {
         if (imgFile) {
           const url = URL.createObjectURL(imgFile);
           html += `<img src="${url}" alt="" class="preview-img" onload="URL.revokeObjectURL(this.src)" />`;
         } else if (imgBase64) {
           html += `<img src="${imgBase64}" alt="" class="preview-img" />`;
         }
+        if (caption) html += `<p class="preview-img-caption">${caption.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`;
         if (content) html += `<p>${content.replace(/\n/g, '</p><p>')}</p>`;
       };
-      addBlock(f1, loaded.image1, c1);
-      addBlock(f2, loaded.image2, c2);
-      addBlock(f3, loaded.image3, c3);
+      addBlock(f1, loaded.image1, c1, cap1);
+      addBlock(f2, loaded.image2, c2, cap2);
+      addBlock(f3, loaded.image3, c3, cap3);
 
       html += '</div>';
       document.getElementById('previewContent').innerHTML = html;

@@ -148,6 +148,18 @@
       window.location.href = 'index.html';
     });
 
+    function formatToKST(str) {
+      if (!str) return '';
+      const s = String(str).replace('T', ' ').trim().slice(0, 19);
+      if (!s) return '';
+      const utc = new Date(s + 'Z');
+      if (isNaN(utc.getTime())) return s;
+      const kst = new Date(utc.getTime() + 9 * 60 * 60 * 1000);
+      const y = kst.getUTCFullYear(), m = kst.getUTCMonth() + 1, d = kst.getUTCDate();
+      const h = kst.getUTCHours(), min = kst.getUTCMinutes(), sec = kst.getUTCSeconds();
+      return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0') + ' ' +
+        String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
     async function loadArticles() {
       const res = await fetch(`${API}/api/articles`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
@@ -161,7 +173,7 @@
             <td>${a.id}</td>
             <td><a href="article-write.html?id=${a.id}" style="color:#2d7dd2;">${a.title || '-'}</a></td>
             <td><span class="status-${a.status}">${statusMap[a.status] || a.status}</span></td>
-            <td>${a.created_at ? a.created_at.slice(0, 10) : ''}</td>
+            <td>${formatToKST(a.created_at)}</td>
           </tr>
         `).join('');
     }

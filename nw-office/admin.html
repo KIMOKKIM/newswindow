@@ -31,11 +31,12 @@
     .nw-modal-inner { background: #fff; border-radius: 8px; padding: 32px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; }
     .nw-modal-close { float: right; cursor: pointer; font-size: 24px; color: #666; line-height: 1; }
     .preview-article h1 { font-size: 22px; margin: 0 0 8px; line-height: 1.4; }
-    .preview-article .preview-subtitle { font-size: 16px; color: #555; margin-bottom: 12px; }
+    .preview-article .preview-subtitle { font-size: 16px; font-weight: 700; color: #555; margin-bottom: 12px; white-space: pre-line; }
     .preview-article .preview-meta { font-size: 13px; color: #888; margin-bottom: 20px; }
     .preview-article .preview-body { font-size: 15px; line-height: 1.8; }
     .preview-article .preview-body p { margin: 0 0 16px; }
     .preview-article .preview-img { max-width: 100%; height: auto; border-radius: 6px; margin: 12px 0; display: block; vertical-align: middle; }
+    .preview-article .preview-img-caption { font-size: 13px; color: #666; margin: -4px 0 16px 0; line-height: 1.5; }
     .preview-article .preview-block { margin-bottom: 20px; }
   </style>
 </head>
@@ -127,7 +128,7 @@
             <td><a href="#" class="article-title-link" data-id="${a.id}">${a.title || '-'}</a></td>
             <td>${a.author_name || '-'}</td>
             <td>${statusText}</td>
-            <td>${a.created_at ? a.created_at.slice(0, 10) : ''}</td>
+            <td>${a.created_at ? formatToKST(a.created_at) : ''}</td>
             <td>
               ${canAct ? `<button type="button" class="btn-approve" data-id="${a.id}">승인</button><button type="button" class="btn-reject" data-id="${a.id}">반려</button>` : '-'}
             </td>
@@ -150,6 +151,18 @@
     });
 
     function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function formatToKST(str) {
+      if (!str) return '';
+      const s = String(str).replace('T', ' ').trim().slice(0, 19);
+      if (!s) return '';
+      const utc = new Date(s + 'Z');
+      if (isNaN(utc.getTime())) return s;
+      const kst = new Date(utc.getTime() + 9 * 60 * 60 * 1000);
+      const y = kst.getUTCFullYear(), m = kst.getUTCMonth() + 1, d = kst.getUTCDate();
+      const h = kst.getUTCHours(), min = kst.getUTCMinutes(), sec = kst.getUTCSeconds();
+      return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0') + ' ' +
+        String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
     async function showArticlePreview(id) {
       try {
         const res = await fetch(`${API}/api/articles/${id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -161,9 +174,17 @@
         const a = await res.json();
         let html = `<h1>${escapeHtml(a.title || '(제목 없음)')}</h1>`;
         if (a.subtitle) html += `<p class="preview-subtitle">${escapeHtml(a.subtitle)}</p>`;
-        html += `<p class="preview-meta">${a.category ? escapeHtml(a.category) + ' | ' : ''}${escapeHtml(a.author_name || '')}</p><div class="preview-body">`;
+        const metaParts = [];
+        if (a.category) metaParts.push(escapeHtml(a.category));
+        if (a.author_name) metaParts.push(escapeHtml(a.author_name) + ' 기자');
+        if (a.created_at) metaParts.push('최초작성일시: ' + formatToKST(a.created_at));
+        if (a.updated_at) metaParts.push('수정일시: ' + formatToKST(a.updated_at));
+        html += `<p class="preview-meta">${metaParts.join(' | ')}</p><div class="preview-body">`;
         const c1 = a.content1 || '', c2 = a.content2 || '', c3 = a.content3 || '';
-        const hasBlocks = c1 || c2 || c3 || a.image1 || a.image2 || a.image3;
+        const cap1 = (a.image1_caption != null) ? String(a.image1_caption).trim() : '';
+        const cap2 = (a.image2_caption != null) ? String(a.image2_caption).trim() : '';
+        const cap3 = (a.image3_caption != null) ? String(a.image3_caption).trim() : '';
+        const hasBlocks = c1 || c2 || c3 || a.image1 || a.image2 || a.image3 || cap1 || cap2 || cap3;
         if (hasBlocks) {
           html += '<div class="preview-block"></div>'.repeat(3);
         } else if (a.content) {
@@ -173,7 +194,7 @@
         const wrap = document.getElementById('previewContent');
         wrap.innerHTML = html;
         const blocks = wrap.querySelectorAll('.preview-block');
-        const addBlock = (idx, img, content) => {
+        const addBlock = (idx, img, content, caption) => {
           const block = blocks[idx];
           if (!block) return;
           if (img && (String(img).startsWith('data:') || String(img).trim())) {
@@ -182,6 +203,12 @@
             el.alt = '';
             el.className = 'preview-img';
             block.appendChild(el);
+          }
+          if (caption && String(caption).trim()) {
+            const capEl = document.createElement('p');
+            capEl.className = 'preview-img-caption';
+            capEl.textContent = caption;
+            block.appendChild(capEl);
           }
           if (content) {
             content.split(/\n/).forEach(para => {
@@ -192,9 +219,9 @@
           }
         };
         if (hasBlocks) {
-          addBlock(0, a.image1, c1);
-          addBlock(1, a.image2, c2);
-          addBlock(2, a.image3, c3);
+          addBlock(0, a.image1, c1, cap1);
+          addBlock(1, a.image2, c2, cap2);
+          addBlock(2, a.image3, c3, cap3);
         }
         document.getElementById('previewModal').classList.add('show');
       } catch (e) {
