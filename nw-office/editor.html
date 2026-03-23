@@ -43,7 +43,10 @@
   <div class="nw-wrap">
     <div class="nw-header">
       <h1 class="nw-title">편집장 대시보드</h1>
-      <span class="nw-logout" id="logout">로그아웃</span>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <a href="ad-dashboard.html" class="nw-logout" id="adManageLink" style="text-decoration:underline; display:none;">광고 관리</a>
+        <span class="nw-logout" id="logout">로그아웃</span>
+      </div>
     </div>
 
     <div class="nw-section">
@@ -80,8 +83,13 @@
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
 
-    if (!token || role !== 'editor_in_chief') {
+    if (!token || (role !== 'editor_in_chief' && role !== 'admin')) {
       window.location.href = 'login.html?role=editor_in_chief';
+    }
+
+    if (role === 'admin') {
+      const adLink = document.getElementById('adManageLink');
+      if (adLink) adLink.style.display = 'inline';
     }
 
     document.getElementById('logout').addEventListener('click', () => {

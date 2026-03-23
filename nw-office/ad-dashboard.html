@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>광고 관리 - 뉴스의창</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .nw-wrap { max-width: 720px; margin: 24px auto; padding: 0 20px; }
+    .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .nw-title { font-size: 20px; font-weight: 700; }
+    .nw-actions { display: flex; gap: 12px; align-items: center; }
+    .nw-btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; border: none; }
+    .nw-btn-secondary { background: #e0e0e0; color: #333; }
+    .nw-btn-primary { background: #2d7dd2; color: #fff; }
+    .nw-btn-primary:hover { background: #236bb8; }
+    .nw-section { margin-bottom: 28px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; }
+    .nw-section h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; color: #333; }
+    .nw-field { margin-bottom: 12px; }
+    .nw-field label { display: block; font-size: 13px; font-weight: 500; color: #555; margin-bottom: 4px; }
+    .nw-field input { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+    .nw-field input:focus { outline: none; border-color: #2d7dd2; }
+    .footer-rows { margin-top: 12px; }
+    .footer-row { display: grid; grid-template-columns: 1fr 1fr 120px 1fr auto; gap: 8px; align-items: end; margin-bottom: 10px; }
+    .footer-row input { padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+    .footer-row .btn-remove { padding: 6px 10px; background: #c00; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .btn-add-footer { margin-top: 8px; padding: 6px 12px; background: #2d7dd2; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .msg { margin-top: 16px; padding: 10px; border-radius: 4px; font-size: 14px; display: none; }
+    .msg.success { display: block; background: #e8f5e9; color: #2e7d32; }
+    .msg.error { display: block; background: #ffebee; color: #c62828; }
+    .nw-field-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+    .nw-field-row .nw-field-input { flex: 1; min-width: 200px; }
+    .nw-field-row input[type="file"] { font-size: 13px; }
+    .nw-img-preview { width: 120px; height: 60px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; background: #f5f5f5; }
+    .nw-upload-status { font-size: 12px; color: #666; margin-top: 4px; }
+    .footer-row .nw-file-wrap { grid-column: 1; }
+    .ad-list-section { margin-top: 32px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; }
+    .ad-list-section h2 { font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #333; }
+    .ad-list-section p.nw-list-desc { font-size: 13px; color: #666; margin: -8px 0 12px 0; }
+    .ad-list-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .ad-list-table th, .ad-list-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; vertical-align: middle; }
+    .ad-list-table th { background: #f5f5f5; font-weight: 600; }
+    .ad-list-table .ad-list-thumb { width: 100px; height: 50px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9; }
+    .ad-list-table .ad-list-link { color: #2d7dd2; word-break: break-all; max-width: 280px; }
+    .ad-list-table .ad-list-link:hover { text-decoration: underline; }
+    .ad-list-empty { color: #888; font-size: 13px; padding: 16px 0; }
+  </style>
+</head>
+<body>
+  <div class="nw-wrap">
+    <div class="nw-header">
+      <h1 class="nw-title">광고 관리</h1>
+      <div class="nw-actions">
+        <a href="admin.html" class="nw-btn nw-btn-secondary">관리자 대시보드로</a>
+        <button type="button" class="nw-btn nw-btn-primary" id="saveAds">저장</button>
+      </div>
+    </div>
+
+    <div class="nw-section">
+      <h2>헤더 좌측 광고 (메인 상단 왼쪽)</h2>
+      <div class="nw-field">
+        <label>이미지 URL 또는 파일 첨부</label>
+        <div class="nw-field-row">
+          <input type="text" id="headerLeft_src" class="nw-field-input" placeholder="예: ./images/nonghyup-banner.png">
+          <input type="file" id="headerLeft_file" accept="image/*" aria-label="이미지 파일 선택">
+        </div>
+        <img id="headerLeft_preview" class="nw-img-preview" src="" alt="" style="display:none; margin-top:8px;">
+        <p id="headerLeft_status" class="nw-upload-status" style="display:none;"></p>
+      </div>
+      <div class="nw-field">
+        <label>링크 URL</label>
+        <input type="text" id="headerLeft_href" placeholder="예: https://www.example.com">
+      </div>
+    </div>
+
+    <div class="nw-section">
+      <h2>헤더 우측 광고 (메인 상단 오른쪽)</h2>
+      <div class="nw-field">
+        <label>이미지 URL 또는 파일 첨부</label>
+        <div class="nw-field-row">
+          <input type="text" id="headerRight_src" class="nw-field-input" placeholder="예: ./images/chungbuk-council-banner.png">
+          <input type="file" id="headerRight_file" accept="image/*" aria-label="이미지 파일 선택">
+        </div>
+        <img id="headerRight_preview" class="nw-img-preview" src="" alt="" style="display:none; margin-top:8px;">
+        <p id="headerRight_status" class="nw-upload-status" style="display:none;"></p>
+      </div>
+      <div class="nw-field">
+        <label>링크 URL</label>
+        <input type="text" id="headerRight_href" placeholder="예: https://council.chungbuk.kr/kr/main.do">
+      </div>
+    </div>
+
+    <div class="nw-section">
+      <h2>좌측 세로 광고 스택 (메인 왼쪽 4칸 · 데스크톱)</h2>
+      <p style="font-size: 13px; color: #666; margin: 0 0 12px;">위에서부터 1~4번 순서로 쌓입니다. 비우면 플레이스홀더만 표시됩니다.</p>
+      <div id="sideStackLeftFields"></div>
+    </div>
+
+    <div class="nw-section">
+      <h2>우측 세로 광고 스택 (메인 오른쪽 3칸 · 상단 스카이형)</h2>
+      <p style="font-size: 13px; color: #666; margin: 0 0 12px;">1번이 긴 세로 배너, 2·3번이 하단 가로형에 맞춰 표시됩니다.</p>
+      <div id="sideStackRightFields"></div>
+    </div>
+
+    <div class="nw-section">
+      <h2>푸터 위 롤링 배너 (여러 개 등록 가능)</h2>
+      <p style="font-size: 13px; color: #666; margin: 0 0 12px;">이미지 URL 또는 파일 첨부, 대체텍스트(alt), 링크를 입력하세요. 순서대로 가로로 흐르며 표시됩니다.</p>
+      <div id="footerRows" class="footer-rows"></div>
+      <button type="button" class="btn-add-footer" id="addFooterRow">+ 항목 추가</button>
+    </div>
+
+    <div id="msg" class="msg"></div>
+
+    <section class="ad-list-section" id="adListSection">
+      <h2>광고 리스트</h2>
+      <p class="nw-list-desc">아래 목록은 메인 페이지에 연동되어 표시됩니다. 저장 후 메인 페이지를 새로고침하면 반영됩니다.</p>
+      <div id="adListBody">
+        <p class="ad-list-empty">저장된 광고가 없거나 불러오는 중입니다.</p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const API = 'http://127.0.0.1:3001';
+    const token = localStorage.getItem('accessToken');
+    const role = localStorage.getItem('role');
+
+    if (!token || role !== 'admin') {
+      window.location.href = 'login.html?role=admin';
+    }
+
+    let footerData = [];
+    let sideStackEditorsReady = false;
+
+    function ensureSideStackEditors() {
+      if (sideStackEditorsReady) return;
+      sideStackEditorsReady = true;
+      const L = document.getElementById('sideStackLeftFields');
+      const R = document.getElementById('sideStackRightFields');
+      for (let i = 0; i < 4; i++) {
+        L.insertAdjacentHTML('beforeend', `
+          <div class="nw-field" style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px;">
+            <strong style="font-size:13px;">좌측 ${i + 1}번</strong>
+            <label style="margin-top:8px;display:block;">이미지 URL 또는 파일</label>
+            <div class="nw-field-row">
+              <input type="text" id="stackL${i}_src" class="nw-field-input" placeholder="이미지 URL">
+              <input type="file" id="stackL${i}_file" accept="image/*" aria-label="파일">
+            </div>
+            <label>링크 URL</label>
+            <input type="text" id="stackL${i}_href" placeholder="https://">
+          </div>`);
+      }
+      for (let j = 0; j < 3; j++) {
+        R.insertAdjacentHTML('beforeend', `
+          <div class="nw-field" style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px;">
+            <strong style="font-size:13px;">우측 ${j + 1}번${j === 0 ? ' (긴 세로)' : ''}</strong>
+            <label style="margin-top:8px;display:block;">이미지 URL 또는 파일</label>
+            <div class="nw-field-row">
+              <input type="text" id="stackR${j}_src" class="nw-field-input" placeholder="이미지 URL">
+              <input type="file" id="stackR${j}_file" accept="image/*" aria-label="파일">
+            </div>
+            <label>링크 URL</label>
+            <input type="text" id="stackR${j}_href" placeholder="https://">
+          </div>`);
+      }
+      for (let i = 0; i < 4; i++) {
+        bindSlotFile('stackL' + i, 'stackL' + i + '_file', null, null);
+      }
+      for (let j = 0; j < 3; j++) {
+        bindSlotFile('stackR' + j, 'stackR' + j + '_file', null, null);
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(new Error('파일 읽기 실패'));
+        r.readAsDataURL(file);
+      });
+    }
+
+    function uploadAdImage(file, onSuccess, onError) {
+      fileToBase64(file).then((dataUrl) => {
+        return fetch(`${API}/api/ads/upload`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ image: dataUrl, filename: file.name })
+        });
+      }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data && data.url) {
+          onSuccess(data.url);
+        } else {
+          onError((data && data.error) || '업로드 실패');
+        }
+      }).catch((e) => {
+        onError(e.message || '업로드 중 오류');
+      });
+    }
+
+    function bindSlotFile(slotId, inputId, previewId, statusId) {
+      const fileInput = document.getElementById(inputId);
+      const urlInput = document.getElementById(slotId + '_src');
+      const preview = document.getElementById(previewId);
+      const statusEl = document.getElementById(statusId);
+      if (!fileInput || !urlInput) return;
+      fileInput.addEventListener('change', function () {
+        if (!this.files || !this.files[0]) return;
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '업로드 중...'; }
+        uploadAdImage(this.files[0],
+          (url) => {
+            urlInput.value = url;
+            if (preview) { preview.src = url; preview.style.display = 'inline'; }
+            if (statusEl) { statusEl.textContent = '업로드 완료.'; statusEl.style.display = 'block'; }
+            this.value = '';
+          },
+          (err) => {
+            showMsg(err || '업로드 실패', true);
+            if (statusEl) statusEl.style.display = 'none';
+          });
+      });
+    }
+
+    function updatePreview(imgId, src) {
+      const el = document.getElementById(imgId);
+      if (!el) return;
+      if (src && String(src).trim()) {
+        el.src = src;
+        el.style.display = 'inline';
+        el.onerror = () => { el.style.display = 'none'; };
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    function showMsg(text, isError) {
+      const el = document.getElementById('msg');
+      el.textContent = text;
+      el.className = 'msg ' + (isError ? 'error' : 'success');
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
+
+    function renderAdList(ads) {
+      const body = document.getElementById('adListBody');
+      if (!body) return;
+      if (!ads || (typeof ads !== 'object')) {
+        body.innerHTML = '<p class="ad-list-empty">저장된 광고 데이터가 없습니다.</p>';
+        return;
+      }
+      const rows = [];
+      const slotLabel = (label, src, href) => {
+        const srcTrim = (src && String(src).trim()) || '';
+        const hrefTrim = (href && String(href).trim()) || '-';
+        const thumb = srcTrim
+          ? '<img class="ad-list-thumb" src="' + escapeAttr(srcTrim) + '" alt="" onerror="this.style.display=\'none\'">'
+          : '<span class="ad-list-empty">미설정</span>';
+        const linkHtml = hrefTrim && hrefTrim !== '#' && hrefTrim !== '-'
+          ? '<a class="ad-list-link" href="' + escapeAttr(hrefTrim) + '" target="_blank" rel="noopener noreferrer">' + escapeAttr(hrefTrim) + '</a>'
+          : '<span class="ad-list-empty">-</span>';
+        rows.push('<tr><td>' + escapeAttr(label) + '</td><td>' + thumb + '</td><td>' + linkHtml + '</td></tr>');
+      };
+      slotLabel('헤더 좌측 (메인 상단 왼쪽)', ads.headerLeft?.src, ads.headerLeft?.href);
+      slotLabel('헤더 우측 (메인 상단 오른쪽)', ads.headerRight?.src, ads.headerRight?.href);
+      const sl = Array.isArray(ads.sideLeftStack) ? ads.sideLeftStack : [];
+      for (let i = 0; i < 4; i++) {
+        const x = sl[i] || {};
+        slotLabel('좌측 세로 스택 ' + (i + 1) + '번', x.src, x.href);
+      }
+      const sr = Array.isArray(ads.sideRightStack) ? ads.sideRightStack : [];
+      for (let j = 0; j < 3; j++) {
+        const x = sr[j] || {};
+        slotLabel('우측 세로 스택 ' + (j + 1) + '번' + (j === 0 ? ' (스카이)' : ''), x.src, x.href);
+      }
+      const footer = Array.isArray(ads.footer) ? ads.footer : [];
+      footer.forEach((f, i) => {
+        const src = (f && f.image) ? f.image : '';
+        const href = (f && f.href) ? f.href : '#';
+        const alt = (f && f.alt) ? f.alt : '';
+        const label = '푸터 롤링 ' + (i + 1) + (alt ? ' · ' + escapeAttr(alt) : '');
+        slotLabel(label, src, href);
+      });
+      if (rows.length === 0) {
+        body.innerHTML = '<p class="ad-list-empty">저장된 광고가 없습니다. 위에서 설정 후 저장하세요.</p>';
+        return;
+      }
+      body.innerHTML = '<table class="ad-list-table"><thead><tr><th>위치</th><th>이미지</th><th>링크</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+    }
+
+    async function loadAds() {
+      try {
+        const res = await fetch(`${API}/api/ads`);
+        const data = await res.json();
+        ensureSideStackEditors();
+        document.getElementById('headerLeft_src').value = data.headerLeft?.src || '';
+        document.getElementById('headerLeft_href').value = data.headerLeft?.href || '';
+        document.getElementById('headerRight_src').value = data.headerRight?.src || '';
+        document.getElementById('headerRight_href').value = data.headerRight?.href || '';
+        const sl = Array.isArray(data.sideLeftStack) ? data.sideLeftStack : [];
+        for (let i = 0; i < 4; i++) {
+          document.getElementById('stackL' + i + '_src').value = (sl[i] && sl[i].src) || '';
+          document.getElementById('stackL' + i + '_href').value = (sl[i] && sl[i].href) || '';
+        }
+        const sr = Array.isArray(data.sideRightStack) ? data.sideRightStack : [];
+        for (let j = 0; j < 3; j++) {
+          document.getElementById('stackR' + j + '_src').value = (sr[j] && sr[j].src) || '';
+          document.getElementById('stackR' + j + '_href').value = (sr[j] && sr[j].href) || '';
+        }
+        footerData = Array.isArray(data.footer) ? data.footer.map(f => ({ ...f })) : [];
+        renderFooterRows();
+        updatePreview('headerLeft_preview', data.headerLeft?.src);
+        updatePreview('headerRight_preview', data.headerRight?.src);
+        renderAdList(data);
+      } catch (e) {
+        showMsg('광고 설정을 불러오지 못했습니다.', true);
+        renderAdList(null);
+      }
+    }
+
+    function renderFooterRows() {
+      const container = document.getElementById('footerRows');
+      container.innerHTML = '';
+      footerData.forEach((row, i) => {
+        const div = document.createElement('div');
+        div.className = 'footer-row';
+        div.innerHTML = `
+          <div class="nw-file-wrap">
+            <input type="text" data-i="${i}" data-key="image" placeholder="이미지 URL" value="${escapeAttr(row.image || '')}" style="margin-bottom:4px;">
+            <input type="file" data-i="${i}" data-role="footer-image" accept="image/*" aria-label="파일 첨부" style="font-size:12px;">
+          </div>
+          <input type="text" data-i="${i}" data-key="alt" placeholder="alt(대체텍스트)" value="${escapeAttr(row.alt || '')}">
+          <input type="text" data-i="${i}" data-key="href" placeholder="링크" value="${escapeAttr(row.href || '')}">
+          <span style="font-size:12px;color:#888;">순서 ${i + 1}</span>
+          <button type="button" class="btn-remove" data-i="${i}">삭제</button>
+        `;
+        container.appendChild(div);
+      });
+      container.querySelectorAll('input[data-key]').forEach(inp => {
+        inp.addEventListener('change', () => {
+          const i = parseInt(inp.dataset.i, 10);
+          const key = inp.dataset.key;
+          if (footerData[i]) footerData[i][key] = inp.value;
+        });
+      });
+      container.querySelectorAll('input[data-role="footer-image"]').forEach((fileInp) => {
+        fileInp.addEventListener('change', function () {
+          const i = parseInt(fileInp.dataset.i, 10);
+          if (!fileInp.files || !fileInp.files[0] || !footerData[i]) return;
+          uploadAdImage(fileInp.files[0], (url) => {
+            footerData[i].image = url;
+            const row = fileInp.closest('.footer-row');
+            const urlInput = row && row.querySelector('input[data-key="image"]');
+            if (urlInput) urlInput.value = url;
+          }, (err) => showMsg(err || '업로드 실패', true));
+        });
+      });
+      container.querySelectorAll('.btn-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = parseInt(btn.dataset.i, 10);
+          footerData.splice(i, 1);
+          renderFooterRows();
+        });
+      });
+    }
+
+    function escapeAttr(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    document.getElementById('addFooterRow').addEventListener('click', () => {
+      footerData.push({ id: Date.now(), image: '', alt: '', href: '#' });
+      renderFooterRows();
+    });
+
+    function collectFooterFromDom() {
+      document.querySelectorAll('.footer-row').forEach((row, i) => {
+        const inputs = row.querySelectorAll('input[data-key]');
+        if (!footerData[i]) footerData[i] = { id: (footerData.length + i + 1), image: '', alt: '', href: '#' };
+        inputs.forEach(inp => {
+          footerData[i][inp.dataset.key] = inp.value;
+        });
+      });
+    }
+
+    document.getElementById('saveAds').addEventListener('click', async () => {
+      collectFooterFromDom();
+      const payload = {
+        headerLeft: {
+          src: document.getElementById('headerLeft_src').value.trim(),
+          href: document.getElementById('headerLeft_href').value.trim() || '#'
+        },
+        headerRight: {
+          src: document.getElementById('headerRight_src').value.trim(),
+          href: document.getElementById('headerRight_href').value.trim() || '#'
+        },
+        sideLeft: {
+          src: document.getElementById('stackL0_src').value.trim(),
+          href: document.getElementById('stackL0_href').value.trim() || '#'
+        },
+        sideRight: {
+          src: document.getElementById('stackR0_src').value.trim(),
+          href: document.getElementById('stackR0_href').value.trim() || '#'
+        },
+        sideLeftStack: [0, 1, 2, 3].map((i) => ({
+          src: document.getElementById('stackL' + i + '_src').value.trim(),
+          href: document.getElementById('stackL' + i + '_href').value.trim() || '#'
+        })),
+        sideRightStack: [0, 1, 2].map((j) => ({
+          src: document.getElementById('stackR' + j + '_src').value.trim(),
+          href: document.getElementById('stackR' + j + '_href').value.trim() || '#'
+        })),
+        footer: footerData.map((f, idx) => ({
+          id: f.id || idx + 1,
+          image: (f.image || '').trim() || '#',
+          alt: (f.alt || '').trim(),
+          href: (f.href || '').trim() || '#'
+        }))
+      };
+      try {
+        const res = await fetch(`${API}/api/ads`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          showMsg('저장되었습니다. 메인 페이지를 새로고침하면 반영됩니다.');
+          renderAdList(data);
+        } else {
+          showMsg(data.error || '저장에 실패했습니다.', true);
+        }
+      } catch (e) {
+        showMsg('저장 요청 중 오류가 발생했습니다.', true);
+      }
+    });
+
+    loadAds();
+    bindSlotFile('headerLeft', 'headerLeft_file', 'headerLeft_preview', 'headerLeft_status');
+    bindSlotFile('headerRight', 'headerRight_file', 'headerRight_preview', 'headerRight_status');
+  </script>
+</body>
+</html>

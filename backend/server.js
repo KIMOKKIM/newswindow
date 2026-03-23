@@ -1,13 +1,18 @@
 import 'dotenv/config';
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { articlesRouter } from './routes/articles.js';
+import { adsRouter } from './routes/ads.js';
 import { db } from './db/db.js';
 
 const app = express();
+// 업로드된 광고 이미지 제공 (backend/uploads 또는 프로젝트 루트/uploads)
+const uploadsDir = path.join(process.cwd(), 'uploads');
+app.use('/uploads', express.static(uploadsDir));
 const PORT = process.env.PORT || 3000;
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5500,http://127.0.0.1:5501,http://localhost:5501,http://127.0.0.1:3000,http://localhost:3000').split(',');
 app.use(cors({
@@ -36,6 +41,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/articles', articlesRouter);
+app.use('/api/ads', adsRouter);
 
 async function start() {
   const hash = await bcrypt.hash('teomok$123', 10);

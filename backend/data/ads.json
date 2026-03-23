@@ -1,0 +1,38 @@
+{
+  "headerLeft": {
+    "src": "./images/nonghyup-banner.png",
+    "href": "https://www.nonghyup.com/main/psniMain.do"
+  },
+  "headerRight": {
+    "src": "./images/chungbuk-council-banner.png",
+    "href": "https://council.chungbuk.kr/kr/main.do"
+  },
+  "sideLeft": {
+    "src": "",
+    "href": "#"
+  },
+  "sideRight": {
+    "src": "",
+    "href": "#"
+  },
+  "sideLeftStack": [
+    { "src": "", "href": "#" },
+    { "src": "", "href": "#" },
+    { "src": "", "href": "#" },
+    { "src": "", "href": "#" }
+  ],
+  "sideRightStack": [
+    { "src": "", "href": "#" },
+    { "src": "", "href": "#" },
+    { "src": "", "href": "#" }
+  ],
+  "footer": [
+    { "id": 1, "image": "/ads/ad1.png", "alt": "전라남도", "href": "#" },
+    { "id": 2, "image": "/ads/ad2.png", "alt": "경상북도", "href": "#" },
+    { "id": 3, "image": "/ads/ad3.png", "alt": "경상남도", "href": "#" },
+    { "id": 4, "image": "/ads/ad4.png", "alt": "충청남도", "href": "#" },
+    { "id": 5, "image": "/ads/ad5.png", "alt": "충청북도", "href": "#" },
+    { "id": 6, "image": "/ads/ad6.png", "alt": "제주특별자치도", "href": "#" },
+    { "id": 7, "image": "/ads/ad7.png", "alt": "세종특별자치시", "href": "#" }
+  ]
+}

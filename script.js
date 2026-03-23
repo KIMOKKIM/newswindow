@@ -35,44 +35,138 @@ var SIDE_ADS = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', function () {
-    // 사이드 광고 이미지·링크 적용 (SIDE_ADS 상수 사용)
-    var leftImg = document.getElementById('sideAdLeftImg');
-    var leftLink = document.getElementById('sideAdLeftLink');
-    var rightImg = document.getElementById('sideAdRightImg');
-    var rightLink = document.getElementById('sideAdRightLink');
-    if (leftImg && SIDE_ADS.left) {
-        leftImg.src = SIDE_ADS.left.src;
-        leftImg.alt = '좌측 광고';
-    }
-    if (leftLink && SIDE_ADS.left) leftLink.href = SIDE_ADS.left.href;
-    if (rightImg && SIDE_ADS.right) {
-        rightImg.src = SIDE_ADS.right.src;
-        rightImg.alt = '우측 광고';
-    }
-    if (rightLink && SIDE_ADS.right) rightLink.href = SIDE_ADS.right.href;
+var ADS_API = 'http://127.0.0.1:3001';
 
-    // 푸터 위 롤링 배너: footerAds 2회 렌더링하여 무한 루프
-    var track = document.getElementById('footerAdTrack');
-    if (track && Array.isArray(footerAds) && footerAds.length > 0) {
-        var list = footerAds.slice();
-        var dup = list.concat(list);
-        dup.forEach(function (ad) {
-            var div = document.createElement('div');
-            div.className = 'footer-ad-item';
-            var a = document.createElement('a');
-            a.href = ad.href || '#';
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            var img = document.createElement('img');
-            img.src = ad.image && ad.image.indexOf('data:') !== 0 ? ad.image : footerAdPlaceholder(ad.alt);
-            img.alt = ad.alt || '';
-            img.onerror = function () { this.src = footerAdPlaceholder(ad.alt); };
-            a.appendChild(img);
-            div.appendChild(a);
-            track.appendChild(div);
-        });
+function applyHeaderAds(ads) {
+    if (!ads) return;
+    var leftImg = document.getElementById('headerAdLeftImg');
+    var leftLink = document.getElementById('headerAdLeftLink');
+    var rightImg = document.getElementById('headerAdRightImg');
+    var rightLink = document.getElementById('headerAdRightLink');
+    if (ads.headerLeft && leftImg && leftLink) {
+        if (ads.headerLeft.src) leftImg.src = ads.headerLeft.src;
+        leftLink.href = ads.headerLeft.href || '#';
     }
+    if (ads.headerRight && rightImg && rightLink) {
+        if (ads.headerRight.src) rightImg.src = ads.headerRight.src;
+        rightLink.href = ads.headerRight.href || '#';
+    }
+}
+
+function normalizeSideLeftStack(ads) {
+    var stack = [];
+    var raw = ads && ads.sideLeftStack;
+    var i;
+    if (Array.isArray(raw)) {
+        for (i = 0; i < 4; i++) stack.push(raw[i] ? { src: raw[i].src || '', href: raw[i].href || '#' } : { src: '', href: '#' });
+    } else {
+        for (i = 0; i < 4; i++) stack.push({ src: '', href: '#' });
+    }
+    if (ads && ads.sideLeft && String(ads.sideLeft.src || '').trim() && !String(stack[0].src || '').trim()) {
+        stack[0] = { src: ads.sideLeft.src, href: ads.sideLeft.href || '#' };
+    }
+    return stack;
+}
+
+function normalizeSideRightStack(ads) {
+    var stack = [];
+    var raw = ads && ads.sideRightStack;
+    var i;
+    if (Array.isArray(raw)) {
+        for (i = 0; i < 3; i++) stack.push(raw[i] ? { src: raw[i].src || '', href: raw[i].href || '#' } : { src: '', href: '#' });
+    } else {
+        for (i = 0; i < 3; i++) stack.push({ src: '', href: '#' });
+    }
+    if (ads && ads.sideRight && String(ads.sideRight.src || '').trim() && !String(stack[0].src || '').trim()) {
+        stack[0] = { src: ads.sideRight.src, href: ads.sideRight.href || '#' };
+    }
+    return stack;
+}
+
+function setSideStackSlot(prefix, index, item) {
+    var img = document.getElementById(prefix + '_img' + index);
+    var a = document.getElementById(prefix + '_a' + index);
+    var card = img ? img.closest('.side-ad-card') : null;
+    var ph = card ? card.querySelector('.side-ad-ph') : null;
+    var src = item && item.src ? String(item.src).trim() : '';
+    var href = item && item.href ? String(item.href).trim() : '#';
+    if (a) a.href = href || '#';
+    if (!img || !card) return;
+    if (src) {
+        img.onerror = function () {
+            img.hidden = true;
+            card.classList.remove('has-ad');
+            if (ph) ph.style.display = '';
+        };
+        img.onload = function () {
+            img.hidden = false;
+            card.classList.add('has-ad');
+            if (ph) ph.style.display = 'none';
+        };
+        img.src = src;
+        if (img.complete && img.naturalWidth > 0) {
+            img.hidden = false;
+            card.classList.add('has-ad');
+            if (ph) ph.style.display = 'none';
+        }
+    } else {
+        img.removeAttribute('src');
+        img.hidden = true;
+        card.classList.remove('has-ad');
+        if (ph) ph.style.display = '';
+    }
+}
+
+function applySideStacks(ads) {
+    var left = normalizeSideLeftStack(ads);
+    var right = normalizeSideRightStack(ads);
+    var j;
+    for (j = 0; j < 4; j++) setSideStackSlot('sideAdL', j, left[j]);
+    for (j = 0; j < 3; j++) setSideStackSlot('sideAdR', j, right[j]);
+}
+
+function applyFooterStrip(list) {
+    var track = document.getElementById('footerAdTrack');
+    if (!track) return;
+    track.innerHTML = '';
+    if (!Array.isArray(list) || list.length === 0) return;
+    // 트랙을 2세트로 붙여서 끝과 시작이 자연스럽게 이어지게 함
+    var dup = list.slice().concat(list.slice());
+    dup.forEach(function (ad) {
+        var div = document.createElement('div');
+        div.className = 'footer-ad-item';
+        var a = document.createElement('a');
+        a.href = ad.href || '#';
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        var img = document.createElement('img');
+        img.src = ad.image && ad.image.indexOf('data:') !== 0 ? ad.image : footerAdPlaceholder(ad.alt);
+        img.alt = ad.alt || '';
+        img.onerror = function () { this.src = footerAdPlaceholder(ad.alt); };
+        a.appendChild(img);
+        div.appendChild(a);
+        track.appendChild(div);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // 광고 설정 API에서 불러와 적용 (실패 시 기본값 사용)
+    fetch(ADS_API + '/api/ads')
+        .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
+        .then(function (ads) {
+            applyHeaderAds(ads);
+            applySideStacks(ads);
+            applyFooterStrip(ads.footer);
+        })
+        .catch(function () {
+            applySideStacks({
+                sideLeft: SIDE_ADS.left,
+                sideRight: SIDE_ADS.right,
+                sideLeftStack: [],
+                sideRightStack: []
+            });
+            applyFooterStrip(footerAds);
+        });
 
     // 모바일 메뉴 토글
     const menuBtn = document.querySelector('.menu-btn');

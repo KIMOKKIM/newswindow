@@ -12,12 +12,13 @@
 <body>
     <!-- 최상위: 좌 사이드광고 | 중앙 콘텐츠 | 우 사이드광고 -->
     <div class="page-wrapper">
-        <!-- 좌측 세로 광고 (데스크톱만, sticky) -->
+        <!-- 좌측 세로 광고 스택 4칸 (데스크톱만, sticky) — 포털형 레이아웃 -->
         <aside class="side-ad side-ad-left" aria-label="좌측 광고">
-            <div class="side-ad-inner">
-                <a href="#" id="sideAdLeftLink" class="side-ad-link" target="_blank" rel="noopener noreferrer">
-                    <img id="sideAdLeftImg" src="" alt="좌측 광고" class="side-ad-img" width="180" height="400">
-                </a>
+            <div class="side-ad-stack">
+                <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 1</span></a></div>
+                <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a1" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img1" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 2</span></a></div>
+                <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a2" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img2" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 3</span></a></div>
+                <div class="side-ad-card side-ad-card--tall"><a href="#" id="sideAdL_a3" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img3" class="side-ad-img side-ad-img--stack" alt="" width="160" height="220" decoding="async" hidden><span class="side-ad-ph">광고 4</span></a></div>
             </div>
         </aside>
 
@@ -43,16 +44,16 @@
     <div class="logo-section">
         <div class="container logo-section-inner">
             <!-- 좌측 광고 -->
-            <a href="https://www.nonghyup.com/main/psniMain.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-left" title="NH농협 - 아침밥이 보약!">
-                <img src="./images/nonghyup-banner.png" alt="NH농협 아침밥이 보약! 아침부터 활약!" class="partner-banner-img" width="180" height="60">
+            <a id="headerAdLeftLink" href="https://www.nonghyup.com/main/psniMain.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-left" title="NH농협 - 아침밥이 보약!">
+                <img id="headerAdLeftImg" src="./images/nonghyup-banner.png" alt="NH농협 아침밥이 보약! 아침부터 활약!" class="partner-banner-img" width="250" height="101">
             </a>
             <!-- 중앙 로고 -->
             <a href="index.html" class="logo-block">
-                <img src="./images/logo-header.png" alt="뉴스의 창 - 정론 · 직필 · 신속 KOREA PRESS" class="logo-img">
+                <img src="./images/logo-header-tight.png" alt="뉴스의 창 - 정론 · 직필 · 신속 KOREA PRESS" class="logo-img">
             </a>
             <!-- 우측 광고 -->
-            <a href="https://council.chungbuk.kr/kr/main.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-right" title="충청북도의회 - 함께하는 충청북도의회">
-                <img src="./images/chungbuk-council-banner.png" alt="충청북도의회 - 165만 도민의 오늘을 담고 내일을 만들어 가겠습니다" class="partner-banner-img" width="180" height="60">
+            <a id="headerAdRightLink" href="https://council.chungbuk.kr/kr/main.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-right" title="충청북도의회 - 함께하는 충청북도의회">
+                <img id="headerAdRightImg" src="./images/chungbuk-council-banner.png" alt="충청북도의회 - 165만 도민의 오늘을 담고 내일을 만들어 가겠습니다" class="partner-banner-img" width="250" height="101">
             </a>
         </div>
     </div>
@@ -378,12 +379,12 @@
         </div>
         <!-- /.page-center -->
 
-        <!-- 우측 세로 광고 (데스크톱만, sticky) -->
+        <!-- 우측 세로 광고 스택 3칸 (상단 스카이스크래퍼형) -->
         <aside class="side-ad side-ad-right" aria-label="우측 광고">
-            <div class="side-ad-inner">
-                <a href="#" id="sideAdRightLink" class="side-ad-link" target="_blank" rel="noopener noreferrer">
-                    <img id="sideAdRightImg" src="" alt="우측 광고" class="side-ad-img" width="180" height="400">
-                </a>
+            <div class="side-ad-stack">
+                <div class="side-ad-card side-ad-card--sky"><a href="#" id="sideAdR_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="400" decoding="async" hidden><span class="side-ad-ph">스카이 배너</span></a></div>
+                <div class="side-ad-card side-ad-card--short"><a href="#" id="sideAdR_a1" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img1" class="side-ad-img side-ad-img--stack" alt="" width="160" height="90" decoding="async" hidden><span class="side-ad-ph">광고</span></a></div>
+                <div class="side-ad-card side-ad-card--short"><a href="#" id="sideAdR_a2" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img2" class="side-ad-img side-ad-img--stack" alt="" width="160" height="90" decoding="async" hidden><span class="side-ad-ph">광고</span></a></div>
             </div>
         </aside>
     </div>

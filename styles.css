@@ -15,9 +15,15 @@
     --font-serif: 'Noto Serif KR', serif;
     --container-max: 1200px;
     --header-height: 56px;
-    --side-ad-width: 180px;
-    --side-ad-top-offset: 120px;
-    --side-ad-breakpoint: 1280px;
+    /* 포털형 기준값: 좌160 / 중앙1200 / 우160 */
+    --side-ad-width: 250px;
+    --side-ad-top-offset: 24px;
+    --side-ad-gap: 22px;
+    --layout-max: 1640px;
+    --side-ad-breakpoint: 1400px;
+    --header-banner-max-w: 250px;
+    --header-banner-min-w: 250px;
+    --header-banner-max-h: 101px;
 }
 
 *,
@@ -32,7 +38,7 @@ body {
     font-size: 14px;
     line-height: 1.6;
     color: var(--color-text);
-    background: var(--color-bg);
+    background: #e8e8e8;
 }
 
 /* 최상위: 좌 | 중앙 | 우 (사이드 광고는 데스크톱만) */
@@ -40,21 +46,30 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     min-height: 100vh;
-    max-width: 100%;
+    max-width: var(--layout-max);
+    margin: 0 auto;
+    padding: 0 12px;
 }
 .page-center {
     min-width: 0;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
+    background: var(--color-bg);
+    box-shadow: 0 2px 24px rgba(0, 0, 0, 0.06);
 }
 
-/* 좌/우 세로 사이드 광고: 기본 숨김, 1280px 이상에서만 표시 */
+/* 좌/우 세로 사이드 광고: 기본 숨김, 데스크톱에서만 표시 */
 .side-ad {
     display: none;
 }
-@media (min-width: 1280px) {
+@media (min-width: 1400px) {
     .page-wrapper {
-        grid-template-columns: var(--side-ad-width) 1fr var(--side-ad-width);
+        grid-template-columns: var(--side-ad-width) 1200px var(--side-ad-width);
+        gap: 0 var(--side-ad-gap);
+        justify-content: center;
     }
     .side-ad {
         display: block;
@@ -64,24 +79,85 @@ body {
         width: var(--side-ad-width);
         flex-shrink: 0;
     }
-    .side-ad-inner {
-        width: var(--side-ad-width);
-        background: var(--color-bg-alt);
-        border: 1px solid var(--color-border);
-        border-radius: 6px;
+    .side-ad-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+    .side-ad-card {
+        width: 100%;
+        background: #fff;
+        border: 1px solid #e4e4e4;
+        border-radius: 8px;
         overflow: hidden;
+        box-sizing: border-box;
+    }
+    /* 광고1 슬롯: 313x144 기준 가로 80%, 세로 70% */
+    .side-ad-card--rect {
+        width: 250px;
+        height: 101px;
+        min-height: 101px;
+        aspect-ratio: 250 / 101;
+    }
+    .side-ad-card--tall {
+        aspect-ratio: 3 / 4;
+        min-height: 180px;
+    }
+    .side-ad-card--sky {
+        height: 400px;
+        min-height: 400px;
+        max-height: 400px;
+    }
+    .side-ad-card--short {
+        height: 90px;
+        min-height: 90px;
+        max-height: 90px;
     }
     .side-ad-link {
-        display: block;
-        line-height: 0;
-    }
-    .side-ad-img {
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         width: 100%;
-        height: auto;
-        max-height: 600px;
+        height: 100%;
+        min-height: inherit;
+        line-height: 0;
+        position: relative;
+    }
+    .side-ad-card .side-ad-img--stack {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
-        vertical-align: middle;
+        display: block;
+    }
+    /* 가로형 광고는 잘림 방지를 위해 contain 적용 */
+    .side-ad-card--rect .side-ad-img--stack {
+        object-fit: contain;
+        background: #fff;
+    }
+    .side-ad-card .side-ad-img--stack[hidden] {
+        display: none !important;
+    }
+    .side-ad-ph {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 80px;
+        padding: 8px;
+        font-size: 11px;
+        color: #aaa;
+        text-align: center;
+        line-height: 1.3;
+        box-sizing: border-box;
+    }
+    .side-ad-card.has-ad .side-ad-ph {
+        display: none;
+    }
+}
+@media (max-width: 1399px) {
+    .side-ad {
+        display: none !important;
     }
 }
 
@@ -149,11 +225,12 @@ a:hover {
 }
 
 .logo-section-inner {
+    /* 좌 배너 / 중앙 로고 / 우 배너 3분할 고정 */
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: minmax(var(--header-banner-min-w), var(--header-banner-max-w)) minmax(340px, 1fr) minmax(var(--header-banner-min-w), var(--header-banner-max-w));
     align-items: center;
-    gap: 20px;
-    min-height: 80px;
+    gap: 16px 24px;
+    min-height: 88px;
 }
 
 /* 좌측 광고(농협) · 우측 광고(충청북도의회) */
@@ -174,41 +251,55 @@ a:hover {
 }
 
 .header-partner-banner {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    min-width: 160px;
-    min-height: 60px;
-    max-width: 200px;
+    width: 100%;
+    min-width: var(--header-banner-min-w);
+    width: 250px;
+    height: 101px;
+    max-width: var(--header-banner-max-w);
     line-height: 0;
+    background: #f5f5f5;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .logo-section .partner-banner-img {
     display: block;
     width: 100%;
-    max-width: 200px;
-    height: auto;
-    max-height: 80px;
-    object-fit: contain;
+    height: 100%;
+    max-width: var(--header-banner-max-w);
+    max-height: var(--header-banner-max-h);
+    object-fit: cover;
     object-position: center;
 }
 
 .ad-logo-left,
 .ad-logo-right {
-    max-width: 200px;
+    max-width: var(--header-banner-max-w);
 }
 
 .logo-block {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     text-decoration: none;
     min-width: 0;
+    width: 250px;
+    height: 100px;
+    max-width: var(--header-banner-max-w);
 }
 
 .logo-img {
     display: block;
-    max-width: 100%;
-    width: auto;
-    height: auto;
-    max-height: 80px;
+    width: 100%;
+    height: 100%;
+    max-width: 250px;
+    max-height: 100px;
     object-fit: contain;
 }
 
@@ -679,9 +770,9 @@ a:hover {
     color: var(--color-muted);
 }
 
-/* 푸터 바로 위: 스폰서/광고 롤링 배너 (무한 좌측 흐름) */
+/* 푸터 바로 위: 기관/스폰서 롤링 배너 (무한 좌측 흐름) */
 .footer-ad-section {
-    padding: 32px 0;
+    padding: 28px 0;
     background: #fafafa;
     border-top: 1px solid var(--color-border);
 }
@@ -692,23 +783,25 @@ a:hover {
 .footer-ad-track {
     display: flex;
     align-items: center;
+    white-space: nowrap;
     width: max-content;
-    animation: footer-ad-scroll 80s linear infinite;
-    gap: 0;
+    animation: footer-ad-scroll 36s linear infinite;
+    gap: 12px;
 }
 .footer-ad-track:hover {
     animation-play-state: paused;
 }
 .footer-ad-item {
     flex-shrink: 0;
-    padding: 0 14px;
+    padding: 0 6px;
 }
 .footer-ad-item a {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 120px;
-    height: 56px;
+    min-width: 250px;
+    width: 250px;
+    height: 101px;
     background: #fff;
     border: 1px solid var(--color-border);
     border-radius: 6px;
@@ -721,10 +814,10 @@ a:hover {
 }
 .footer-ad-item img {
     display: block;
-    max-width: 100px;
-    max-height: 40px;
-    width: auto;
-    height: auto;
+    width: 250px;
+    height: 101px;
+    max-width: 250px;
+    max-height: 101px;
     object-fit: contain;
 }
 @keyframes footer-ad-scroll {
@@ -732,16 +825,14 @@ a:hover {
     100% { transform: translateX(-50%); }
 }
 @media (max-width: 768px) {
-    .footer-ad-section { padding: 20px 0; }
-    .footer-ad-item { padding: 0 10px; }
-    .footer-ad-item a { width: 100px; height: 48px; }
-    .footer-ad-item img { max-width: 80px; max-height: 32px; }
+    .footer-ad-section { padding: 18px 0; }
+    .footer-ad-item a { min-width: 250px; width: 250px; height: 101px; }
+    .footer-ad-item img { width: 250px; height: 101px; max-width: 250px; max-height: 101px; }
 }
 @media (max-width: 480px) {
-    .footer-ad-section { padding: 16px 0; }
-    .footer-ad-item { padding: 0 8px; }
-    .footer-ad-item a { width: 88px; height: 44px; }
-    .footer-ad-item img { max-width: 72px; max-height: 28px; }
+    .footer-ad-section { padding: 14px 0; }
+    .footer-ad-item a { min-width: 250px; width: 250px; height: 101px; }
+    .footer-ad-item img { width: 250px; height: 101px; max-width: 250px; max-height: 101px; }
 }
 
 /* 푸터 */
@@ -837,6 +928,16 @@ a:hover {
         font-size: 11px;
     }
 
+    /* 모바일에서는 좌우 헤더 배너를 숨기고 로고만 유지 */
+    .logo-section-inner {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+    .logo-section-inner .ad-logo-left,
+    .logo-section-inner .ad-logo-right {
+        display: none;
+    }
+
     .nav-bar .header-actions {
         display: none;
     }
@@ -891,15 +992,6 @@ a:hover {
 }
 
 @media (max-width: 480px) {
-    .logo-section-inner {
-        grid-template-columns: 1fr;
-        justify-items: center;
-    }
-    .logo-section-inner .ad-logo-left,
-    .logo-section-inner .ad-logo-right {
-        justify-self: center;
-    }
-
     .logo-img {
         max-height: 56px;
     }

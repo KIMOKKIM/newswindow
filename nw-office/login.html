@@ -64,11 +64,17 @@
         localStorage.setItem('role', data.role);
         localStorage.setItem('name', data.name || '');
 
-        const r = data.role;
-        if (r === 'admin') window.location.href = 'admin.html';
-        else if (r === 'editor_in_chief') window.location.href = 'editor.html';
-        else if (r === 'reporter') window.location.href = 'reporter.html';
-        else window.location.href = 'index.html';
+        // 역할에 따라 관리자 → 관리자 대시보드, 편집장 → 편집장 대시보드, 기자 → 기자 대시보드
+        const r = (data.role || '').toString().trim().toLowerCase();
+        if (r === 'admin') {
+          window.location.href = 'admin.html';
+        } else if (r === 'editor_in_chief') {
+          window.location.href = 'editor.html';
+        } else if (r === 'reporter') {
+          window.location.href = 'reporter.html';
+        } else {
+          window.location.href = 'index.html';
+        }
       } catch (e) {
         err.textContent = '서버에 연결할 수 없습니다.';
         err.style.display = 'block';
