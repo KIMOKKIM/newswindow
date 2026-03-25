@@ -14,6 +14,10 @@ const app = express();
 // 업로드된 광고 이미지 제공 (backend/uploads 또는 프로젝트 루트/uploads)
 const uploadsDir = path.join(process.cwd(), 'uploads');
 app.use('/uploads', express.static(uploadsDir));
+
+// 정적 파일 제공 (루트 디렉토리의 정적 파일들)
+const projectRoot = path.join(process.cwd());
+app.use(express.static(projectRoot));
 const PORT = process.env.PORT || 3000;
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5500,http://localhost:5500,http://127.0.0.1:5501,http://localhost:5501,http://127.0.0.1:3000,http://localhost:3000').split(',');
 app.use(cors({
@@ -64,8 +68,25 @@ async function start() {
       .run('admin1', hash, '관리자', 'admin@newswindow.kr', 'admin');
     console.log('Seed: 관리자 admin1 created');
   }
-  app.listen(PORT, () => {
-    console.log(`Backend running at http://127.0.0.1:${PORT}`);
-  });
+  
+  let currentPort = PORT;
+  
+  function tryListen(port) {
+    const server = app.listen(port, '0.0.0.0', () => {
+      console.log(`Backend running at http://127.0.0.1:${port}`);
+    });
+    
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${port} is in use, trying port ${port + 1}...`);
+        currentPort = port + 1;
+        tryListen(currentPort);
+      } else {
+        throw err;
+      }
+    });
+  }
+  
+  tryListen(currentPort);
 }
 start();
