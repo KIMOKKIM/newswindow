@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as jose from 'jose';
 import { db } from '../db/db.js';
 
 export const authRouter = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'dev-secret-change-in-prod');
 
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', async (req, res) => {
   try {
     const { userid, password } = req.body;
     if (!userid || !password) {
@@ -20,11 +20,10 @@ authRouter.post('/login', (req, res) => {
     if (!ok) {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
-    const token = jwt.sign(
-      { id: row.id, userid: row.userid, role: row.role, name: row.name },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = await new jose.SignJWT({ id: row.id, userid: row.userid, role: row.role, name: row.name })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('7d')
+      .sign(JWT_SECRET);
     res.json({ accessToken: token, role: row.role, name: row.name });
   } catch (e) {
     res.status(500).json({ error: e.message });
