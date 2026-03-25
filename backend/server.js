@@ -69,17 +69,24 @@ async function start() {
     console.log('Seed: 관리자 admin1 created');
   }
   
-  const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Backend running at http://127.0.0.1:${PORT}`);
-  });
+  let currentPort = PORT;
   
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} is in use, trying to kill existing process...`);
-      process.exit(1);
-    } else {
-      throw err;
-    }
-  });
+  function tryListen(port) {
+    const server = app.listen(port, '0.0.0.0', () => {
+      console.log(`Backend running at http://127.0.0.1:${port}`);
+    });
+    
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${port} is in use, trying port ${port + 1}...`);
+        currentPort = port + 1;
+        tryListen(currentPort);
+      } else {
+        throw err;
+      }
+    });
+  }
+  
+  tryListen(currentPort);
 }
 start();
