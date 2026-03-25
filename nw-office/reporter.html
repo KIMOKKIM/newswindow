@@ -41,6 +41,8 @@
     .status-published { color: #2d7dd2; }
     .status-rejected { color: #c00; }
     .status-draft { color: #888; }
+    .article-edit-link { color: #2d7dd2; text-decoration: none; cursor: pointer; }
+    .article-edit-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -171,13 +173,22 @@
         : list.map(a => `
           <tr>
             <td>${a.id}</td>
-            <td><a href="article-write.html?id=${a.id}" style="color:#2d7dd2;">${a.title || '-'}</a></td>
+            <td><a href="/nw-office/article-write?id=${a.id}" class="article-edit-link" data-id="${a.id}">${a.title || '-'}</a></td>
             <td><span class="status-${a.status}">${statusMap[a.status] || a.status}</span></td>
             <td>${formatToKST(a.created_at)}</td>
           </tr>
         `).join('');
     }
     loadArticles();
+    document.getElementById('articleList').addEventListener('click', (e) => {
+      const link = e.target.closest('.article-edit-link');
+      if (!link) return;
+      e.preventDefault();
+      const id = link.dataset.id;
+      if (!id) return;
+      // 제목 클릭 시 기사 수정 화면으로 이동
+      window.location.href = `/nw-office/article-write?id=${encodeURIComponent(id)}`;
+    });
 
     // 회원정보 수정 모달
     async function loadProfile() {

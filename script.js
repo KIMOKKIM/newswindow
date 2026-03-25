@@ -37,6 +37,32 @@ var SIDE_ADS = {
 
 var ADS_API = 'http://127.0.0.1:3001';
 
+/** 로컬 정적 서버가 /article.html?id=… → /article 로 바꾸며 쿼리가 사라지는 경우 대비 */
+var PUBLIC_ARTICLE_ID_KEY = 'nw_public_article_id';
+
+function bindPublicArticleLinkStorage() {
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('a[data-public-article-id]');
+        if (!a) return;
+        var id = a.getAttribute('data-public-article-id');
+        if (!id) return;
+        try {
+            sessionStorage.setItem(PUBLIC_ARTICLE_ID_KEY, id);
+        } catch (err) {}
+    }, true);
+}
+
+function publicArticleHref(id) {
+    var sid = String(id);
+    var enc = encodeURIComponent(sid);
+    return '/article.html?id=' + enc + '#id=' + enc;
+}
+
+function publicArticleAnchorAttrs(id) {
+    var sid = String(id).replace(/"/g, '');
+    return ' class="public-article-link" href="' + publicArticleHref(id) + '" data-public-article-id="' + sid + '"';
+}
+
 function applyHeaderAds(ads) {
     if (!ads) return;
     var leftImg = document.getElementById('headerAdLeftImg');
@@ -149,7 +175,94 @@ function applyFooterStrip(list) {
     });
 }
 
+function toDate(str) {
+    if (!str) return '';
+    return String(str).slice(0, 10);
+}
+
+function cleanBrokenKoreanText(s, fallback) {
+    var v = (s == null) ? '' : String(s);
+    // 테스트 과정에서 저장된 ??? 형태 데이터 보정
+    if (!v) return fallback || '';
+    if (/\?{2,}/.test(v)) return fallback || '';
+    return v;
+}
+
+function parseCreatedAt(str) {
+    if (!str) return 0;
+    var t = Date.parse(String(str).replace(' ', 'T') + 'Z');
+    return isNaN(t) ? 0 : t;
+}
+
+function majorCategory(cat) {
+    if (!cat) return '';
+    return String(cat).split('-')[0].trim();
+}
+
+function sortByLatest(list) {
+    return (Array.isArray(list) ? list.slice() : []).sort(function (a, b) {
+        return parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at);
+    });
+}
+
+function renderHeadlineFromPublished(list) {
+    var main = document.querySelector('.headline-main');
+    var side = document.querySelector('.headline-list');
+    if (!main || !side || !Array.isArray(list) || list.length === 0) return;
+    var ordered = sortByLatest(list);
+    var first = ordered[0];
+    var cat = cleanBrokenKoreanText(first.category, '뉴스');
+    var title = cleanBrokenKoreanText(first.title, '제목 준비중');
+    main.innerHTML = '<a' + publicArticleAnchorAttrs(first.id) + '><h2>' + title + '</h2><p class=\"meta\"><span class=\"category\">' + cat + '</span> | ' + toDate(first.created_at) + '</p></a>';
+    var html = '';
+    ordered.slice(1, 5).forEach(function (a) {
+        html += '<a' + publicArticleAnchorAttrs(a.id) + '>' + cleanBrokenKoreanText(a.title, '제목 준비중') + '</a>';
+        html += '<span class=\"meta\">' + cleanBrokenKoreanText(a.category, '뉴스') + ' | ' + toDate(a.created_at) + '</span>';
+    });
+    if (html) side.innerHTML = html;
+}
+
+function renderSectionListsByCategory(list) {
+    if (!Array.isArray(list) || list.length === 0) return;
+    var groups = {};
+    sortByLatest(list).forEach(function (a) {
+        var key = majorCategory(a.category);
+        if (!key) return;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(a);
+    });
+    document.querySelectorAll('.news-section').forEach(function (sec) {
+        var t = sec.querySelector('.section-title a');
+        var ul = sec.querySelector('.section-list');
+        if (!t || !ul) return;
+        var sectionName = (t.textContent || '').trim();
+        var items = groups[sectionName] || [];
+        if (items.length === 0) return;
+        var html = '';
+        items.slice(0, 4).forEach(function (a, idx) {
+            var d = toDate(a.created_at);
+            var t = cleanBrokenKoreanText(a.title, '제목 준비중');
+            if (idx === 0) html += '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + t + '</a></li>';
+            else html += '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + t + '</a><span class=\"date\">' + d + '</span></li>';
+        });
+        ul.innerHTML = html;
+    });
+}
+
+function renderTvSectionByCategory(list) {
+    if (!Array.isArray(list) || list.length === 0) return;
+    var tv = sortByLatest(list).filter(function (a) { return majorCategory(a.category) === '포토뉴스&영상'; });
+    if (tv.length === 0) return;
+    var wrap = document.querySelector('.tv-list');
+    if (!wrap) return;
+    wrap.innerHTML = tv.slice(0, 3).map(function (a) {
+        return '<article class=\"tv-item\"><a' + publicArticleAnchorAttrs(a.id) + '><div class=\"tv-thumb\"></div><h4>' + cleanBrokenKoreanText(a.title, '제목 준비중') + '</h4></a></article>';
+    }).join('');
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+    bindPublicArticleLinkStorage();
+
     // 광고 설정 API에서 불러와 적용 (실패 시 기본값 사용)
     fetch(ADS_API + '/api/ads')
         .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
@@ -167,6 +280,17 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             applyFooterStrip(footerAds);
         });
+
+    // 편집장 승인(published) 기사 메인 자동 반영
+    fetch(ADS_API + '/api/articles/public/list')
+        .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
+        .then(function (articles) {
+            if (!Array.isArray(articles) || articles.length === 0) return;
+            renderHeadlineFromPublished(articles);
+            renderSectionListsByCategory(articles);
+            renderTvSectionByCategory(articles);
+        })
+        .catch(function () {});
 
     // 모바일 메뉴 토글
     const menuBtn = document.querySelector('.menu-btn');

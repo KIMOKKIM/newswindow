@@ -22,6 +22,8 @@ export const articlesDb = {
     return [...articles].reverse().map(a => ({
       id: a.id,
       title: a.title || '',
+      subtitle: a.subtitle || '',
+      category: a.category || '',
       author_id: a.author_id,
       author_name: a.author_name || '',
       summary: a.summary || '',

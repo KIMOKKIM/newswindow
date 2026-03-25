@@ -247,7 +247,12 @@
     });
 
     const params = new URLSearchParams(location.search);
-    let editId = params.get('id');
+    // URL 파라미터 변형(공백/해시 혼입 등)에 대비해 숫자 ID만 정규화
+    let editIdRaw = params.get('id');
+    let editId = (editIdRaw && String(editIdRaw).match(/\d+/)) ? String(String(editIdRaw).match(/\d+/)[0]) : '';
+    if (editId) {
+      document.querySelector('.nw-title').textContent = '기사 수정';
+    }
 
     document.getElementById('btnBack').addEventListener('click', () => {
       window.location.href = 'reporter.html';
@@ -318,31 +323,51 @@
       return d;
     }
 
+    function fillArticleToForm(a) {
+      document.getElementById('title').value = a.title || '';
+      document.getElementById('subtitle').value = a.subtitle || '';
+      document.getElementById('category').value = a.category || '';
+      document.getElementById('content1').value = a.content1 || '';
+      document.getElementById('content2').value = a.content2 || '';
+      document.getElementById('content3').value = a.content3 || '';
+      document.getElementById('image1_caption').value = stripCaptionSuffix(a.image1_caption || '');
+      document.getElementById('image2_caption').value = stripCaptionSuffix(a.image2_caption || '');
+      document.getElementById('image3_caption').value = stripCaptionSuffix(a.image3_caption || '');
+      [1, 2, 3].forEach(updateCaptionPreview);
+      window._loadedImages = { image1: a.image1, image2: a.image2, image3: a.image3 };
+      [1, 2, 3].forEach(updateImageSlotDisplay);
+    }
+
     async function loadArticle() {
       if (!editId) return;
       try {
         const res = await fetch(`${API}/api/articles/${editId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
-        if (!res.ok) return;
-        const a = await res.json();
-        document.getElementById('title').value = a.title || '';
-        document.getElementById('subtitle').value = a.subtitle || '';
-        document.getElementById('category').value = a.category || '';
-        document.getElementById('content1').value = a.content1 || '';
-        document.getElementById('content2').value = a.content2 || '';
-        document.getElementById('content3').value = a.content3 || '';
-        document.getElementById('image1_caption').value = stripCaptionSuffix(a.image1_caption || '');
-        document.getElementById('image2_caption').value = stripCaptionSuffix(a.image2_caption || '');
-        document.getElementById('image3_caption').value = stripCaptionSuffix(a.image3_caption || '');
-        [1, 2, 3].forEach(updateCaptionPreview);
-        window._loadedImages = { image1: a.image1, image2: a.image2, image3: a.image3 };
-        [1, 2, 3].forEach(updateImageSlotDisplay);
-      } catch (e) {}
+        if (res.ok) {
+          const a = await res.json();
+          fillArticleToForm(a);
+          return;
+        }
+        // 상세 API 실패 시 내 기사 목록에서 동일 ID를 찾아 복구 로드
+        const listRes = await fetch(`${API}/api/articles`, { headers: { Authorization: `Bearer ${token}` } });
+        if (listRes.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
+        const list = await listRes.json().catch(() => ([]));
+        const fromList = Array.isArray(list) ? list.find(x => String(x.id) === String(editId)) : null;
+        if (fromList) {
+          fillArticleToForm(fromList);
+          return;
+        }
+        showErr('기사 내용을 불러오지 못했습니다. 대시보드에서 다시 선택해주세요.');
+        alert('저장된 기사 데이터를 불러오지 못했습니다. 다시 로그인 후 시도해주세요.');
+      } catch (e) {
+        showErr('기사 내용을 불러오는 중 오류가 발생했습니다.');
+        alert('기사 로드 중 오류가 발생했습니다.');
+      }
     }
     loadArticle();
     if (!window._loadedImages) window._loadedImages = {};
 
-    async function saveArticle(status) {
+    async function saveArticle(status, opts = {}) {
       const d = await getFormDataWithImages();
       if (!d.title) { showErr('제목을 입력해주세요.'); return; }
       showErr('');
@@ -372,8 +397,13 @@
             window.location.search = '?id=' + data.id;
           }
         }
-        if (status === 'draft') alert('임시저장되었습니다.');
-        else if (status === 'pending') alert('송고되었습니다. 편집장 승인을 기다립니다.');
+        if (opts.redirectToDashboard) {
+          alert('송고되었습니다. 편집장 승인을 기다립니다.');
+          window.location.href = 'reporter.html';
+          return;
+        }
+        if (status === 'draft') alert('임시저장되었습니다. (원문/이미지 저장 완료)');
+        else if (status === 'pending') alert('작성완료로 저장되었습니다. (원문/이미지 저장 완료)');
         else alert('저장되었습니다.');
       } catch (e) { showErr('서버에 연결할 수 없습니다.'); }
     }
@@ -426,9 +456,11 @@
       if (e.target.id === 'previewModal') e.target.classList.remove('show');
     });
 
+    // 임시저장/작성완료: 원문+이미지 동시 저장 후 현재 페이지 유지
     document.getElementById('btnDraft').addEventListener('click', (e) => { e.preventDefault(); saveArticle('draft'); });
     document.getElementById('btnComplete').addEventListener('click', (e) => { e.preventDefault(); saveArticle('pending'); });
-    document.getElementById('btnSubmit').addEventListener('click', (e) => { e.preventDefault(); saveArticle('pending'); });
+    // 송고: 저장 성공 시 기자 대시보드로 이동
+    document.getElementById('btnSubmit').addEventListener('click', (e) => { e.preventDefault(); saveArticle('pending', { redirectToDashboard: true }); });
 
     document.getElementById('btnSpell').addEventListener('click', () => {
       const c = document.getElementById('content1').value + document.getElementById('content2').value + document.getElementById('content3').value;

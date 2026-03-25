@@ -17,6 +17,31 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// GET /api/articles/public/list — 메인 노출용 공개 기사 목록(published)
+articlesRouter.get('/public/list', (req, res) => {
+  const rows = articlesDb.all()
+    .filter(a => (a.status || '').toLowerCase() === 'published')
+    .map(a => ({
+      id: a.id,
+      title: a.title || '',
+      subtitle: a.subtitle || '',
+      category: a.category || '',
+      author_name: a.author_name || '',
+      created_at: a.created_at || ''
+    }));
+  res.json(rows);
+});
+
+// GET /api/articles/public/:id — 메인 기사 상세(게시 기사만)
+articlesRouter.get('/public/:id', (req, res) => {
+  const row = articlesDb.findById(req.params.id, null);
+  if (!row) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+  if ((row.status || '').toLowerCase() !== 'published') {
+    return res.status(403).json({ error: '게시된 기사만 조회할 수 있습니다.' });
+  }
+  res.json(row);
+});
+
 // GET /api/articles — 관리자/편집장: 전체 목록, 기자: 자신의 기사
 articlesRouter.get('/', authMiddleware, (req, res) => {
   const role = (req.user?.role || '').trim().toLowerCase();

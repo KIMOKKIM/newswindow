@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>기사 보기 - 뉴스의 창</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .article-wrap { max-width: 960px; margin: 24px auto 48px; background:#fff; padding: 24px; border:1px solid #e6e6e6; border-radius: 8px; }
+    .article-title { font-size: 30px; line-height: 1.35; margin: 0 0 8px; }
+    .article-subtitle { font-size: 17px; color:#555; margin: 0 0 12px; white-space: pre-line; font-weight:700; }
+    .article-meta { font-size: 13px; color:#777; margin-bottom: 20px; }
+    .article-body p { margin: 0 0 16px; line-height: 1.9; font-size: 16px; color:#222; }
+    .article-img { display:block; width:100%; max-width:100%; height:auto; border-radius:6px; margin: 16px 0 6px; }
+    .article-cap { font-size:13px; color:#666; margin: 0 0 14px; }
+    .article-top-link { display:inline-block; margin-bottom: 12px; color:#2d7dd2; text-decoration:none; }
+    .article-top-link:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="article-wrap">
+    <a class="article-top-link" href="/index.html">← 메인으로</a>
+    <article id="articleView">
+      <h1 class="article-title">기사 불러오는 중...</h1>
+    </article>
+  </div>
+  <script>
+    (function () {
+      const API = 'http://127.0.0.1:3001';
+      const STORAGE_KEY = 'nw_public_article_id';
+      const view = document.getElementById('articleView');
+
+      function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      function para(t) {
+        return esc(t).replace(/\n/g, '</p><p>');
+      }
+
+      /** 일부 로컬 서버가 /article.html?id= → /article 로만 넘기며 쿼리를 버림 → 해시·sessionStorage로 보완 */
+      function resolveArticleId() {
+        try {
+          const q = new URLSearchParams(location.search).get('id');
+          if (q != null && String(q).trim() !== '') return String(q).trim();
+        } catch (e) {}
+        const raw = (location.hash || '').replace(/^#/, '').trim();
+        if (raw) {
+          if (/^id=/i.test(raw)) {
+            const v = raw.replace(/^id=/i, '').trim();
+            if (v) return v;
+          }
+          const m = raw.match(/^(\d+)$/);
+          if (m) return m[1];
+        }
+        try {
+          const s = sessionStorage.getItem(STORAGE_KEY);
+          if (s != null && String(s).trim() !== '') return String(s).trim();
+        } catch (e) {}
+        return '';
+      }
+
+      const id = resolveArticleId();
+      if (!id) {
+        view.innerHTML = '<h1 class="article-title">잘못된 접근입니다.</h1>';
+        return;
+      }
+
+      fetch(API + '/api/articles/public/' + encodeURIComponent(id))
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || '기사를 불러오지 못했습니다.');
+          return data;
+        })
+        .then((a) => {
+          try {
+            sessionStorage.removeItem(STORAGE_KEY);
+          } catch (e) {}
+          const parts = [];
+          parts.push('<h1 class="article-title">' + esc(a.title || '(제목 없음)') + '</h1>');
+          if (a.subtitle) parts.push('<p class="article-subtitle">' + esc(a.subtitle) + '</p>');
+          parts.push('<p class="article-meta">' + esc(a.category || '뉴스') + ' | ' + esc(a.author_name || '기자') + ' | ' + esc((a.created_at || '').slice(0, 10)) + '</p>');
+          parts.push('<div class="article-body">');
+          const block = (img, cap, content) => {
+            if (img) {
+              const src = String(img).startsWith('data:') ? img : ('data:image/jpeg;base64,' + img);
+              parts.push('<img class="article-img" src="' + src + '" alt="">');
+            }
+            if (cap) parts.push('<p class="article-cap">' + esc(cap) + '</p>');
+            if (content) parts.push('<p>' + para(content) + '</p>');
+          };
+          block(a.image1, a.image1_caption, a.content1);
+          block(a.image2, a.image2_caption, a.content2);
+          block(a.image3, a.image3_caption, a.content3);
+          if (!a.content1 && !a.content2 && !a.content3 && a.content) {
+            parts.push('<p>' + para(a.content) + '</p>');
+          }
+          parts.push('</div>');
+          view.innerHTML = parts.join('');
+        })
+        .catch((e) => {
+          try {
+            sessionStorage.removeItem(STORAGE_KEY);
+          } catch (err) {}
+          view.innerHTML = '<h1 class="article-title">기사 로드 실패</h1><p>' + esc(e.message || '오류') + '</p>';
+        });
+    })();
+  </script>
+</body>
+</html>

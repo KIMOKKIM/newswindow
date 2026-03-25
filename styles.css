@@ -837,15 +837,15 @@ a:hover {
 
 /* 푸터 */
 .footer {
-    background: var(--color-heading);
-    color: #aaa;
+    background: #d9d9d9;
+    color: #111;
     font-size: 12px;
     margin-top: 40px;
 }
 
 .footer-links {
     padding: 16px 0;
-    border-bottom: 1px solid #444;
+    border-bottom: 1px solid #b8b8b8;
 }
 
 .footer-links .container {
@@ -855,21 +855,41 @@ a:hover {
 }
 
 .footer-links a {
-    color: #ccc;
+    color: #111;
 }
 
 .footer-links a:hover {
-    color: #fff;
+    color: #000;
 }
 
 .footer-info {
     padding: 24px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.footer-logo-wrap {
+    flex: 0 0 auto;
+    width: 250px;
+}
+
+.footer-company-logo {
+    display: block;
+    width: 250px;
+    height: 100px;
+    object-fit: contain;
+}
+
+.footer-text-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .footer-brand {
     font-size: 18px;
     font-weight: 700;
-    color: #fff;
+    color: #111;
     margin: 0 0 12px;
 }
 
@@ -881,17 +901,17 @@ a:hover {
 
 .footer-copyright-notice {
     margin: 0 0 8px;
-    color: #aaa;
+    color: #222;
 }
 
 .copyright {
     margin: 0 0 8px;
-    color: #888;
+    color: #222;
 }
 
 .footer-note {
     margin: 0;
-    color: #777;
+    color: #333;
     font-size: 11px;
 }
 
@@ -988,6 +1008,11 @@ a:hover {
 
     .tv-list {
         grid-template-columns: 1fr;
+    }
+
+    .footer-info {
+        flex-direction: column;
+        gap: 12px;
     }
 }
 
