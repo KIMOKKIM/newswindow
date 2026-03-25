@@ -1,20 +1,31 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { articlesDb } from '../db/articles.js';
 
 export const articlesRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
 
+function verifyToken(token) {
+  try {
+    const [header, body, signature] = token.split('.');
+    const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+    if (signature !== expectedSig) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
   const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ error: '인증 필요' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: '토큰 만료 또는 유효하지 않음' });
-  }
+  const user = verifyToken(token);
+  if (!user) return res.status(401).json({ error: '토큰 만료 또는 유효하지 않음' });
+  req.user = user;
+  next();
 }
 
 // GET /api/articles/public/list — 메인 노출용 공개 기사 목록(published, 썸네일 포함)
