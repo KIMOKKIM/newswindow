@@ -117,5 +117,26 @@ export const articlesDb = {
     a.status = status;
     save();
     return true;
+  },
+
+  /** 메인 헤드라인 등 공개 목록용 (이미지 썸네일 포함) */
+  publishedPublicList() {
+    const normImg = (img) => {
+      if (!img || !String(img).trim()) return '';
+      const s = String(img).trim();
+      if (s.startsWith('data:')) return s;
+      return 'data:image/jpeg;base64,' + s;
+    };
+    return [...articles].reverse()
+      .filter(a => (a.status || '').toLowerCase() === 'published')
+      .map(a => ({
+        id: a.id,
+        title: a.title || '',
+        subtitle: a.subtitle || '',
+        category: a.category || '',
+        author_name: a.author_name || '',
+        created_at: a.created_at || '',
+        thumb: normImg(a.image1 || a.image2 || a.image3 || '')
+      }));
   }
 };

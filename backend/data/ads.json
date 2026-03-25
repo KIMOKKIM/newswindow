@@ -1,6 +1,6 @@
 {
   "headerLeft": {
-    "src": "./images/nonghyup-banner.png",
+    "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414379515-4w5yo6.png",
     "href": "https://www.nonghyup.com/main/psniMain.do"
   },
   "headerRight": {
@@ -8,31 +8,87 @@
     "href": "https://council.chungbuk.kr/kr/main.do"
   },
   "sideLeft": {
-    "src": "",
-    "href": "#"
+    "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414305598-39cjes.png",
+    "href": "#https://www.at.or.kr/home/apko000000/index.action"
   },
   "sideRight": {
-    "src": "",
-    "href": "#"
+    "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414170120-lanrh7.png",
+    "href": "#https://www.andong.go.kr/"
   },
   "sideLeftStack": [
-    { "src": "", "href": "#" },
-    { "src": "", "href": "#" },
-    { "src": "", "href": "#" },
-    { "src": "", "href": "#" }
+    {
+      "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414305598-39cjes.png",
+      "href": "#https://www.at.or.kr/home/apko000000/index.action"
+    },
+    {
+      "src": "",
+      "href": "#"
+    },
+    {
+      "src": "",
+      "href": "#"
+    },
+    {
+      "src": "",
+      "href": "#"
+    }
   ],
   "sideRightStack": [
-    { "src": "", "href": "#" },
-    { "src": "", "href": "#" },
-    { "src": "", "href": "#" }
+    {
+      "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414170120-lanrh7.png",
+      "href": "#https://www.andong.go.kr/"
+    },
+    {
+      "src": "",
+      "href": "#"
+    },
+    {
+      "src": "",
+      "href": "#"
+    }
   ],
   "footer": [
-    { "id": 1, "image": "/ads/ad1.png", "alt": "전라남도", "href": "#" },
-    { "id": 2, "image": "/ads/ad2.png", "alt": "경상북도", "href": "#" },
-    { "id": 3, "image": "/ads/ad3.png", "alt": "경상남도", "href": "#" },
-    { "id": 4, "image": "/ads/ad4.png", "alt": "충청남도", "href": "#" },
-    { "id": 5, "image": "/ads/ad5.png", "alt": "충청북도", "href": "#" },
-    { "id": 6, "image": "/ads/ad6.png", "alt": "제주특별자치도", "href": "#" },
-    { "id": 7, "image": "/ads/ad7.png", "alt": "세종특별자치시", "href": "#" }
+    {
+      "id": 1,
+      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774414455436-e32zhb.png",
+      "alt": "인천광역",
+      "href": "#https://www.seo.incheon.kr/open_content/main/"
+    },
+    {
+      "id": 2,
+      "image": "/ads/ad2.png",
+      "alt": "경상북도",
+      "href": "#"
+    },
+    {
+      "id": 3,
+      "image": "/ads/ad3.png",
+      "alt": "경상남도",
+      "href": "#"
+    },
+    {
+      "id": 4,
+      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774414558240-06sizg.png",
+      "alt": "국회",
+      "href": "#https://www.assembly.go.kr/portal/main/main.do"
+    },
+    {
+      "id": 5,
+      "image": "/ads/ad5.png",
+      "alt": "충청북도",
+      "href": "#"
+    },
+    {
+      "id": 6,
+      "image": "/ads/ad6.png",
+      "alt": "제주특별자치도",
+      "href": "#"
+    },
+    {
+      "id": 7,
+      "image": "/ads/ad7.png",
+      "alt": "세종특별자치시",
+      "href": "#"
+    }
   ]
 }

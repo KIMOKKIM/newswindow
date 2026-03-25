@@ -21,3 +21,7 @@ npm-debug.log*
 
 # Dependencies (if added later)
 node_modules/
+
+# 업로드된 광고·파일 (로컬 전용)
+backend/uploads/
+uploads/

@@ -17,19 +17,9 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// GET /api/articles/public/list — 메인 노출용 공개 기사 목록(published)
+// GET /api/articles/public/list — 메인 노출용 공개 기사 목록(published, 썸네일 포함)
 articlesRouter.get('/public/list', (req, res) => {
-  const rows = articlesDb.all()
-    .filter(a => (a.status || '').toLowerCase() === 'published')
-    .map(a => ({
-      id: a.id,
-      title: a.title || '',
-      subtitle: a.subtitle || '',
-      category: a.category || '',
-      author_name: a.author_name || '',
-      created_at: a.created_at || ''
-    }));
-  res.json(rows);
+  res.json(articlesDb.publishedPublicList());
 });
 
 // GET /api/articles/public/:id — 메인 기사 상세(게시 기사만)

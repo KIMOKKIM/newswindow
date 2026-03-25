@@ -6,16 +6,77 @@
   <title>광고 관리 - 뉴스의창</title>
   <link rel="stylesheet" href="../styles.css">
   <style>
-    .nw-wrap { max-width: 720px; margin: 24px auto; padding: 0 20px; }
-    .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .nw-wrap { max-width: 1280px; margin: 24px auto; padding: 0 20px; }
+    .nw-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
     .nw-title { font-size: 20px; font-weight: 700; }
     .nw-actions { display: flex; gap: 12px; align-items: center; }
     .nw-btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration: none; border: none; }
     .nw-btn-secondary { background: #e0e0e0; color: #333; }
     .nw-btn-primary { background: #2d7dd2; color: #fff; }
     .nw-btn-primary:hover { background: #236bb8; }
+    .ad-map-intro { font-size: 14px; color: #555; margin: 0 0 20px; line-height: 1.55; padding: 12px 16px; background: #eef6fc; border: 1px solid #c5ddef; border-radius: 8px; }
     .nw-section { margin-bottom: 28px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; }
     .nw-section h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; color: #333; }
+    .ad-map-section h2 { font-size: 16px; }
+    .ad-map-hint { font-size: 12px; color: #666; margin: 0 0 16px; line-height: 1.45; }
+    /* 메인 header: 좌 배너 | 로고 | 우 배너 */
+    .ad-map-header-row {
+      display: grid;
+      grid-template-columns: 1fr minmax(140px, 180px) 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .ad-map-logo-placeholder {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      background: #fff;
+      padding: 16px 12px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #888;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .ad-map-logo-placeholder span { font-size: 11px; font-weight: 400; color: #aaa; }
+    /* 메인 본문: 좌 4스택 | 중앙 | 우 3스택 */
+    .ad-map-body-row {
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(100px, 1fr) minmax(260px, 320px);
+      gap: 16px;
+      align-items: start;
+    }
+    .ad-map-main-placeholder {
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      background: #fff;
+      padding: 24px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #999;
+      line-height: 1.5;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ad-map-side-title { font-size: 12px; font-weight: 700; color: #444; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.02em; }
+    .ad-slot-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .ad-slot-card:last-child { margin-bottom: 0; }
+    .ad-slot-badge { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: #2d7dd2; padding: 3px 8px; border-radius: 4px; margin-bottom: 10px; }
+    .ad-slot-badge--sky { background: #5c6bc0; }
+    .ad-slot-badge--short { background: #78909c; }
+    .ad-slot-dim { font-size: 11px; color: #888; margin: -4px 0 10px; }
     .nw-field { margin-bottom: 12px; }
     .nw-field label { display: block; font-size: 13px; font-weight: 500; color: #555; margin-bottom: 4px; }
     .nw-field input { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
@@ -32,6 +93,9 @@
     .nw-field-row .nw-field-input { flex: 1; min-width: 200px; }
     .nw-field-row input[type="file"] { font-size: 13px; }
     .nw-img-preview { width: 120px; height: 60px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; background: #f5f5f5; }
+    .nw-img-preview--header { width: 250px; height: 101px; max-width: 100%; object-fit: cover; }
+    .nw-img-preview--side { width: 160px; height: 70px; object-fit: contain; }
+    .nw-img-preview--side-tall { height: 120px; }
     .nw-upload-status { font-size: 12px; color: #666; margin-top: 4px; }
     .footer-row .nw-file-wrap { grid-column: 1; }
     .ad-list-section { margin-top: 32px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; }
@@ -44,6 +108,14 @@
     .ad-list-table .ad-list-link { color: #2d7dd2; word-break: break-all; max-width: 280px; }
     .ad-list-table .ad-list-link:hover { text-decoration: underline; }
     .ad-list-empty { color: #888; font-size: 13px; padding: 16px 0; }
+    @media (max-width: 1100px) {
+      .ad-map-header-row { grid-template-columns: 1fr; }
+      .ad-map-logo-placeholder { order: -1; min-height: 72px; }
+      .ad-map-body-row { grid-template-columns: 1fr; }
+      .ad-map-main-placeholder { min-height: 80px; order: 0; }
+      .ad-map-side-left { order: 1; }
+      .ad-map-side-right { order: 2; }
+    }
   </style>
 </head>
 <body>
@@ -56,55 +128,79 @@
       </div>
     </div>
 
-    <div class="nw-section">
-      <h2>헤더 좌측 광고 (메인 상단 왼쪽)</h2>
-      <div class="nw-field">
-        <label>이미지 URL 또는 파일 첨부</label>
-        <div class="nw-field-row">
-          <input type="text" id="headerLeft_src" class="nw-field-input" placeholder="예: ./images/nonghyup-banner.png">
-          <input type="file" id="headerLeft_file" accept="image/*" aria-label="이미지 파일 선택">
+    <p class="ad-map-intro">
+      아래 순서는 <strong>메인 페이지(index.html)</strong>와 동일합니다.
+      (1) 상단 <strong>로고 줄</strong> 좌·우 배너 → (2) <strong>본문 양옆</strong> 좌측 4칸·우측 3칸(데스크톱 폭 약 1400px 이상에서 표시) → (3) <strong>푸터 바로 위</strong> 가로 롤링 배너.
+    </p>
+
+    <!-- ① 헤더 = 메인 .logo-section-inner 와 동일 배치 -->
+    <div class="nw-section ad-map-section">
+      <h2>① 헤더 배너 (로고 좌·우)</h2>
+      <p class="ad-map-hint">메인 <code>headerAdLeftLink</code> / <code>headerAdRightLink</code>·이미지 권장 크기 <strong>250×101px</strong> (styles.css 기준).</p>
+      <div class="ad-map-header-row">
+        <div class="ad-slot-card">
+          <span class="ad-slot-badge">좌측 배너</span>
+          <p class="ad-slot-dim">logo-section-inner 왼쪽 칸</p>
+          <div class="nw-field">
+            <label>이미지 URL 또는 파일</label>
+            <div class="nw-field-row">
+              <input type="text" id="headerLeft_src" class="nw-field-input" placeholder="./images/nonghyup-banner.png 또는 업로드 URL">
+              <input type="file" id="headerLeft_file" accept="image/*" aria-label="좌측 배너 이미지">
+            </div>
+            <img id="headerLeft_preview" class="nw-img-preview nw-img-preview--header" src="" alt="" style="display:none; margin-top:8px;">
+            <p id="headerLeft_status" class="nw-upload-status" style="display:none;"></p>
+          </div>
+          <div class="nw-field">
+            <label>클릭 시 이동 URL</label>
+            <input type="text" id="headerLeft_href" placeholder="https://">
+          </div>
         </div>
-        <img id="headerLeft_preview" class="nw-img-preview" src="" alt="" style="display:none; margin-top:8px;">
-        <p id="headerLeft_status" class="nw-upload-status" style="display:none;"></p>
-      </div>
-      <div class="nw-field">
-        <label>링크 URL</label>
-        <input type="text" id="headerLeft_href" placeholder="예: https://www.example.com">
-      </div>
-    </div>
-
-    <div class="nw-section">
-      <h2>헤더 우측 광고 (메인 상단 오른쪽)</h2>
-      <div class="nw-field">
-        <label>이미지 URL 또는 파일 첨부</label>
-        <div class="nw-field-row">
-          <input type="text" id="headerRight_src" class="nw-field-input" placeholder="예: ./images/chungbuk-council-banner.png">
-          <input type="file" id="headerRight_file" accept="image/*" aria-label="이미지 파일 선택">
+        <div class="ad-map-logo-placeholder">
+          중앙 로고
+          <span>index.html · logo-block<br>(메인에서 수정)</span>
         </div>
-        <img id="headerRight_preview" class="nw-img-preview" src="" alt="" style="display:none; margin-top:8px;">
-        <p id="headerRight_status" class="nw-upload-status" style="display:none;"></p>
+        <div class="ad-slot-card">
+          <span class="ad-slot-badge">우측 배너</span>
+          <p class="ad-slot-dim">logo-section-inner 오른쪽 칸</p>
+          <div class="nw-field">
+            <label>이미지 URL 또는 파일</label>
+            <div class="nw-field-row">
+              <input type="text" id="headerRight_src" class="nw-field-input" placeholder="./images/chungbuk-council-banner.png 또는 업로드 URL">
+              <input type="file" id="headerRight_file" accept="image/*" aria-label="우측 배너 이미지">
+            </div>
+            <img id="headerRight_preview" class="nw-img-preview nw-img-preview--header" src="" alt="" style="display:none; margin-top:8px;">
+            <p id="headerRight_status" class="nw-upload-status" style="display:none;"></p>
+          </div>
+          <div class="nw-field">
+            <label>클릭 시 이동 URL</label>
+            <input type="text" id="headerRight_href" placeholder="https://">
+          </div>
+        </div>
       </div>
-      <div class="nw-field">
-        <label>링크 URL</label>
-        <input type="text" id="headerRight_href" placeholder="예: https://council.chungbuk.kr/kr/main.do">
+    </div>
+
+    <!-- ② 본문 좌 = side-ad-left 4스택, 우 = side-ad-right 3스택 -->
+    <div class="nw-section ad-map-section">
+      <h2>② 본문 좌·우 세로 광고</h2>
+      <p class="ad-map-hint">메인 <code>.page-wrapper</code>의 <strong>side-ad-left</strong>(4칸)·<strong>side-ad-right</strong>(3칸)와 동일 순서. 좌측 1~3은 직사각 카드, 4번은 세로형 카드. 우측 1번은 스카이(높이 400px), 2·3은 짧은 가로형.</p>
+      <div class="ad-map-body-row">
+        <div class="ad-map-side ad-map-side-left">
+          <p class="ad-map-side-title">← 왼쪽 사이드 (.side-ad-left)</p>
+          <div id="sideStackLeftFields"></div>
+        </div>
+        <div class="ad-map-main-placeholder">
+          메인 중앙<br>헤드라인·기사<br><small style="opacity:.85">(광고 입력 없음)</small>
+        </div>
+        <div class="ad-map-side ad-map-side-right">
+          <p class="ad-map-side-title">오른쪽 사이드 (.side-ad-right) →</p>
+          <div id="sideStackRightFields"></div>
+        </div>
       </div>
     </div>
 
-    <div class="nw-section">
-      <h2>좌측 세로 광고 스택 (메인 왼쪽 4칸 · 데스크톱)</h2>
-      <p style="font-size: 13px; color: #666; margin: 0 0 12px;">위에서부터 1~4번 순서로 쌓입니다. 비우면 플레이스홀더만 표시됩니다.</p>
-      <div id="sideStackLeftFields"></div>
-    </div>
-
-    <div class="nw-section">
-      <h2>우측 세로 광고 스택 (메인 오른쪽 3칸 · 상단 스카이형)</h2>
-      <p style="font-size: 13px; color: #666; margin: 0 0 12px;">1번이 긴 세로 배너, 2·3번이 하단 가로형에 맞춰 표시됩니다.</p>
-      <div id="sideStackRightFields"></div>
-    </div>
-
-    <div class="nw-section">
-      <h2>푸터 위 롤링 배너 (여러 개 등록 가능)</h2>
-      <p style="font-size: 13px; color: #666; margin: 0 0 12px;">이미지 URL 또는 파일 첨부, 대체텍스트(alt), 링크를 입력하세요. 순서대로 가로로 흐르며 표시됩니다.</p>
+    <div class="nw-section ad-map-section">
+      <h2>③ 푸터 위 롤링 배너</h2>
+      <p class="ad-map-hint">메인 <code>.footer-ad-section</code> · <code>#footerAdTrack</code> 에 순서대로 흐릅니다. 이미지 URL·파일, alt, 링크를 입력하세요.</p>
       <div id="footerRows" class="footer-rows"></div>
       <button type="button" class="btn-add-footer" id="addFooterRow">+ 항목 추가</button>
     </div>
@@ -137,37 +233,65 @@
       sideStackEditorsReady = true;
       const L = document.getElementById('sideStackLeftFields');
       const R = document.getElementById('sideStackRightFields');
+      const leftLabels = [
+        { n: '1', sub: 'sideAdL_a0/img0 · 직사각', dim: '250×101 권장', tall: false },
+        { n: '2', sub: 'sideAdL_a1/img1 · 직사각', dim: '250×101 권장', tall: false },
+        { n: '3', sub: 'sideAdL_a2/img2 · 직사각', dim: '250×101 권장', tall: false },
+        { n: '4', sub: 'sideAdL_a3/img3 · 세로형', dim: '카드 높이 가변(메인 styles)', tall: true }
+      ];
       for (let i = 0; i < 4; i++) {
+        const lab = leftLabels[i];
+        const prevClass = lab.tall ? 'nw-img-preview nw-img-preview--side nw-img-preview--side-tall' : 'nw-img-preview nw-img-preview--side';
         L.insertAdjacentHTML('beforeend', `
-          <div class="nw-field" style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px;">
-            <strong style="font-size:13px;">좌측 ${i + 1}번</strong>
-            <label style="margin-top:8px;display:block;">이미지 URL 또는 파일</label>
-            <div class="nw-field-row">
-              <input type="text" id="stackL${i}_src" class="nw-field-input" placeholder="이미지 URL">
-              <input type="file" id="stackL${i}_file" accept="image/*" aria-label="파일">
+          <div class="ad-slot-card">
+            <span class="ad-slot-badge">좌측 ${lab.n}번</span>
+            <p class="ad-slot-dim">${lab.sub} · ${lab.dim}</p>
+            <div class="nw-field">
+              <label>이미지 URL 또는 파일</label>
+              <div class="nw-field-row">
+                <input type="text" id="stackL${i}_src" class="nw-field-input" placeholder="URL 또는 업로드 후 자동 입력">
+                <input type="file" id="stackL${i}_file" accept="image/*" aria-label="좌측 ${lab.n}번 이미지">
+              </div>
+              <img id="stackL${i}_preview" class="${prevClass}" src="" alt="" style="display:none; margin-top:8px;">
+              <p id="stackL${i}_status" class="nw-upload-status" style="display:none;"></p>
             </div>
-            <label>링크 URL</label>
-            <input type="text" id="stackL${i}_href" placeholder="https://">
+            <div class="nw-field">
+              <label>클릭 시 이동 URL</label>
+              <input type="text" id="stackL${i}_href" placeholder="https://">
+            </div>
           </div>`);
       }
+      const rightLabels = [
+        { n: '1', sub: 'sideAdR_a0/img0 · 스카이', dim: '160×400 영역', badge: 'ad-slot-badge ad-slot-badge--sky' },
+        { n: '2', sub: 'sideAdR_a1/img1', dim: '160×90 권장', badge: 'ad-slot-badge ad-slot-badge--short' },
+        { n: '3', sub: 'sideAdR_a2/img2', dim: '160×90 권장', badge: 'ad-slot-badge ad-slot-badge--short' }
+      ];
       for (let j = 0; j < 3; j++) {
+        const lab = rightLabels[j];
         R.insertAdjacentHTML('beforeend', `
-          <div class="nw-field" style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px;">
-            <strong style="font-size:13px;">우측 ${j + 1}번${j === 0 ? ' (긴 세로)' : ''}</strong>
-            <label style="margin-top:8px;display:block;">이미지 URL 또는 파일</label>
-            <div class="nw-field-row">
-              <input type="text" id="stackR${j}_src" class="nw-field-input" placeholder="이미지 URL">
-              <input type="file" id="stackR${j}_file" accept="image/*" aria-label="파일">
+          <div class="ad-slot-card">
+            <span class="${lab.badge}">우측 ${lab.n}번</span>
+            <p class="ad-slot-dim">${lab.sub} · ${lab.dim}</p>
+            <div class="nw-field">
+              <label>이미지 URL 또는 파일</label>
+              <div class="nw-field-row">
+                <input type="text" id="stackR${j}_src" class="nw-field-input" placeholder="URL 또는 업로드 후 자동 입력">
+                <input type="file" id="stackR${j}_file" accept="image/*" aria-label="우측 ${lab.n}번 이미지">
+              </div>
+              <img id="stackR${j}_preview" class="nw-img-preview nw-img-preview--side${j === 0 ? ' nw-img-preview--side-tall' : ''}" src="" alt="" style="display:none; margin-top:8px;">
+              <p id="stackR${j}_status" class="nw-upload-status" style="display:none;"></p>
             </div>
-            <label>링크 URL</label>
-            <input type="text" id="stackR${j}_href" placeholder="https://">
+            <div class="nw-field">
+              <label>클릭 시 이동 URL</label>
+              <input type="text" id="stackR${j}_href" placeholder="https://">
+            </div>
           </div>`);
       }
       for (let i = 0; i < 4; i++) {
-        bindSlotFile('stackL' + i, 'stackL' + i + '_file', null, null);
+        bindSlotFile('stackL' + i, 'stackL' + i + '_file', 'stackL' + i + '_preview', 'stackL' + i + '_status');
       }
       for (let j = 0; j < 3; j++) {
-        bindSlotFile('stackR' + j, 'stackR' + j + '_file', null, null);
+        bindSlotFile('stackR' + j, 'stackR' + j + '_file', 'stackR' + j + '_preview', 'stackR' + j + '_status');
       }
     }
 
@@ -264,24 +388,24 @@
           : '<span class="ad-list-empty">-</span>';
         rows.push('<tr><td>' + escapeAttr(label) + '</td><td>' + thumb + '</td><td>' + linkHtml + '</td></tr>');
       };
-      slotLabel('헤더 좌측 (메인 상단 왼쪽)', ads.headerLeft?.src, ads.headerLeft?.href);
-      slotLabel('헤더 우측 (메인 상단 오른쪽)', ads.headerRight?.src, ads.headerRight?.href);
+      slotLabel('① 헤더 좌측 배너 (로고 왼쪽 · headerAdLeft)', ads.headerLeft?.src, ads.headerLeft?.href);
+      slotLabel('① 헤더 우측 배너 (로고 오른쪽 · headerAdRight)', ads.headerRight?.src, ads.headerRight?.href);
       const sl = Array.isArray(ads.sideLeftStack) ? ads.sideLeftStack : [];
       for (let i = 0; i < 4; i++) {
         const x = sl[i] || {};
-        slotLabel('좌측 세로 스택 ' + (i + 1) + '번', x.src, x.href);
+        slotLabel('② 좌측 사이드 ' + (i + 1) + '번 (sideAdL' + i + ')', x.src, x.href);
       }
       const sr = Array.isArray(ads.sideRightStack) ? ads.sideRightStack : [];
       for (let j = 0; j < 3; j++) {
         const x = sr[j] || {};
-        slotLabel('우측 세로 스택 ' + (j + 1) + '번' + (j === 0 ? ' (스카이)' : ''), x.src, x.href);
+        slotLabel('② 우측 사이드 ' + (j + 1) + '번 (sideAdR' + j + (j === 0 ? ' · 스카이' : '') + ')', x.src, x.href);
       }
       const footer = Array.isArray(ads.footer) ? ads.footer : [];
       footer.forEach((f, i) => {
         const src = (f && f.image) ? f.image : '';
         const href = (f && f.href) ? f.href : '#';
         const alt = (f && f.alt) ? f.alt : '';
-        const label = '푸터 롤링 ' + (i + 1) + (alt ? ' · ' + escapeAttr(alt) : '');
+        const label = '③ 푸터 롤링 ' + (i + 1) + (alt ? ' · ' + escapeAttr(alt) : '');
         slotLabel(label, src, href);
       });
       if (rows.length === 0) {
@@ -314,6 +438,12 @@
         renderFooterRows();
         updatePreview('headerLeft_preview', data.headerLeft?.src);
         updatePreview('headerRight_preview', data.headerRight?.src);
+        for (let i = 0; i < 4; i++) {
+          updatePreview('stackL' + i + '_preview', (sl[i] && sl[i].src) || '');
+        }
+        for (let j = 0; j < 3; j++) {
+          updatePreview('stackR' + j + '_preview', (sr[j] && sr[j].src) || '');
+        }
         renderAdList(data);
       } catch (e) {
         showMsg('광고 설정을 불러오지 못했습니다.', true);
