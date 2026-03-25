@@ -131,8 +131,9 @@
     </div>
   </div>
 
+  <script src="../config.js"></script>
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API = (window.NW_CONFIG && window.NW_CONFIG.API_BASE) ? window.NW_CONFIG.API_BASE : 'http://127.0.0.1:3001';
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
     const name = localStorage.getItem('name') || '';

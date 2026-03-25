@@ -21,8 +21,8 @@
       "href": "#https://www.at.or.kr/home/apko000000/index.action"
     },
     {
-      "src": "",
-      "href": "#"
+      "src": "http://127.0.0.1:3001/uploads/ads/ad-1774418622149-vcybpx.gif",
+      "href": "#https://www.coupang.com/"
     },
     {
       "src": "",
@@ -51,20 +51,20 @@
     {
       "id": 1,
       "image": "http://127.0.0.1:3001/uploads/ads/ad-1774414455436-e32zhb.png",
-      "alt": "인천광역",
+      "alt": "인천광역시",
       "href": "#https://www.seo.incheon.kr/open_content/main/"
     },
     {
       "id": 2,
-      "image": "/ads/ad2.png",
-      "alt": "경상북도",
-      "href": "#"
+      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774416282307-v4bufq.png",
+      "alt": "서울특별시",
+      "href": "#https://www.seoul.go.kr/main/index.jsp"
     },
     {
       "id": 3,
-      "image": "/ads/ad3.png",
-      "alt": "경상남도",
-      "href": "#"
+      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774416448780-nnsk1j.png",
+      "alt": "경기도",
+      "href": "#https://www.gg.go.kr/"
     },
     {
       "id": 4,
@@ -74,9 +74,9 @@
     },
     {
       "id": 5,
-      "image": "/ads/ad5.png",
-      "alt": "충청북도",
-      "href": "#"
+      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774416628409-1lrry0.png",
+      "alt": "부평",
+      "href": "#https://www.icbp.go.kr/main/"
     },
     {
       "id": 6,

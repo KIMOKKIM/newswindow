@@ -35,7 +35,9 @@ var SIDE_ADS = {
     }
 };
 
-var ADS_API = 'http://127.0.0.1:3001';
+var ADS_API = (typeof window !== 'undefined' && window.NW_CONFIG && window.NW_CONFIG.API_BASE)
+    ? window.NW_CONFIG.API_BASE
+    : 'http://127.0.0.1:3001';
 
 /** 메인 헤드라인 캐러셀 자동 롤링 (ms) */
 var HEADLINE_CAROUSEL_INTERVAL_MS = 3000;

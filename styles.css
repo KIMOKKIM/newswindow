@@ -580,6 +580,9 @@ a:hover {
     aspect-ratio: 16 / 10;
     max-height: 264px;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .headline-slide-img {

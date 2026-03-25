@@ -23,7 +23,14 @@
     .article-subtitle { font-size: 17px; color: #555; margin: 0 0 12px; white-space: pre-line; font-weight: 700; }
     .article-meta { font-size: 13px; color: #777; margin-bottom: 20px; }
     .article-body p { margin: 0 0 16px; line-height: 1.9; font-size: 16px; color: #222; }
-    .article-img { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 6px; margin: 16px 0 6px; }
+    .article-img {
+      display: block;
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin: 16px auto 6px;
+    }
     .article-cap { font-size: 13px; color: #666; margin: 0 0 14px; }
     .article-top-link { display: inline-block; margin-bottom: 12px; color: #2d7dd2; text-decoration: none; }
     .article-top-link:hover { text-decoration: underline; }
@@ -229,10 +236,11 @@
     <div class="article-footer-inner">저작권자 © 뉴스의창 무단전재 및 재배포 금지</div>
   </footer>
 
+  <script src="config.js"></script>
   <script src="script.js"></script>
   <script>
     (function () {
-      var API = 'http://127.0.0.1:3001';
+      var API = (window.NW_CONFIG && window.NW_CONFIG.API_BASE) ? window.NW_CONFIG.API_BASE : 'http://127.0.0.1:3001';
       var STORAGE_KEY = 'nw_public_article_id';
       var view = document.getElementById('articleView');
 

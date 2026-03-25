@@ -41,7 +41,8 @@
     .nw-btns { display: flex; gap: 12px; margin-top: 28px; padding-top: 24px; border-top: 1px solid #eee; flex-wrap: wrap; }
     .nw-btn { padding: 12px 24px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
     .nw-btn-draft { background: #6c757d; color: #fff; }
-    .nw-btn-spell { background: #5a6268; color: #fff; }
+    .nw-btn-spell { background: #8b4513; color: #fff; }
+    .nw-btn-spell:disabled { opacity: 0.65; cursor: not-allowed; }
     .nw-btn-preview { background: #6f42c1; color: #fff; }
     .nw-btn-complete { background: #2d7dd2; color: #fff; }
     .nw-btn-submit { background: #198754; color: #fff; }
@@ -60,6 +61,48 @@
     .preview-article .preview-img-caption { font-size: 13px; color: #666; margin: -4px 0 16px 0; line-height: 1.5; }
     .nw-form .img-caption { margin-top: 8px; }
     .nw-form .caption-preview { display: block; font-size: 13px; color: #666; margin-top: 6px; line-height: 1.5; min-height: 1.5em; }
+    /* 맞춤법 검사 모달 */
+    .spell-modal-inner { max-width: 920px; }
+    .spell-modal-inner h2 { margin: 0 0 8px; font-size: 18px; }
+    .spell-modal-intro { font-size: 13px; color: #666; margin: 0 0 16px; line-height: 1.5; }
+    .spell-status { font-size: 14px; margin-bottom: 16px; min-height: 1.4em; }
+    .spell-status.is-loading { color: #2d7dd2; }
+    .spell-status.is-ok { color: #2e7d32; }
+    .spell-status.is-err { color: #c62828; }
+    .spell-field-block { margin-bottom: 22px; border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; background: #fff; }
+    .spell-field-title { margin: 0; padding: 10px 14px; font-size: 14px; font-weight: 700; background: #f4f6f8; border-bottom: 1px solid #e8e8e8; color: #333; }
+    .spell-compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    @media (max-width: 768px) {
+      .spell-compare-row { grid-template-columns: 1fr; }
+    }
+    .spell-col { padding: 12px 14px; border-right: 1px solid #eee; min-height: 56px; }
+    .spell-compare-row .spell-col:last-child { border-right: none; }
+    .spell-col-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+    .spell-plain { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.65; color: #222; margin: 0; }
+    .spell-corrected-html { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.65; color: #222; }
+    .spell-corrected-html .spell-changed,
+    .spell-modal-inner .spell-changed { color: #c00; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+    .spell-body-block { margin-bottom: 12px; }
+    .spell-body-block:last-child { margin-bottom: 0; }
+    .spell-body-label { display: block; font-size: 12px; color: #555; margin-bottom: 6px; }
+    .spell-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #eee; }
+    .spell-actions .nw-btn-apply { padding: 10px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; background: #2d7dd2; color: #fff; }
+    .spell-actions .nw-btn-apply.secondary { background: #5c6bc0; }
+    .spell-actions .nw-btn-apply.outline { background: #fff; color: #333; border: 1px solid #ccc; }
+    .spell-actions .nw-btn-apply:hover:not(:disabled) { opacity: 0.92; }
+    .spell-actions .nw-btn-apply:disabled { opacity: 0.5; cursor: not-allowed; }
+    .spell-actions .nw-btn-apply.tertiary { background: #fff; color: #1565c0; border: 2px solid #1565c0; }
+    .spell-actions .nw-btn-apply.tertiary:hover:not(:disabled) { background: #e3f2fd; }
+    .spell-edit-panel { margin-top: 18px; border: 1px solid #cfe8fc; border-radius: 8px; background: #f8fbff; overflow: hidden; }
+    .spell-edit-panel.is-collapsed .spell-edit-fields { display: none; }
+    .spell-edit-panel-head { padding: 12px 14px; background: #e8f4fd; border-bottom: 1px solid #cfe8fc; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .spell-edit-panel-title { margin: 0; font-size: 14px; font-weight: 700; color: #0d47a1; }
+    .spell-edit-panel-hint { margin: 0; font-size: 12px; color: #455a64; line-height: 1.5; flex: 1 1 100%; order: 3; }
+    .spell-edit-fields { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .spell-edit-fields label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #37474f; }
+    .spell-edit-fields input[type="text"],
+    .spell-edit-fields textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #b0bec5; border-radius: 6px; font-size: 14px; line-height: 1.55; font-family: inherit; }
+    .spell-edit-fields textarea { min-height: 100px; resize: vertical; }
   </style>
 </head>
 <body>
@@ -133,7 +176,7 @@
       </div>
       <div class="row nw-form-row content-block">
         <label>내용 1</label>
-        <textarea id="content1" placeholder="첫 번째 본문 내용을 입력하세요"></textarea>
+        <textarea id="content1" placeholder="첫 번째 본문 내용을 입력하세요" data-article-plain-body="1"></textarea>
       </div>
 
       <div class="content-block">
@@ -151,7 +194,7 @@
       </div>
       <div class="row nw-form-row content-block">
         <label>내용 2</label>
-        <textarea id="content2" placeholder="두 번째 본문 내용을 입력하세요"></textarea>
+        <textarea id="content2" placeholder="두 번째 본문 내용을 입력하세요" data-article-plain-body="1"></textarea>
       </div>
 
       <div class="content-block">
@@ -169,13 +212,13 @@
       </div>
       <div class="row nw-form-row content-block">
         <label>내용 3</label>
-        <textarea id="content3" placeholder="세 번째 본문 내용을 입력하세요"></textarea>
+        <textarea id="content3" placeholder="세 번째 본문 내용을 입력하세요" data-article-plain-body="1"></textarea>
       </div>
 
       <div id="errorMsg" class="nw-error" style="display:none;"></div>
       <div class="nw-btns">
         <button type="button" class="nw-btn nw-btn-draft" id="btnDraft">임시저장</button>
-        <button type="button" class="nw-btn nw-btn-spell" id="btnSpell">맞춤법검사</button>
+        <button type="button" class="nw-btn nw-btn-spell" id="btnSpell">맞춤법 검사</button>
         <button type="button" class="nw-btn nw-btn-preview" id="btnPreview">미리보기</button>
         <button type="button" class="nw-btn nw-btn-complete" id="btnComplete">작성완료</button>
         <button type="button" class="nw-btn nw-btn-submit" id="btnSubmit">송고</button>
@@ -191,8 +234,57 @@
     </div>
   </div>
 
+  <div class="nw-modal" id="spellModal" aria-hidden="true">
+    <div class="nw-modal-inner spell-modal-inner">
+      <span class="nw-modal-close" id="spellModalClose" role="button" tabindex="0" aria-label="닫기">×</span>
+      <h2>맞춤법 검사 결과</h2>
+      <p class="spell-modal-intro">서버 샘플 교정(띄어쓰기·자주 틀리는 표기 일부)입니다. 운영 시 외부 맞춤법 API로 교체할 수 있습니다. 교정된 부분은 <span class="spell-changed">적색</span>으로 표시됩니다.</p>
+      <div id="spellStatus" class="spell-status" role="status"></div>
+      <div id="spellCompareRoot"></div>
+      <div id="spellEditPanel" class="spell-edit-panel is-collapsed" aria-hidden="true">
+        <div class="spell-edit-panel-head">
+          <h3 class="spell-edit-panel-title">교정문 직접 수정</h3>
+          <p class="spell-edit-panel-hint">서버가 제안한 교정문을 그대로 쓰거나, 아래에서 문장을 고친 뒤 「전체 반영」등으로 기사 입력란에 넣을 수 있습니다.</p>
+        </div>
+        <div class="spell-edit-fields">
+          <label>제목
+            <input type="text" id="spellEditTitle" autocomplete="off" />
+          </label>
+          <label>부제목
+            <input type="text" id="spellEditSubtitle" autocomplete="off" />
+          </label>
+          <div id="spellEditBodyPlainWrap">
+            <label>본문 · 내용 1
+              <textarea id="spellEditBody1" rows="4"></textarea>
+            </label>
+            <label>본문 · 내용 2
+              <textarea id="spellEditBody2" rows="4"></textarea>
+            </label>
+            <label>본문 · 내용 3
+              <textarea id="spellEditBody3" rows="4"></textarea>
+            </label>
+          </div>
+          <div id="spellEditBodyRichWrap" hidden>
+            <label>본문 (리치텍스트와 동일 한 블록)
+              <textarea id="spellEditBodyRich" rows="10"></textarea>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="spell-actions">
+        <button type="button" class="nw-btn-apply tertiary" id="spellToggleEdit">직접수정</button>
+        <button type="button" class="nw-btn-apply" id="spellApplyAll">전체 반영</button>
+        <button type="button" class="nw-btn-apply secondary" id="spellApplyTitle">제목만 반영</button>
+        <button type="button" class="nw-btn-apply secondary" id="spellApplySubtitle">부제목만 반영</button>
+        <button type="button" class="nw-btn-apply secondary" id="spellApplyBody">본문만 반영</button>
+        <button type="button" class="nw-btn-apply outline" id="spellModalCloseBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../config.js"></script>
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API = (window.NW_CONFIG && window.NW_CONFIG.API_BASE) ? window.NW_CONFIG.API_BASE : 'http://127.0.0.1:3001';
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
     const name = localStorage.getItem('name') || '';
@@ -462,9 +554,233 @@
     // 송고: 저장 성공 시 기자 대시보드로 이동
     document.getElementById('btnSubmit').addEventListener('click', (e) => { e.preventDefault(); saveArticle('pending', { redirectToDashboard: true }); });
 
-    document.getElementById('btnSpell').addEventListener('click', () => {
-      const c = document.getElementById('content1').value + document.getElementById('content2').value + document.getElementById('content3').value;
-      alert(c ? '맞춤법 검사 기능은 추후 외부 API 연동 시 활성화됩니다.' : '내용을 입력한 후 맞춤법 검사를 실행해주세요.');
+    /** 백엔드 spell-check.js 와 동일 구분자 */
+    const BODY_SECTION_DELIM = '\n<<<NW_BODY_SPLIT>>>\n';
+
+    /**
+     * 리치텍스트 본문: 나중에 contenteditable 등을 쓸 때
+     * 폼 안에 data-spell-body="1" 인 요소가 있으면 innerText 로 수집·반영합니다.
+     */
+    function getRichSpellBodyEl() {
+      return document.querySelector('#articleForm [contenteditable="true"][data-spell-body="1"]');
+    }
+
+    function collectPlainBodySections() {
+      const rich = getRichSpellBodyEl();
+      if (rich) {
+        const t = rich.innerText || '';
+        return { body: t, mode: 'richtext', richEl: rich };
+      }
+      const c1 = document.getElementById('content1').value;
+      const c2 = document.getElementById('content2').value;
+      const c3 = document.getElementById('content3').value;
+      return {
+        body: [c1, c2, c3].join(BODY_SECTION_DELIM),
+        mode: 'plain',
+        richEl: null
+      };
+    }
+
+    function collectSpellPayload() {
+      const title = document.getElementById('title').value.trim();
+      const subtitle = document.getElementById('subtitle').value.trim();
+      const { body, mode, richEl } = collectPlainBodySections();
+      return { title, subtitle, body, mode, richEl };
+    }
+
+    let lastSpellResult = null;
+    /** @type {'plain'|'richtext'} */
+    let lastSpellBodyMode = 'plain';
+
+    function spellEditPanelCollapse() {
+      const panel = document.getElementById('spellEditPanel');
+      const btn = document.getElementById('spellToggleEdit');
+      panel.classList.add('is-collapsed');
+      panel.setAttribute('aria-hidden', 'true');
+      if (btn) btn.textContent = '직접수정';
+    }
+
+    function spellEditPanelExpand() {
+      const panel = document.getElementById('spellEditPanel');
+      const btn = document.getElementById('spellToggleEdit');
+      panel.classList.remove('is-collapsed');
+      panel.setAttribute('aria-hidden', 'false');
+      if (btn) btn.textContent = '교정 비교만 보기';
+      const first = document.getElementById('spellEditTitle');
+      if (first) setTimeout(() => first.focus(), 50);
+    }
+
+    function updateSpellEditBodyLayout() {
+      const plainWrap = document.getElementById('spellEditBodyPlainWrap');
+      const richWrap = document.getElementById('spellEditBodyRichWrap');
+      const isRich = lastSpellBodyMode === 'richtext';
+      plainWrap.hidden = isRich;
+      richWrap.hidden = !isRich;
+    }
+
+    function populateSpellEditFromResult(data) {
+      if (!data) return;
+      const tEl = document.getElementById('spellEditTitle');
+      const sEl = document.getElementById('spellEditSubtitle');
+      if (tEl) tEl.value = data.title && data.title.corrected != null ? data.title.corrected : '';
+      if (sEl) sEl.value = data.subtitle && data.subtitle.corrected != null ? data.subtitle.corrected : '';
+      const parts =
+        data.body && Array.isArray(data.body.partsCorrected) ? data.body.partsCorrected : ['', '', ''];
+      updateSpellEditBodyLayout();
+      if (lastSpellBodyMode === 'richtext') {
+        const ta = document.getElementById('spellEditBodyRich');
+        if (ta) ta.value = data.body && data.body.corrected != null ? data.body.corrected : '';
+      } else {
+        const ids = ['spellEditBody1', 'spellEditBody2', 'spellEditBody3'];
+        ids.forEach((id, i) => {
+          const el = document.getElementById(id);
+          if (el) el.value = parts[i] != null ? parts[i] : '';
+        });
+      }
+    }
+
+    function setSpellStatus(text, cls) {
+      const el = document.getElementById('spellStatus');
+      el.textContent = text || '';
+      el.className = 'spell-status' + (cls ? ' ' + cls : '');
+    }
+
+    function closeSpellModal() {
+      spellEditPanelCollapse();
+      document.getElementById('spellModal').classList.remove('show');
+      document.getElementById('spellModal').setAttribute('aria-hidden', 'true');
+    }
+
+    function openSpellModal() {
+      document.getElementById('spellModal').classList.add('show');
+      document.getElementById('spellModal').setAttribute('aria-hidden', 'false');
+    }
+
+    function renderSpellCompare(data) {
+      const root = document.getElementById('spellCompareRoot');
+      if (!data) {
+        root.innerHTML = '';
+        return;
+      }
+      const block = (label, fieldKey) => {
+        const f = data[fieldKey];
+        if (!f) return '';
+        const orig = f.original != null ? f.original : '';
+        const html = f.html != null ? f.html : '';
+        return (
+          '<section class="spell-field-block">' +
+          '<h3 class="spell-field-title">' + label + (f.changed ? ' <span class="spell-changed" style="font-size:12px;">교정 있음</span>' : '') + '</h3>' +
+          '<div class="spell-compare-row">' +
+          '<div class="spell-col"><div class="spell-col-label">원문</div><pre class="spell-plain">' +
+          String(orig).replace(/&/g, '&amp;').replace(/</g, '&lt;') +
+          '</pre></div>' +
+          '<div class="spell-col"><div class="spell-col-label">교정</div><div class="spell-corrected-html">' +
+          html +
+          '</div></div></div></section>'
+        );
+      };
+      root.innerHTML =
+        block('제목', 'title') +
+        block('부제목', 'subtitle') +
+        block('본문 (내용 1 · 2 · 3)', 'body');
+    }
+
+    function applySpellToForm(which) {
+      if (!lastSpellResult) return;
+      const titleEdited = document.getElementById('spellEditTitle').value;
+      const subtitleEdited = document.getElementById('spellEditSubtitle').value;
+      if (which === 'all' || which === 'title') {
+        document.getElementById('title').value = titleEdited;
+      }
+      if (which === 'all' || which === 'subtitle') {
+        document.getElementById('subtitle').value = subtitleEdited;
+      }
+      if (which === 'all' || which === 'body') {
+        const rich = getRichSpellBodyEl();
+        if (rich) {
+          const v = document.getElementById('spellEditBodyRich').value;
+          rich.innerText = v;
+        } else {
+          const p0 = document.getElementById('spellEditBody1').value;
+          const p1 = document.getElementById('spellEditBody2').value;
+          const p2 = document.getElementById('spellEditBody3').value;
+          document.getElementById('content1').value = p0;
+          document.getElementById('content2').value = p1;
+          document.getElementById('content3').value = p2;
+        }
+      }
+      showErr('');
+      closeSpellModal();
+      alert('교정 문안을 폼에 반영했습니다. 필요 시 다시 검사해 주세요.');
+    }
+
+    document.getElementById('spellModalClose').addEventListener('click', closeSpellModal);
+    document.getElementById('spellModalCloseBtn').addEventListener('click', closeSpellModal);
+    document.getElementById('spellModal').addEventListener('click', (e) => {
+      if (e.target.id === 'spellModal') closeSpellModal();
+    });
+    document.getElementById('spellApplyAll').addEventListener('click', () => applySpellToForm('all'));
+    document.getElementById('spellApplyTitle').addEventListener('click', () => applySpellToForm('title'));
+    document.getElementById('spellApplySubtitle').addEventListener('click', () => applySpellToForm('subtitle'));
+    document.getElementById('spellApplyBody').addEventListener('click', () => applySpellToForm('body'));
+
+    document.getElementById('spellToggleEdit').addEventListener('click', () => {
+      const panel = document.getElementById('spellEditPanel');
+      if (!lastSpellResult) return;
+      if (panel.classList.contains('is-collapsed')) spellEditPanelExpand();
+      else spellEditPanelCollapse();
+    });
+
+    document.getElementById('btnSpell').addEventListener('click', async () => {
+      const btn = document.getElementById('btnSpell');
+      const { title, subtitle, body, mode } = collectSpellPayload();
+      lastSpellBodyMode = mode === 'richtext' ? 'richtext' : 'plain';
+      if (!title && !subtitle && !body.trim()) {
+        alert('제목·부제목·본문 중 최소 한 곳에 입력한 뒤 맞춤법 검사를 실행해 주세요.');
+        return;
+      }
+      setSpellStatus('검사 중입니다…', 'is-loading');
+      lastSpellResult = null;
+      document.getElementById('spellCompareRoot').innerHTML = '';
+      spellEditPanelCollapse();
+      openSpellModal();
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/api/spell-check/article`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({ title, subtitle, body })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          closeSpellModal();
+          window.location.href = 'login.html?role=reporter';
+          return;
+        }
+        if (!res.ok) {
+          setSpellStatus(data.error || '검사 요청에 실패했습니다.', 'is-err');
+          return;
+        }
+        lastSpellResult = data;
+        renderSpellCompare(data);
+        populateSpellEditFromResult(data);
+        const any =
+          (data.title && data.title.changed) ||
+          (data.subtitle && data.subtitle.changed) ||
+          (data.body && data.body.changed);
+        if (any) {
+          setSpellStatus('교정 제안이 있습니다. 아래를 확인한 뒤 반영 범위를 선택하세요.', 'is-ok');
+        } else {
+          setSpellStatus('샘플 규칙 기준으로 추가 교정 사항이 없습니다. (입력하신 문장 그대로입니다.)', 'is-ok');
+        }
+      } catch (e) {
+        setSpellStatus('서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인해 주세요.', 'is-err');
+      } finally {
+        btn.disabled = false;
+      }
     });
   </script>
 </body>

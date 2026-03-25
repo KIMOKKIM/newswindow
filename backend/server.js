@@ -7,6 +7,7 @@ import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
+import { spellCheckRouter } from './routes/spell-check.js';
 import { db } from './db/db.js';
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/articles', articlesRouter);
 app.use('/api/ads', adsRouter);
+app.use('/api/spell-check', spellCheckRouter);
 
 async function start() {
   const hash = await bcrypt.hash('teomok$123', 10);

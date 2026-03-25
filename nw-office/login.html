@@ -36,8 +36,9 @@
     <div class="nw-back"><a href="index.html">← 스태프 선택으로 돌아가기</a></div>
   </div>
 
+  <script src="../config.js"></script>
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API = (window.NW_CONFIG && window.NW_CONFIG.API_BASE) ? window.NW_CONFIG.API_BASE : 'http://127.0.0.1:3001';
     const params = new URLSearchParams(location.search);
     const role = params.get('role');
 

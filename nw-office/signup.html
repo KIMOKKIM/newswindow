@@ -124,8 +124,9 @@
     <div class="nw-back"><a href="index.html">← 스태프 선택으로 돌아가기</a></div>
   </div>
 
+  <script src="../config.js"></script>
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API = (window.NW_CONFIG && window.NW_CONFIG.API_BASE) ? window.NW_CONFIG.API_BASE : 'http://127.0.0.1:3001';
     const params = new URLSearchParams(location.search);
     const roleParam = params.get('role');
 
@@ -316,7 +317,7 @@
           alert(msg);
           window.location.href = `login.html?role=${roleParam}`;
         } catch (e) {
-          err.textContent = '서버에 연결할 수 없습니다. (백엔드 실행 여부 확인: http://127.0.0.1:3001) - ' + (e.message || String(e));
+          err.textContent = '서버에 연결할 수 없습니다. (백엔드 실행 여부 확인: ' + API + ') - ' + (e.message || String(e));
           err.style.display = 'block';
         }
       });
