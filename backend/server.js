@@ -68,8 +68,18 @@ async function start() {
       .run('admin1', hash, '관리자', 'admin@newswindow.kr', 'admin');
     console.log('Seed: 관리자 admin1 created');
   }
-  app.listen(PORT, () => {
+  
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Backend running at http://127.0.0.1:${PORT}`);
+  });
+  
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is in use, trying to kill existing process...`);
+      process.exit(1);
+    } else {
+      throw err;
+    }
   });
 }
 start();
