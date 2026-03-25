@@ -1,10 +1,31 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { db } from '../db/db.js';
 
 export const authRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
+
+// 간단한 토큰 생성 (jsonwebtoken 없이)
+function createToken(payload) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 })).toString('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${signature}`;
+}
+
+function verifyToken(token) {
+  try {
+    const [header, body, signature] = token.split('.');
+    const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+    if (signature !== expectedSig) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 authRouter.post('/login', (req, res) => {
   try {
@@ -20,10 +41,8 @@ authRouter.post('/login', (req, res) => {
     if (!ok) {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
-    const token = jwt.sign(
-      { id: row.id, userid: row.userid, role: row.role, name: row.name },
-      JWT_SECRET,
-      { expiresIn: '7d' }
+    const token = createToken(
+      { id: row.id, userid: row.userid, role: row.role, name: row.name }
     );
     res.json({ accessToken: token, role: row.role, name: row.name });
   } catch (e) {
@@ -58,3 +77,5 @@ authRouter.post('/signup', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+export { verifyToken };
