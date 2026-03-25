@@ -43,6 +43,11 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
+// 루트 경로에서 index.html 제공
+app.get('/', (req, res) => {
+  res.sendFile(path.join(projectRoot, 'index.html'));
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/articles', articlesRouter);
