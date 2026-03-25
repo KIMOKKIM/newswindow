@@ -1,34 +1,240 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>기사 보기 - 뉴스의 창</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
   <style>
-    .article-wrap { max-width: 960px; margin: 24px auto 48px; background:#fff; padding: 24px; border:1px solid #e6e6e6; border-radius: 8px; }
+    /* 카테고리(네비) 아래 기사 영역 + 하단 고정 저작권 바 여백 */
+    body.article-page { padding-bottom: 52px; }
+    .article-detail-main { padding-top: 8px; padding-bottom: 32px; }
+    .article-detail-inner { max-width: 960px; margin: 0 auto; }
+    .article-wrap {
+      background: #fff;
+      padding: 24px;
+      border: 1px solid #e6e6e6;
+      border-radius: 8px;
+    }
     .article-title { font-size: 30px; line-height: 1.35; margin: 0 0 8px; }
-    .article-subtitle { font-size: 17px; color:#555; margin: 0 0 12px; white-space: pre-line; font-weight:700; }
-    .article-meta { font-size: 13px; color:#777; margin-bottom: 20px; }
-    .article-body p { margin: 0 0 16px; line-height: 1.9; font-size: 16px; color:#222; }
-    .article-img { display:block; width:100%; max-width:100%; height:auto; border-radius:6px; margin: 16px 0 6px; }
-    .article-cap { font-size:13px; color:#666; margin: 0 0 14px; }
-    .article-top-link { display:inline-block; margin-bottom: 12px; color:#2d7dd2; text-decoration:none; }
-    .article-top-link:hover { text-decoration:underline; }
+    .article-subtitle { font-size: 17px; color: #555; margin: 0 0 12px; white-space: pre-line; font-weight: 700; }
+    .article-meta { font-size: 13px; color: #777; margin-bottom: 20px; }
+    .article-body p { margin: 0 0 16px; line-height: 1.9; font-size: 16px; color: #222; }
+    .article-img { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 6px; margin: 16px 0 6px; }
+    .article-cap { font-size: 13px; color: #666; margin: 0 0 14px; }
+    .article-top-link { display: inline-block; margin-bottom: 12px; color: #2d7dd2; text-decoration: none; }
+    .article-top-link:hover { text-decoration: underline; }
+    .article-fixed-footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+      background: #1f1f1f;
+      color: #fff;
+      border-top: 1px solid #3d3d3d;
+    }
+    .article-footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 10px 16px;
+      font-size: 14px;
+      text-align: center;
+      letter-spacing: 0.1px;
+    }
   </style>
 </head>
-<body>
-  <div class="article-wrap">
-    <a class="article-top-link" href="/index.html">← 메인으로</a>
-    <article id="articleView">
-      <h1 class="article-title">기사 불러오는 중...</h1>
-    </article>
+<body class="article-page">
+  <div class="page-wrapper">
+    <aside class="side-ad side-ad-left" aria-label="좌측 광고">
+      <div class="side-ad-stack">
+        <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 1</span></a></div>
+        <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a1" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img1" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 2</span></a></div>
+        <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a2" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img2" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 3</span></a></div>
+        <div class="side-ad-card side-ad-card--tall"><a href="#" id="sideAdL_a3" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img3" class="side-ad-img side-ad-img--stack" alt="" width="160" height="220" decoding="async" hidden><span class="side-ad-ph">광고 4</span></a></div>
+      </div>
+    </aside>
+
+    <div class="page-center">
+      <div class="top-header-bar">
+        <div class="container top-header-inner">
+          <span class="top-header-date" id="topHeaderDate">UPDATED: 2026-02-27 10:01 (금)</span>
+          <nav class="top-header-links">
+            <a href="index.html">HOME</a>
+            <span class="top-header-sep">|</span>
+            <a href="#">전체기사</a>
+            <span class="top-header-sep">|</span>
+            <a href="nw-office/index.html">스태프(기자/편집장/관리자) 로그인</a>
+            <span class="top-header-sep">|</span>
+            <a href="signup.html">회원가입</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="logo-section">
+        <div class="container logo-section-inner">
+          <a id="headerAdLeftLink" href="https://www.nonghyup.com/main/psniMain.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-left" title="NH농협 - 아침밥이 보약!">
+            <img id="headerAdLeftImg" src="./images/nonghyup-banner.png" alt="NH농협 아침밥이 보약! 아침부터 활약!" class="partner-banner-img" width="250" height="101">
+          </a>
+          <a href="index.html" class="logo-block">
+            <img src="./images/logo-header-tight.png" alt="뉴스의 창 - 정론 · 직필 · 신속 KOREA PRESS" class="logo-img">
+          </a>
+          <a id="headerAdRightLink" href="https://council.chungbuk.kr/kr/main.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-right" title="충청북도의회 - 함께하는 충청북도의회">
+            <img id="headerAdRightImg" src="./images/chungbuk-council-banner.png" alt="충청북도의회 - 165만 도민의 오늘을 담고 내일을 만들어 가겠습니다" class="partner-banner-img" width="250" height="101">
+          </a>
+        </div>
+      </div>
+
+      <header class="header nav-bar">
+        <div class="container header-inner">
+          <button type="button" class="menu-btn nav-menu-btn" aria-label="메뉴 열기" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
+          <nav class="nav" aria-label="주 메뉴">
+            <ul class="nav-list">
+              <li class="nav-has-dropdown">
+                <a href="#">정치</a>
+                <ul class="nav-dropdown">
+                  <li><a href="#">최신기사</a></li>
+                  <li><a href="#">지방자치</a></li>
+                  <li><a href="#">외교</a></li>
+                  <li><a href="#">북한</a></li>
+                </ul>
+              </li>
+              <li class="nav-has-dropdown">
+                <a href="#">경제</a>
+                <ul class="nav-dropdown">
+                  <li><a href="#">금융</a></li>
+                  <li><a href="#">부동산</a></li>
+                  <li><a href="#">AI/IT</a></li>
+                  <li><a href="#">자동차</a></li>
+                </ul>
+              </li>
+              <li class="nav-has-dropdown">
+                <a href="#">사회</a>
+                <ul class="nav-dropdown">
+                  <li><a href="#">시사</a></li>
+                  <li><a href="#">건강/의료</a></li>
+                  <li><a href="#">교육</a></li>
+                  <li><a href="#">리조트&테마</a></li>
+                </ul>
+              </li>
+              <li class="nav-has-dropdown">
+                <a href="#">문화</a>
+                <ul class="nav-dropdown">
+                  <li><a href="#">대중음악</a></li>
+                  <li><a href="#">행사&공연</a></li>
+                  <li><a href="#">갤러리</a></li>
+                  <li><a href="#">문학</a></li>
+                </ul>
+              </li>
+              <li class="nav-has-dropdown">
+                <a href="#">전국</a>
+                <ul class="nav-dropdown">
+                  <li><a href="#">서울</a></li>
+                  <li><a href="#">경기</a></li>
+                  <li><a href="#">강원</a></li>
+                  <li><a href="#">충청</a></li>
+                  <li><a href="#">영남</a></li>
+                  <li><a href="#">호남</a></li>
+                  <li><a href="#">제주</a></li>
+                </ul>
+              </li>
+              <li class="nav-has-dropdown">
+                <a href="#">이슈</a>
+                <ul class="nav-dropdown">
+                  <li><a href="#">연예&스포츠</a></li>
+                  <li><a href="#">뷰티</a></li>
+                  <li><a href="#">여행&음식</a></li>
+                </ul>
+              </li>
+              <li><a href="#">국제</a></li>
+              <li><a href="#">칼럼</a></li>
+              <li><a href="#" class="nav-highlight">포토뉴스&영상</a></li>
+            </ul>
+          </nav>
+          <div class="header-actions">
+            <button type="button" class="search-icon-btn" aria-label="기사 검색">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- 카테고리(네비) 하단: 기사 본문만 표시 -->
+      <main class="main container article-detail-main">
+        <div class="article-detail-inner">
+          <div class="article-wrap">
+            <a class="article-top-link" href="index.html">← 메인으로</a>
+            <article id="articleView">
+              <h1 class="article-title">기사 불러오는 중...</h1>
+            </article>
+          </div>
+        </div>
+      </main>
+
+      <section class="footer-ad-section" aria-label="스폰서 배너">
+        <div class="footer-ad-wrap">
+          <div class="footer-ad-track" id="footerAdTrack"></div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="footer-links">
+          <div class="container" style="display:flex;gap:18px;flex-wrap:wrap;">
+            <a href="info.html?page=company">신문사소개</a>
+            <a href="info.html?page=report">기사제보</a>
+            <a href="info.html?page=ads">광고문의</a>
+            <a href="info.html?page=complaint">불편신고</a>
+            <a href="info.html?page=privacy">개인정보취급방침</a>
+            <a href="info.html?page=youth">청소년보호정책</a>
+            <a href="info.html?page=email">이메일무단수집거부</a>
+            <a href="info.html?page=rss">RSS</a>
+          </div>
+        </div>
+        <div class="footer-info container">
+          <div class="footer-logo-wrap">
+            <img src="./images/logo-header-tight.png" alt="뉴스의 창 로고" class="footer-company-logo" width="250" height="100">
+          </div>
+          <div class="footer-text-wrap">
+            <p class="footer-brand">뉴스의 창 회사소개</p>
+            <address>
+              서울시 서초구 양재대로2길 22-16 호반파크1관<br>
+              대표전화 : 02-2168-9200<br>
+              등록번호 : 서울 아04494 | 등록일자 : 2017년 04월 27일<br>
+              사업자명 : 전자신문인터넷 | 사업자번호 : 107-81-80959<br>
+              발행인·편집인 : 장경욱 | 청소년보호책임자 : 김태권
+            </address>
+            <p class="footer-copyright-notice">뉴스의 창의 모든 기사(콘텐츠)는 저작권법의 보호를 받습니다. 또한 무단 배포 복사 전재 등을 금지합니다.</p>
+            <p class="copyright">Copyright by 뉴스의 창 All rights reserved.</p>
+            <p class="footer-note">본지는 신문윤리강령 및 그 실천 요강을 준수하며, 제휴기사 등 일부 내용은 본지의 공식 견해와 다를 수 있습니다.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <aside class="side-ad side-ad-right" aria-label="우측 광고">
+      <div class="side-ad-stack">
+        <div class="side-ad-card side-ad-card--sky"><a href="#" id="sideAdR_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="400" decoding="async" hidden><span class="side-ad-ph">스카이 배너</span></a></div>
+        <div class="side-ad-card side-ad-card--short"><a href="#" id="sideAdR_a1" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img1" class="side-ad-img side-ad-img--stack" alt="" width="160" height="90" decoding="async" hidden><span class="side-ad-ph">광고</span></a></div>
+        <div class="side-ad-card side-ad-card--short"><a href="#" id="sideAdR_a2" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img2" class="side-ad-img side-ad-img--stack" alt="" width="160" height="90" decoding="async" hidden><span class="side-ad-ph">광고</span></a></div>
+      </div>
+    </aside>
   </div>
+
+  <footer class="article-fixed-footer" aria-label="기사 저작권 고지">
+    <div class="article-footer-inner">저작권자 © 뉴스의창 무단전재 및 재배포 금지</div>
+  </footer>
+
+  <script src="script.js"></script>
   <script>
     (function () {
-      const API = 'http://127.0.0.1:3001';
-      const STORAGE_KEY = 'nw_public_article_id';
-      const view = document.getElementById('articleView');
+      var API = 'http://127.0.0.1:3001';
+      var STORAGE_KEY = 'nw_public_article_id';
+      var view = document.getElementById('articleView');
 
       function esc(s) {
         return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -36,58 +242,83 @@
       function para(t) {
         return esc(t).replace(/\n/g, '</p><p>');
       }
+      function authorLabel(name) {
+        var n = String(name || '').trim();
+        if (!n) return '기자';
+        return /기자$/.test(n) ? n : (n + ' 기자');
+      }
+      function formatKstDateTime(str) {
+        if (!str) return '';
+        var base = String(str).trim();
+        var d = new Date(base);
+        if (isNaN(d.getTime())) {
+          d = new Date(base.replace(' ', 'T') + 'Z');
+        }
+        if (isNaN(d.getTime())) return base;
+        return d.toLocaleString('ko-KR', {
+          timeZone: 'Asia/Seoul',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(/\./g, '.').replace(/\s+/g, ' ').trim();
+      }
 
-      /** 일부 로컬 서버가 /article.html?id= → /article 로만 넘기며 쿼리를 버림 → 해시·sessionStorage로 보완 */
       function resolveArticleId() {
         try {
-          const q = new URLSearchParams(location.search).get('id');
+          var q = new URLSearchParams(location.search).get('id');
           if (q != null && String(q).trim() !== '') return String(q).trim();
         } catch (e) {}
-        const raw = (location.hash || '').replace(/^#/, '').trim();
+        var raw = (location.hash || '').replace(/^#/, '').trim();
         if (raw) {
           if (/^id=/i.test(raw)) {
-            const v = raw.replace(/^id=/i, '').trim();
+            var v = raw.replace(/^id=/i, '').trim();
             if (v) return v;
           }
-          const m = raw.match(/^(\d+)$/);
+          var m = raw.match(/^(\d+)$/);
           if (m) return m[1];
         }
         try {
-          const s = sessionStorage.getItem(STORAGE_KEY);
+          var s = sessionStorage.getItem(STORAGE_KEY);
           if (s != null && String(s).trim() !== '') return String(s).trim();
         } catch (e) {}
         return '';
       }
 
-      const id = resolveArticleId();
+      var id = resolveArticleId();
+      if (!view) return;
       if (!id) {
         view.innerHTML = '<h1 class="article-title">잘못된 접근입니다.</h1>';
         return;
       }
 
       fetch(API + '/api/articles/public/' + encodeURIComponent(id))
-        .then(async (res) => {
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || '기사를 불러오지 못했습니다.');
-          return data;
+        .then(function (res) {
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error(data.error || '기사를 불러오지 못했습니다.');
+            return data;
+          });
         })
-        .then((a) => {
+        .then(function (a) {
           try {
             sessionStorage.removeItem(STORAGE_KEY);
           } catch (e) {}
-          const parts = [];
+          var parts = [];
           parts.push('<h1 class="article-title">' + esc(a.title || '(제목 없음)') + '</h1>');
           if (a.subtitle) parts.push('<p class="article-subtitle">' + esc(a.subtitle) + '</p>');
-          parts.push('<p class="article-meta">' + esc(a.category || '뉴스') + ' | ' + esc(a.author_name || '기자') + ' | ' + esc((a.created_at || '').slice(0, 10)) + '</p>');
+          parts.push('<p class="article-meta">' + esc(a.category || '뉴스') + ' | ' + esc(authorLabel(a.author_name)) + ' | ' + esc(formatKstDateTime(a.created_at)) + '</p>');
           parts.push('<div class="article-body">');
-          const block = (img, cap, content) => {
+          function block(img, cap, content) {
             if (img) {
-              const src = String(img).startsWith('data:') ? img : ('data:image/jpeg;base64,' + img);
+              var src = String(img).startsWith('data:') ? img : ('data:image/jpeg;base64,' + img);
               parts.push('<img class="article-img" src="' + src + '" alt="">');
             }
             if (cap) parts.push('<p class="article-cap">' + esc(cap) + '</p>');
             if (content) parts.push('<p>' + para(content) + '</p>');
-          };
+          }
           block(a.image1, a.image1_caption, a.content1);
           block(a.image2, a.image2_caption, a.content2);
           block(a.image3, a.image3_caption, a.content3);
@@ -97,7 +328,7 @@
           parts.push('</div>');
           view.innerHTML = parts.join('');
         })
-        .catch((e) => {
+        .catch(function (e) {
           try {
             sessionStorage.removeItem(STORAGE_KEY);
           } catch (err) {}
