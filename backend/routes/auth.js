@@ -37,8 +37,9 @@ authRouter.post('/signup', async (req, res) => {
     if (!userid || !password || !name || !email || !role) {
       return res.status(400).json({ error: 'userid, password, name, email, role 필수' });
     }
-    if (!['reporter', 'editor_in_chief'].includes(role)) {
-      return res.status(400).json({ error: 'role은 reporter 또는 editor_in_chief만 허용' });
+    // Allow creating reporter/editor plus regular member and child accounts
+    if (!['reporter', 'editor_in_chief', 'member', 'child'].includes(role)) {
+      return res.status(400).json({ error: 'role은 reporter, editor_in_chief, member 또는 child 중 하나여야 합니다.' });
     }
     const exists = db.prepare('SELECT id FROM users WHERE userid = ?').get(userid);
     if (exists) {
