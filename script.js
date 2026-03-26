@@ -83,11 +83,17 @@ function applyHeaderAds(ads) {
     var rightLink = document.getElementById('headerAdRightLink');
     if (ads.headerLeft && leftImg && leftLink) {
         if (ads.headerLeft.src) leftImg.src = ads.headerLeft.src;
-        leftLink.href = ads.headerLeft.href || '#';
+        var lh = (ads.headerLeft.href || '#').toString().trim().replace(/^#+/, '');
+        leftLink.href = lh || '#';
+        leftLink.target = '_blank';
+        leftLink.rel = 'noopener noreferrer';
     }
     if (ads.headerRight && rightImg && rightLink) {
         if (ads.headerRight.src) rightImg.src = ads.headerRight.src;
-        rightLink.href = ads.headerRight.href || '#';
+        var rh = (ads.headerRight.href || '#').toString().trim().replace(/^#+/, '');
+        rightLink.href = rh || '#';
+        rightLink.target = '_blank';
+        rightLink.rel = 'noopener noreferrer';
     }
 }
 
