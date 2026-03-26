@@ -134,7 +134,12 @@ function setSideStackSlot(prefix, index, item) {
     var ph = card ? card.querySelector('.side-ad-ph') : null;
     var src = item && item.src ? String(item.src).trim() : '';
     var href = item && item.href ? String(item.href).trim() : '#';
-    if (a) a.href = href || '#';
+    if (a) {
+        var ah = (href || '#').toString().trim().replace(/^#+/, '');
+        a.href = ah || '#';
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+    }
     if (!img || !card) return;
     if (src) {
         img.onerror = function () {
