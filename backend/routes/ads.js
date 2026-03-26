@@ -113,6 +113,29 @@ adsRouter.put('/', authMiddleware, (req, res) => {
     while (current.sideRightStack.length < 3) current.sideRightStack.push({ src: '', href: '#' });
   }
   if (Array.isArray(body.footer)) current.footer = body.footer;
+  // Normalize hrefs saved by admin: remove accidental leading hashes
+  try {
+    function normHref(h) {
+      if (!h) return '#';
+      let s = String(h).trim();
+      // strip leading hashes or whitespace
+      s = s.replace(/^#+/, '');
+      return s || '#';
+    }
+    if (current.headerLeft) current.headerLeft.href = normHref(current.headerLeft.href);
+    if (current.headerRight) current.headerRight.href = normHref(current.headerRight.href);
+    if (current.sideLeft) current.sideLeft.href = normHref(current.sideLeft.href);
+    if (current.sideRight) current.sideRight.href = normHref(current.sideRight.href);
+    if (Array.isArray(current.sideLeftStack)) {
+      current.sideLeftStack = current.sideLeftStack.map(x => ({ src: x.src || '', href: normHref(x.href) }));
+    }
+    if (Array.isArray(current.sideRightStack)) {
+      current.sideRightStack = current.sideRightStack.map(x => ({ src: x.src || '', href: normHref(x.href) }));
+    }
+    if (Array.isArray(current.footer)) {
+      current.footer = current.footer.map(f => ({ ...f, href: normHref(f.href) }));
+    }
+  } catch (e) {}
   saveAds(current);
   res.json(normalizeAdsResponse(current));
 });
