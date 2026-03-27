@@ -1,6 +1,6 @@
 {
   "headerLeft": {
-    "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414379515-4w5yo6.png",
+    "src": "/uploads/ads/ad-1774414379515-4w5yo6.png",
     "href": "https://www.nonghyup.com/main/psniMain.do"
   },
   "headerRight": {
@@ -8,20 +8,20 @@
     "href": "https://council.chungbuk.kr/kr/main.do"
   },
   "sideLeft": {
-    "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414305598-39cjes.png",
+    "src": "/uploads/ads/ad-1774414305598-39cjes.png",
     "href": "https://www.at.or.kr/home/apko000000/index.action"
   },
   "sideRight": {
-    "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414170120-lanrh7.png",
+    "src": "/uploads/ads/ad-1774414170120-lanrh7.png",
     "href": "https://www.andong.go.kr/"
   },
   "sideLeftStack": [
     {
-      "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414305598-39cjes.png",
+      "src": "/uploads/ads/ad-1774414305598-39cjes.png",
       "href": "https://www.at.or.kr/home/apko000000/index.action"
     },
     {
-      "src": "http://127.0.0.1:3001/uploads/ads/ad-1774418622149-vcybpx.gif",
+      "src": "/uploads/ads/ad-1774418622149-vcybpx.gif",
       "href": "https://www.coupang.com/"
     },
     {
@@ -29,13 +29,13 @@
       "href": "#"
     },
     {
-      "src": "",
-      "href": "#"
+      "src": "/uploads/ads/ad-1774540771056-1854r6.gif",
+      "href": "https://news.samsung.com/kr/"
     }
   ],
   "sideRightStack": [
     {
-      "src": "http://127.0.0.1:3001/uploads/ads/ad-1774414170120-lanrh7.png",
+      "src": "/uploads/ads/ad-1774414170120-lanrh7.png",
       "href": "https://www.andong.go.kr/"
     },
     {
@@ -50,45 +50,45 @@
   "footer": [
     {
       "id": 1,
-      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774414455436-e32zhb.png",
+      "image": "/uploads/ads/ad-1774414455436-e32zhb.png",
       "alt": "인천광역시",
       "href": "https://www.seo.incheon.kr/open_content/main/"
     },
     {
       "id": 2,
-      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774416282307-v4bufq.png",
+      "image": "/uploads/ads/ad-1774416282307-v4bufq.png",
       "alt": "서울특별시",
       "href": "https://www.seoul.go.kr/main/index.jsp"
     },
     {
       "id": 3,
-      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774416448780-nnsk1j.png",
+      "image": "/uploads/ads/ad-1774416448780-nnsk1j.png",
       "alt": "경기도",
       "href": "https://www.gg.go.kr/"
     },
     {
       "id": 4,
-      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774414558240-06sizg.png",
+      "image": "/uploads/ads/ad-1774414558240-06sizg.png",
       "alt": "국회",
       "href": "https://www.assembly.go.kr/portal/main/main.do"
     },
     {
       "id": 5,
-      "image": "http://127.0.0.1:3001/uploads/ads/ad-1774416628409-1lrry0.png",
+      "image": "/uploads/ads/ad-1774416628409-1lrry0.png",
       "alt": "부평",
       "href": "https://www.icbp.go.kr/main/"
     },
     {
       "id": 6,
-      "image": "/ads/ad6.png",
+      "image": "/uploads/ads/ad-1774540000726-33tlsq.png",
       "alt": "제주특별자치도",
-      "href": "#"
+      "href": "https://www.jeju.go.kr/index.htm"
     },
     {
       "id": 7,
-      "image": "/ads/ad7.png",
+      "image": "/uploads/ads/ad-1774540128736-1eho5j.png",
       "alt": "세종특별자치시",
-      "href": "#"
+      "href": "https://www.sejong.go.kr/index.jsp"
     }
   ]
 }
