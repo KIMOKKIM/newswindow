@@ -425,25 +425,20 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(function () {});
 
-    // 많이 본 기사: 최근 30일 이내, 조회수 상위
+    // 많이 본 기사: 최근 30일 이내, 조회수 상위 (리스트만 5개)
     (function fetchMostViewed() {
         var listEl = document.querySelector('.rank-list');
         if (!listEl) return;
-        fetch(ADS_API + '/api/articles/public/most-viewed?days=30&limit=6')
+        fetch(ADS_API + '/api/articles/public/most-viewed?days=30&limit=5')
             .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
             .then(function (items) {
                 if (!Array.isArray(items) || items.length === 0) {
                     // leave existing static content or show placeholder
                     return;
                 }
-                var html = items.map(function (a, idx) {
-                    var d = a.created_at ? String(a.created_at).slice(0,10) : '';
+                var html = items.map(function (a) {
                     var title = (a.title || '제목 준비중');
-                    var views = (typeof a.view_count === 'number') ? a.view_count : (a.view_count ? Number(a.view_count) : 0);
-                    return '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + cleanBrokenKoreanText(title) + '</a>' +
-                      '<span class=\"date\">' + d + '</span>' +
-                      '<span class=\"views\" style=\"float:right;color:#999;font-size:12px;\">조회 ' + views.toLocaleString() + '</span>' +
-                      '</li>';
+                    return '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + cleanBrokenKoreanText(title) + '</a></li>';
                 }).join('');
                 listEl.innerHTML = html;
             })
