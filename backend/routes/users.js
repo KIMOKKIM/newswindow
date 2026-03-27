@@ -88,6 +88,17 @@ usersRouter.get('/', authMiddleware, (req, res) => {
   return res.status(403).json({ error: '권한 없음' });
 });
 
+// GET /api/users/members — 관리자 또는 편집장 전용: 일반회원/어린이회원 목록
+usersRouter.get('/members', authMiddleware, (req, res) => {
+  if (req.user.role === 'admin' || req.user.role === 'editor_in_chief') {
+    const rows = db.prepare(
+      'SELECT id, userid, name, email, role, created_at FROM users WHERE role IN (?, ?) ORDER BY created_at DESC'
+    ).all('member', 'child');
+    return res.json(rows);
+  }
+  return res.status(403).json({ error: '권한 없음' });
+});
+
 // PATCH /api/users/:id — 관리자 전용 역할 변경
 usersRouter.patch('/:id', authMiddleware, adminOnly, (req, res) => {
   const { id } = req.params;

@@ -45,6 +45,7 @@
       <h1 class="nw-title">편집장 대시보드</h1>
       <div style="display:flex; align-items:center; gap:12px;">
         <a href="ad-dashboard.html" class="nw-logout" id="adManageLink" style="text-decoration:underline; display:none;">광고 관리</a>
+        <button id="manageMembersBtn" style="background:#2d7dd2;color:#fff;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;">회원관리</button>
         <span class="nw-logout" id="logout">로그아웃</span>
       </div>
     </div>
@@ -75,6 +76,18 @@
       <span class="nw-modal-close" id="previewModalClose">×</span>
       <h2 style="margin:0 0 20px;">기사 내용 보기</h2>
       <div class="preview-article" id="previewContent"></div>
+    </div>
+  </div>
+
+  <!-- Members modal -->
+  <div class="nw-modal" id="membersModal">
+    <div class="nw-modal-inner">
+      <span class="nw-modal-close" id="membersModalClose">×</span>
+      <h2 style="margin:0 0 12px;">회원 리스트 (일반/어린이)</h2>
+      <table class="nw-table" style="margin-top:8px;">
+        <thead><tr><th>ID</th><th>이름</th><th>이메일</th><th>아이디</th><th>역할</th><th>가입일</th></tr></thead>
+        <tbody id="membersList"></tbody>
+      </table>
     </div>
   </div>
 
@@ -263,6 +276,42 @@
     document.getElementById('previewModal').addEventListener('click', (e) => {
       if (e.target.id === 'previewModal') e.target.classList.remove('show');
     });
+
+    // Members modal handlers
+    const manageBtn = document.getElementById('manageMembersBtn');
+    if (manageBtn) {
+      manageBtn.addEventListener('click', () => {
+        loadMembers();
+        document.getElementById('membersModal').classList.add('show');
+      });
+    }
+    document.getElementById('membersModalClose').addEventListener('click', () => {
+      document.getElementById('membersModal').classList.remove('show');
+    });
+    document.getElementById('membersModal').addEventListener('click', (e) => {
+      if (e.target.id === 'membersModal') e.target.classList.remove('show');
+    });
+
+    async function loadMembers() {
+      try {
+        const res = await fetch(`${API}/api/users/members`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401 || res.status === 403) { alert('권한이 없습니다.'); return; }
+        const list = await res.json().catch(()=>[]);
+        const tbody = document.getElementById('membersList');
+        tbody.innerHTML = Array.isArray(list) && list.length ? list.map(u => `
+          <tr>
+            <td>${u.id}</td>
+            <td>${u.name || '-'}</td>
+            <td>${u.email || '-'}</td>
+            <td>${u.userid || '-'}</td>
+            <td>${u.role || '-'}</td>
+            <td>${u.created_at ? u.created_at.slice(0,10) : ''}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="6">회원이 없습니다.</td></tr>';
+      } catch (e) {
+        alert('회원 목록을 불러오는 중 오류가 발생했습니다.');
+      }
+    }
 
     loadReporters();
     loadArticles();
