@@ -65,7 +65,7 @@
       <h2>기사리스트</h2>
       <table class="nw-table">
         <thead>
-          <tr><th>번호</th><th>제목</th><th>작성자</th><th>상태</th><th>조회수</th><th>등록일</th><th>편집장 승인/반려</th></tr>
+          <tr><th>번호</th><th>제목</th><th>작성자</th><th>상태</th><th>조회수</th><th>승인/반려</th><th>등록일</th></tr>
         </thead>
         <tbody id="articleList"></tbody>
       </table>
@@ -147,10 +147,10 @@
             <td>${a.author_name || '-'}</td>
             <td>${statusText}</td>
             <td>${views.toLocaleString()}</td>
-            <td>${a.created_at ? formatToKST(a.created_at) : ''}</td>
             <td>
               ${canAct ? `<button type="button" class="btn-approve" data-id="${a.id}">승인</button><button type="button" class="btn-reject" data-id="${a.id}">반려</button>` : '-'}
             </td>
+            <td>${a.created_at ? formatToKST(a.created_at) : ''}</td>
           </tr>
         `}).join('');
 
