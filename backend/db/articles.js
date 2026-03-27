@@ -12,10 +12,22 @@ if (fs.existsSync(articlesPath)) {
   } catch {}
 }
 if (!Array.isArray(articles)) articles = [];
-// migration: ensure view_count exists and is integer
+// migration: ensure view_count exists and is integer; persist if we modified records
+let _migrated = false;
 for (let i = 0; i < articles.length; i++) {
-  if (articles[i].view_count == null) articles[i].view_count = 0;
-  else articles[i].view_count = Number(articles[i].view_count) || 0;
+  if (articles[i].view_count == null) {
+    articles[i].view_count = 0;
+    _migrated = true;
+  } else {
+    const v = Number(articles[i].view_count) || 0;
+    if (v !== articles[i].view_count) {
+      articles[i].view_count = v;
+      _migrated = true;
+    }
+  }
+}
+if (_migrated) {
+  try { fs.writeFileSync(articlesPath, JSON.stringify(articles, null, 2), 'utf8'); } catch (e) {}
 }
 
 function save() {
