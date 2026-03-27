@@ -65,7 +65,7 @@
       <h2>기사리스트</h2>
       <table class="nw-table">
         <thead>
-          <tr><th>번호</th><th>제목</th><th>작성자</th><th>상태</th><th>등록일</th><th>편집장 승인/반려</th></tr>
+          <tr><th>번호</th><th>제목</th><th>작성자</th><th>상태</th><th>조회수</th><th>등록일</th><th>편집장 승인/반려</th></tr>
         </thead>
         <tbody id="articleList"></tbody>
       </table>
@@ -135,16 +135,18 @@
       const articles = await res.json();
       const tbody = document.getElementById('articleList');
       tbody.innerHTML = articles.length === 0
-        ? '<tr><td colspan="6">등록된 기사가 없습니다.</td></tr>'
+        ? '<tr><td colspan="7">등록된 기사가 없습니다.</td></tr>'
         : articles.map(a => {
           const statusText = a.status === 'published' ? '게시' : a.status === 'rejected' ? '반려' : a.status === 'draft' ? '임시저장' : '승인대기';
           const canAct = a.status !== 'published' && a.status !== 'rejected';
+          const views = (typeof a.view_count === 'number') ? a.view_count : (a.view_count ? Number(a.view_count) : 0);
           return `
           <tr data-id="${a.id}">
             <td>${a.id}</td>
             <td><a href="#" class="article-title-link" data-id="${a.id}">${a.title || '-'}</a></td>
             <td>${a.author_name || '-'}</td>
             <td>${statusText}</td>
+            <td>${views.toLocaleString()}</td>
             <td>${a.created_at ? formatToKST(a.created_at) : ''}</td>
             <td>
               ${canAct ? `<button type="button" class="btn-approve" data-id="${a.id}">승인</button><button type="button" class="btn-reject" data-id="${a.id}">반려</button>` : '-'}

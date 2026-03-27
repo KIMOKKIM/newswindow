@@ -12,6 +12,11 @@ if (fs.existsSync(articlesPath)) {
   } catch {}
 }
 if (!Array.isArray(articles)) articles = [];
+// migration: ensure view_count exists and is integer
+for (let i = 0; i < articles.length; i++) {
+  if (articles[i].view_count == null) articles[i].view_count = 0;
+  else articles[i].view_count = Number(articles[i].view_count) || 0;
+}
 
 function save() {
   fs.writeFileSync(articlesPath, JSON.stringify(articles, null, 2), 'utf8');
@@ -28,7 +33,8 @@ export const articlesDb = {
       author_name: a.author_name || '',
       summary: a.summary || '',
       status: a.status || 'pending',
-      created_at: a.created_at || ''
+      created_at: a.created_at || '',
+      view_count: typeof a.view_count === 'number' ? a.view_count : (a.view_count ? Number(a.view_count) : 0)
     }));
   },
   findByAuthor(authorId) {
@@ -64,7 +70,8 @@ export const articlesDb = {
       summary: data.summary || allContent.slice(0, 200) || '',
       status: data.status || 'pending',
       created_at: now,
-      updated_at: now
+      updated_at: now,
+      view_count: 0
     };
     articles.push(rec);
     save();
@@ -86,7 +93,8 @@ export const articlesDb = {
       image1_caption: a.image1_caption || '', image2_caption: a.image2_caption || '', image3_caption: a.image3_caption || '',
       status: a.status || 'pending',
       created_at: a.created_at || '',
-      updated_at: a.updated_at || a.created_at || ''
+      updated_at: a.updated_at || a.created_at || '',
+      view_count: typeof a.view_count === 'number' ? a.view_count : (a.view_count ? Number(a.view_count) : 0)
     };
   },
   update(id, authorId, data) {
@@ -119,6 +127,14 @@ export const articlesDb = {
     return true;
   },
 
+  incrementViewCount(id) {
+    const a = articles.find(x => x.id === Number(id));
+    if (!a) return false;
+    a.view_count = (typeof a.view_count === 'number' ? a.view_count : (a.view_count ? Number(a.view_count) : 0)) + 1;
+    save();
+    return true;
+  },
+
   /** 메인 헤드라인 등 공개 목록용 (이미지 썸네일 포함) */
   publishedPublicList() {
     const normImg = (img) => {
@@ -136,7 +152,8 @@ export const articlesDb = {
         category: a.category || '',
         author_name: a.author_name || '',
         created_at: a.created_at || '',
-        thumb: normImg(a.image1 || a.image2 || a.image3 || '')
+        thumb: normImg(a.image1 || a.image2 || a.image3 || ''),
+        view_count: typeof a.view_count === 'number' ? a.view_count : (a.view_count ? Number(a.view_count) : 0)
       }));
   }
 };

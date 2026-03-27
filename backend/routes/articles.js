@@ -22,6 +22,29 @@ articlesRouter.get('/public/list', (req, res) => {
   res.json(articlesDb.publishedPublicList());
 });
 
+// GET /api/articles/public/most-viewed?days=30&limit=5 — 최근 N일내 게시된 기사 중 조회수 상위 목록
+articlesRouter.get('/public/most-viewed', (req, res) => {
+  const days = Number(req.query.days || 30);
+  const limit = Math.max(1, Math.min(50, Number(req.query.limit || 5)));
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+  const list = articlesDb.publishedPublicList()
+    .filter(a => {
+      const d = a.created_at ? new Date(a.created_at) : null;
+      if (!d || isNaN(d.getTime())) return false;
+      return d.getTime() >= cutoff.getTime();
+    })
+    .sort((a, b) => {
+      const va = typeof a.view_count === 'number' ? a.view_count : (a.view_count ? Number(a.view_count) : 0);
+      const vb = typeof b.view_count === 'number' ? b.view_count : (b.view_count ? Number(b.view_count) : 0);
+      if (vb !== va) return vb - va;
+      // fall back to recent first
+      return (new Date(b.created_at || 0)).getTime() - (new Date(a.created_at || 0)).getTime();
+    })
+    .slice(0, limit);
+  res.json(list);
+});
+
 // GET /api/articles/public/:id — 메인 기사 상세(게시 기사만)
 articlesRouter.get('/public/:id', (req, res) => {
   const row = articlesDb.findById(req.params.id, null);
@@ -29,6 +52,16 @@ articlesRouter.get('/public/:id', (req, res) => {
   if ((row.status || '').toLowerCase() !== 'published') {
     return res.status(403).json({ error: '게시된 기사만 조회할 수 있습니다.' });
   }
+  // Increment view count only when frontend explicitly asks (prevents bots or background calls)
+  try {
+    const inc = String((req.get('x-increment-view') || '')).trim() === '1';
+    if (inc) {
+      articlesDb.incrementViewCount(req.params.id);
+      // refresh row to include updated view_count
+      const updated = articlesDb.findById(req.params.id, null);
+      return res.json(updated || row);
+    }
+  } catch (e) {}
   res.json(row);
 });
 

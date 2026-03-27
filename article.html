@@ -303,8 +303,22 @@
         return;
       }
 
-      fetch(API + '/api/articles/public/' + encodeURIComponent(id))
-        .then(function (res) {
+      // view count increment protection: only ask server to increment if this client
+      // hasn't incremented this article in the past 30 minutes.
+      var shouldIncrement = false;
+      try {
+        var viewed = JSON.parse(localStorage.getItem('nw_viewed_articles') || '{}');
+        var last = viewed[id] ? Number(viewed[id]) : 0;
+        if (!last || (Date.now() - last) > (30 * 60 * 1000)) { // 30 minutes
+          shouldIncrement = true;
+          viewed[id] = Date.now();
+          try { localStorage.setItem('nw_viewed_articles', JSON.stringify(viewed)); } catch (e) {}
+        }
+      } catch (e) {}
+
+      fetch(API + '/api/articles/public/' + encodeURIComponent(id), {
+        headers: shouldIncrement ? { 'x-increment-view': '1' } : {}
+      }).then(function (res) {
           return res.json().then(function (data) {
             if (!res.ok) throw new Error(data.error || '기사를 불러오지 못했습니다.');
             return data;
