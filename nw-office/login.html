@@ -37,7 +37,15 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API = (function(){
+      try {
+        const host = (location && location.hostname) ? location.hostname : '';
+        const isLocal = /^(localhost|127\.0\.0\.1)$/.test(host);
+        return isLocal ? 'http://127.0.0.1:3000' : '/api';
+      } catch (e) {
+        return '/api';
+      }
+    })();
     const params = new URLSearchParams(location.search);
     const role = params.get('role');
 
