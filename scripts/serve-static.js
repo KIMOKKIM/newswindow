@@ -2,7 +2,8 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-const port = process.env.PORT ? Number(process.env.PORT) : 5500;
+// Use fixed port 5500 to avoid inheriting other PORT env values
+const port = 5500;
 const root = process.cwd();
 
 const mime = {
