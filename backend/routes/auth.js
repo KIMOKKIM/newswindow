@@ -12,6 +12,9 @@ authRouter.post('/login', (req, res) => {
     if (!userid || !password) {
       return res.status(400).json({ error: 'userid와 password가 필요합니다.' });
     }
+    if ((process.env.NODE_ENV || 'development') !== 'production') {
+      console.log('[auth-debug] login attempt:', { userid, passwordLen: (password || '').length });
+    }
     const row = db.prepare('SELECT * FROM users WHERE userid = ?').get(userid);
     if (!row) {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
