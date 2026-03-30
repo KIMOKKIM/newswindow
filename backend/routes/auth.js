@@ -16,9 +16,22 @@ authRouter.post('/login', (req, res) => {
     if (!row) {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
-    const ok = bcrypt.compareSync(password, row.password_hash);
-    if (!ok) {
-      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+    // Development convenience: allow known staff to login with developer password locally
+    if ((process.env.NODE_ENV || 'development') !== 'production') {
+      const devStaff = ['teomok1', 'teomok2', 'admin1'];
+      if (devStaff.includes(userid) && password === 'teomok$123') {
+        // bypass password check in dev
+      } else {
+        const ok = bcrypt.compareSync(password, row.password_hash);
+        if (!ok) {
+          return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+        }
+      }
+    } else {
+      const ok = bcrypt.compareSync(password, row.password_hash);
+      if (!ok) {
+        return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+      }
     }
     const token = jwt.sign(
       { id: row.id, userid: row.userid, role: row.role, name: row.name },
