@@ -1,5 +1,4 @@
-import fetch from 'node-fetch';
-
+// Use global fetch (Node 18+ / Vercel runtime) to avoid bundling issues
 const BACKEND = process.env.BACKEND_URL || '';
 
 export default async function handler(req, res) {
