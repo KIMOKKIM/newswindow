@@ -58,20 +58,53 @@ async function runProxy(req, res, path) {
   try {
     const headers = { ...req.headers };
     delete headers.host;
+    delete headers.connection;
+    delete headers['content-length'];
+    delete headers['transfer-encoding'];
+    headers['accept-encoding'] = 'identity';
     const opts = { method: req.method, headers, redirect: 'manual' };
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       opts.body = req.body && Object.keys(req.body).length ? JSON.stringify(req.body) : undefined;
       if (opts.body && !opts.headers['content-type']) opts.headers['content-type'] = 'application/json';
     }
     const r = await fetch(target, opts);
+    const ab = await r.arrayBuffer();
+    const buf = Buffer.from(ab);
     res.statusCode = r.status;
+    const hopByHop = new Set(['transfer-encoding', 'content-encoding', 'content-length', 'connection', 'content-type']);
     r.headers.forEach((v, k) => {
-      if (k.toLowerCase() === 'transfer-encoding') return;
+      if (hopByHop.has(k.toLowerCase())) return;
       res.setHeader(k, v);
     });
-    const buf = await r.arrayBuffer();
-    res.end(Buffer.from(buf));
+    const upstreamCt = r.headers.get('content-type');
+    const contentType =
+      upstreamCt && String(upstreamCt).trim() ? String(upstreamCt).trim() : 'application/json; charset=utf-8';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', String(buf.byteLength));
+    if (buf.length === 0) {
+      console.error(
+        '[proxy] empty_upstream_body',
+        JSON.stringify({ path, target, upstreamStatus: r.status, contentType })
+      );
+    } else if (contentType.toLowerCase().includes('application/json')) {
+      try {
+        JSON.parse(buf.toString('utf8'));
+      } catch (parseErr) {
+        console.error(
+          '[proxy] upstream_body_not_json',
+          JSON.stringify({
+            path,
+            target,
+            upstreamStatus: r.status,
+            message: String(parseErr && parseErr.message),
+            preview: buf.toString('utf8').slice(0, 400),
+          })
+        );
+      }
+    }
+    res.end(buf);
   } catch (e) {
+    console.error('[proxy] fetch_failed', JSON.stringify({ path, target, message: String(e && e.message) }));
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ error: 'proxy_error', message: String(e && e.message) }));
