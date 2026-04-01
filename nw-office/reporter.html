@@ -132,6 +132,9 @@
   </div>
 
   <script>
+    const NW_DEBUG =
+      (typeof location !== 'undefined' && /(?:^|[?&])nwdebug=1(?:&|$)/.test(location.search)) ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('nwOfficeDebug') === '1');
     const API_ROOT = (function () {
       try {
         const host = (location && location.hostname) ? location.hostname : '';
@@ -219,7 +222,9 @@
         return;
       }
       e.preventDefault();
-      window.location.href = articleEditUrl(id);
+      const go = articleEditUrl(id);
+      if (NW_DEBUG) console.log('[reporter] title click', { dataId: id, href: go, tokenPresent: !!token });
+      window.location.href = go;
     });
 
     // 회원정보 수정 모달

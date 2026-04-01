@@ -192,7 +192,25 @@
   </div>
 
   <script>
-    const API_ROOT = (function () {
+    /**
+     * GET(조회): 대시보드(reporter.html)와 동일하게 /api(Vercel→Render) 사용.
+     * 브라우저가 Render에 직접 GET하면 LB/다중 인스턴스 시 articles.json 스냅샷이 달라
+     * 상세 404·목록 폴백 실패로 "다시 로그인" 오진이 날 수 있음.
+     * POST/PATCH(대용량): 운영 도메인만 Render 직접(4.5MB 제한 회피).
+     */
+    const NW_DEBUG =
+      (typeof location !== 'undefined' && /(?:^|[?&])nwdebug=1(?:&|$)/.test(location.search)) ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('nwOfficeDebug') === '1');
+    const API_READ = (function () {
+      try {
+        const host = (location && location.hostname) ? location.hostname : '';
+        if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
+        return '/api';
+      } catch (e) {
+        return '/api';
+      }
+    })();
+    const API_WRITE = (function () {
       try {
         const host = (location && location.hostname) ? location.hostname : '';
         if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
@@ -210,6 +228,19 @@
 
     if (!token || role !== 'reporter') {
       window.location.href = 'login.html?role=reporter';
+    }
+
+    function authHeaders(extra) {
+      const h = Object.assign(
+        { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        extra || {}
+      );
+      return h;
+    }
+
+    function nwLog() {
+      if (!NW_DEBUG) return;
+      console.log.apply(console, arguments);
     }
 
     document.getElementById('authorName').value = name;
@@ -261,9 +292,13 @@
     // URL 파라미터 변형(공백/해시 혼입 등)에 대비해 숫자 ID만 정규화
     let editIdRaw = params.get('id');
     let editId = (editIdRaw && String(editIdRaw).match(/\d+/)) ? String(String(editIdRaw).match(/\d+/)[0]) : '';
+    if (editIdRaw && !editId) {
+      console.error('[article-write] invalid id param', { editIdRaw });
+    }
     if (editId) {
       document.querySelector('.nw-title').textContent = '기사 수정';
     }
+    nwLog('[article-write] boot', { API_READ, API_WRITE, editId, editIdRaw, hasToken: !!token });
 
     document.getElementById('btnBack').addEventListener('click', () => {
       window.location.href = 'reporter.html';
@@ -350,14 +385,34 @@
     }
 
     async function loadArticle() {
+      if (editIdRaw && !editId) {
+        showErr('기사 식별값이 올바르지 않습니다.');
+        alert('기사 식별값이 올바르지 않습니다.');
+        return;
+      }
       if (!editId) return;
-      const detailUrl = `${API_ROOT}/articles/${editId}`;
+      const detailUrl = `${API_READ}/articles/${encodeURIComponent(editId)}`;
+      nwLog('[article-write] loadArticle detail request', { detailUrl, tokenPresent: !!token });
       try {
-        const res = await fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
-        if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
+        const res = await fetch(detailUrl, { headers: authHeaders() });
+        if (res.status === 401) {
+          showErr('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');
+          alert('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');
+          window.location.href = 'login.html?role=reporter';
+          return;
+        }
         if (res.ok) {
-          const a = await res.json();
+          let a;
+          try {
+            a = await res.json();
+          } catch (parseErr) {
+            console.error('[article-write] detail JSON parse failed', parseErr);
+            showErr('기사 데이터를 불러오는 중 오류가 발생했습니다.');
+            alert('기사 데이터를 불러오는 중 오류가 발생했습니다.');
+            return;
+          }
           fillArticleToForm(a);
+          nwLog('[article-write] detail ok', { id: a && a.id });
           return;
         }
         const errText = await res.text().catch(() => '');
@@ -368,32 +423,55 @@
           bodyPreview: errText.slice(0, 500),
         });
         if (res.status === 403) {
-          showErr('이 기사를 불러올 권한이 없습니다.');
-          alert('접근 권한이 없습니다.');
+          showErr('이 기사에 접근할 권한이 없습니다.');
+          alert('이 기사에 접근할 권한이 없습니다.');
           return;
         }
-        // 상세 API 실패 시 내 기사 목록에서 동일 ID를 찾아 복구 로드
-        const listRes = await fetch(`${API_ROOT}/articles`, { headers: { Authorization: `Bearer ${token}` } });
-        if (listRes.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
-        const list = await listRes.json().catch(() => ([]));
+        if (res.status === 404) {
+          showErr('기사 정보를 찾을 수 없습니다.');
+        } else {
+          showErr('기사 데이터를 불러오는 중 오류가 발생했습니다.');
+        }
+        const listUrl = `${API_READ}/articles`;
+        nwLog('[article-write] list fallback request', { listUrl });
+        const listRes = await fetch(listUrl, { headers: authHeaders() });
+        if (listRes.status === 401) {
+          showErr('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');
+          alert('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');
+          window.location.href = 'login.html?role=reporter';
+          return;
+        }
+        const listText = await listRes.text().catch(() => '');
+        let list;
+        try {
+          list = listText ? JSON.parse(listText) : [];
+        } catch (_) {
+          list = null;
+        }
+        nwLog('[article-write] list fallback', { status: listRes.status, isArray: Array.isArray(list), len: Array.isArray(list) ? list.length : 0 });
+        if (!listRes.ok || !Array.isArray(list)) {
+          alert('기사 데이터를 불러오는 중 오류가 발생했습니다.');
+          return;
+        }
         const key = String(editId);
-        const fromList = Array.isArray(list)
-          ? list.find(x =>
-              String(x.id) === key ||
-              String(x._id) === key ||
-              String(x.articleId) === key ||
-              String(x.slug) === key)
-          : null;
+        const fromList = list.find(function (x) {
+          return (
+            String(x.id) === key ||
+            String(x._id) === key ||
+            String(x.articleId) === key ||
+            String(x.slug) === key
+          );
+        });
         if (fromList) {
           fillArticleToForm(fromList);
+          nwLog('[article-write] recovered from list', { key });
           return;
         }
-        showErr('기사 정보를 찾을 수 없습니다. 목록에서 다시 선택해주세요.');
-        alert('저장된 기사 데이터를 불러오지 못했습니다. 다시 로그인 후 시도해주세요.');
+        alert('기사 정보를 찾을 수 없습니다.');
       } catch (e) {
         console.error('[article-write] loadArticle exception', { detailUrl, editId, message: e && e.message });
-        showErr('기사 내용을 불러오는 중 오류가 발생했습니다.');
-        alert('기사 로드 중 오류가 발생했습니다.');
+        showErr('기사 데이터를 불러오는 중 오류가 발생했습니다.');
+        alert('기사 데이터를 불러오는 중 오류가 발생했습니다.');
       }
     }
     loadArticle();
@@ -406,13 +484,13 @@
       try {
         let res;
         if (editId) {
-          res = await fetch(`${API_ROOT}/articles/${editId}`, {
+          res = await fetch(`${API_WRITE}/articles/${editId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ ...d, status })
           });
         } else {
-          res = await fetch(`${API_ROOT}/articles`, {
+          res = await fetch(`${API_WRITE}/articles`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ ...d, status })
