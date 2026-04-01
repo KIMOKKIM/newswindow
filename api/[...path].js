@@ -12,6 +12,14 @@ module.exports = async function (req, res) {
   const path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
   const target = `${BACKEND.replace(/\/$/, '')}/${path}`;
 
+  // Minimal safe fallback: respond to health checks from the function itself
+  if (path === 'health' || path === '/health' || path.endsWith('/health')) {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ ok: true, source: 'vercel-proxy-fallback' }));
+    return;
+  }
+
   try {
     const headers = { ...req.headers };
     delete headers.host;
