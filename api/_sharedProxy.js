@@ -36,9 +36,7 @@ function getSearch(req) {
   return i >= 0 ? raw.slice(i) : '';
 }
 
-async function handle(req, res) {
-  const path = getApiSubpath(req);
-
+async function runProxy(req, res, path) {
   if (path === 'health') {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -80,4 +78,9 @@ async function handle(req, res) {
   }
 }
 
+async function handle(req, res) {
+  return runProxy(req, res, getApiSubpath(req));
+}
+
 module.exports = handle;
+module.exports.runProxy = runProxy;
