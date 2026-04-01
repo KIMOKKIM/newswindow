@@ -24,6 +24,7 @@ function post(url, userid, password) {
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(body),
+          'Accept-Encoding': 'identity',
         },
       },
       (res) => {
