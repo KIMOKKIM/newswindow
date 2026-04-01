@@ -132,7 +132,13 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API_ROOT = (function () {
+      try {
+        const host = (location && location.hostname) ? location.hostname : '';
+        if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
+        return '/api';
+      } catch (e) { return '/api'; }
+    })();
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
     const name = localStorage.getItem('name') || '';
@@ -163,7 +169,7 @@
         String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
     }
     async function loadArticles() {
-      const res = await fetch(`${API}/api/articles`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_ROOT}/articles`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
       const list = await res.json();
       const tbody = document.getElementById('articleList');
@@ -192,7 +198,7 @@
 
     // 회원정보 수정 모달
     async function loadProfile() {
-      const res = await fetch(`${API}/api/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_ROOT}/users/me`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
       const u = await res.json();
       document.getElementById('pUserid').value = u.userid || '';
@@ -282,7 +288,7 @@
         return;
       }
       try {
-        const res = await fetch(`${API}/api/users/me`, {
+        const res = await fetch(`${API_ROOT}/users/me`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ name, email, ssn, phone, address, password: password || undefined })

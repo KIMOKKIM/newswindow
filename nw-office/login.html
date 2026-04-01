@@ -37,11 +37,11 @@
   </div>
 
   <script>
-    const API = (function(){
+    const API_ROOT = (function () {
       try {
         const host = (location && location.hostname) ? location.hostname : '';
         const isLocal = /^(localhost|127\.0\.0\.1)$/.test(host);
-        return isLocal ? 'http://127.0.0.1:3000' : '/api';
+        return isLocal ? 'http://127.0.0.1:3000/api' : '/api';
       } catch (e) {
         return '/api';
       }
@@ -57,7 +57,7 @@
       err.style.display = 'none';
 
       try {
-        const res = await fetch(`${API}/api/auth/login`, {
+        const res = await fetch(`${API_ROOT}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userid, password })

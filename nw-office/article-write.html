@@ -192,7 +192,13 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API_ROOT = (function () {
+      try {
+        const host = (location && location.hostname) ? location.hostname : '';
+        if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
+        return '/api';
+      } catch (e) { return '/api'; }
+    })();
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
     const name = localStorage.getItem('name') || '';
@@ -341,7 +347,7 @@
     async function loadArticle() {
       if (!editId) return;
       try {
-        const res = await fetch(`${API}/api/articles/${editId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(`${API_ROOT}/articles/${editId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
         if (res.ok) {
           const a = await res.json();
@@ -349,7 +355,7 @@
           return;
         }
         // 상세 API 실패 시 내 기사 목록에서 동일 ID를 찾아 복구 로드
-        const listRes = await fetch(`${API}/api/articles`, { headers: { Authorization: `Bearer ${token}` } });
+        const listRes = await fetch(`${API_ROOT}/articles`, { headers: { Authorization: `Bearer ${token}` } });
         if (listRes.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
         const list = await listRes.json().catch(() => ([]));
         const fromList = Array.isArray(list) ? list.find(x => String(x.id) === String(editId)) : null;
@@ -374,13 +380,13 @@
       try {
         let res;
         if (editId) {
-          res = await fetch(`${API}/api/articles/${editId}`, {
+          res = await fetch(`${API_ROOT}/articles/${editId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ ...d, status })
           });
         } else {
-          res = await fetch(`${API}/api/articles`, {
+          res = await fetch(`${API_ROOT}/articles`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ ...d, status })

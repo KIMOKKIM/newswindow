@@ -2,7 +2,7 @@
   {
     "id": 1,
     "userid": "teomok1",
-    "password_hash": "$2a$10$dzQgdRQhktQ6cwBK5orjSendr8nE4kNdDe3FgStOH3jvBDYsopWwi",
+    "password_hash": "$2a$10$BDdl7CduJLOPJMxanDU9BuuwKY2uI4U.J.ze3LIoRa3stxq9LcgOW",
     "name": "관리자",
     "email": "admin@newswindow.kr",
     "role": "editor_in_chief",
@@ -57,7 +57,7 @@
   {
     "id": 8,
     "userid": "teomok2",
-    "password_hash": "$2a$10$OECG6jk5nG2MOwd.Rn1N.j3j5c8Ik2xRPd5Ux3pT8CarLqdvzDdS",
+    "password_hash": "$2a$10$o8R2ejttkGQPI00z6XEla.wjQr1mBaDvLouASimGzmfO8ZmsoYKE2",
     "name": "김기목",
     "email": "teomok1@gmail.com",
     "role": "reporter",
@@ -69,7 +69,7 @@
   {
     "id": 9,
     "userid": "admin1",
-    "password_hash": "$2a$10$dzQgdRQhktQ6cwBK5orjSendr8nE4kNdDe3FgStOH3jvBDYsopWwi",
+    "password_hash": "$2a$10$QqLddVeV0x1/WuEtcCrguOzhFfRmTu5iSBzjbFTrg7KQOwuXwb46y",
     "name": "관리자",
     "email": "admin@newswindow.kr",
     "role": "admin",

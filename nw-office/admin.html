@@ -80,7 +80,13 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API_ROOT = (function () {
+      try {
+        const host = (location && location.hostname) ? location.hostname : '';
+        if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
+        return '/api';
+      } catch (e) { return '/api'; }
+    })();
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
 
@@ -96,7 +102,7 @@
     });
 
     async function loadReporters() {
-      const res = await fetch(`${API}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_ROOT}/users`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) { window.location.href = 'login.html?role=admin'; return; }
       const users = await res.json();
       const reporters = users.filter(u => u.role === 'reporter');
@@ -116,7 +122,7 @@
     }
 
     async function loadArticles() {
-      const res = await fetch(`${API}/api/articles`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_ROOT}/articles`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) { window.location.href = 'login.html?role=admin'; return; }
       const articles = await res.json();
       const tbody = document.getElementById('articleList');
@@ -168,7 +174,7 @@
     }
     async function showArticlePreview(id) {
       try {
-        const res = await fetch(`${API}/api/articles/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(`${API_ROOT}/articles/${id}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           alert(err.error || '기사를 불러올 수 없습니다.');
@@ -233,7 +239,7 @@
     }
 
     async function doArticleAction(id, action) {
-      const res = await fetch(`${API}/api/articles/${id}`, {
+      const res = await fetch(`${API_ROOT}/articles/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action })

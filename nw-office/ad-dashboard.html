@@ -121,7 +121,13 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API_ROOT = (function () {
+      try {
+        const host = (location && location.hostname) ? location.hostname : '';
+        if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
+        return '/api';
+      } catch (e) { return '/api'; }
+    })();
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
 
@@ -182,7 +188,7 @@
 
     function uploadAdImage(file, onSuccess, onError) {
       fileToBase64(file).then((dataUrl) => {
-        return fetch(`${API}/api/ads/upload`, {
+        return fetch(`${API_ROOT}/ads/upload`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -293,7 +299,7 @@
 
     async function loadAds() {
       try {
-        const res = await fetch(`${API}/api/ads`);
+        const res = await fetch(`${API_ROOT}/ads`);
         const data = await res.json();
         ensureSideStackEditors();
         document.getElementById('headerLeft_src').value = data.headerLeft?.src || '';
@@ -425,7 +431,7 @@
         }))
       };
       try {
-        const res = await fetch(`${API}/api/ads`, {
+        const res = await fetch(`${API_ROOT}/ads`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

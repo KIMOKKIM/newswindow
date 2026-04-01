@@ -1,10 +1,6 @@
-// Use global fetch (Node 18+ / Vercel runtime) to avoid bundling issues
+/* Private module: not deployed as its own route (leading _). */
 const BACKEND = process.env.BACKEND_URL || '';
 
-/**
- * Path after /api (e.g. /api/health -> "health", /api/auth/login -> "auth/login").
- * Uses req.query.path when present and non-empty; otherwise parses req.url with WHATWG URL.
- */
 function getApiSubpath(req) {
   const q = req.query && req.query.path;
   if (q !== undefined && q !== null && q !== '') {
@@ -24,9 +20,6 @@ function getApiSubpath(req) {
   }
 }
 
-/**
- * Trim trailing slashes and remove a trailing /api so `${base}/api/${path}` never becomes .../api/api/...
- */
 function normalizeBackendBase(raw) {
   let base = String(raw || '').trim();
   if (!base) return '';
@@ -37,7 +30,13 @@ function normalizeBackendBase(raw) {
   return base;
 }
 
-module.exports = async function (req, res) {
+function getSearch(req) {
+  const raw = req.url || '';
+  const i = raw.indexOf('?');
+  return i >= 0 ? raw.slice(i) : '';
+}
+
+async function handle(req, res) {
   const path = getApiSubpath(req);
 
   if (path === 'health') {
@@ -55,7 +54,8 @@ module.exports = async function (req, res) {
   }
 
   const base = normalizeBackendBase(BACKEND);
-  const target = `${base}/api/${path}`;
+  const search = getSearch(req);
+  const target = `${base}/api/${path}${search}`;
 
   try {
     const headers = { ...req.headers };
@@ -79,3 +79,5 @@ module.exports = async function (req, res) {
     res.end(JSON.stringify({ error: 'proxy_error', message: String(e && e.message) }));
   }
 }
+
+module.exports = handle;

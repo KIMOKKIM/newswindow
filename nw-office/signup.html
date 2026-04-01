@@ -125,7 +125,13 @@
   </div>
 
   <script>
-    const API = 'http://127.0.0.1:3001';
+    const API_ROOT = (function () {
+      try {
+        const host = (location && location.hostname) ? location.hostname : '';
+        if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
+        return '/api';
+      } catch (e) { return '/api'; }
+    })();
     const params = new URLSearchParams(location.search);
     const roleParam = params.get('role');
 
@@ -237,7 +243,7 @@
           const msg = document.getElementById('dupMsg');
           if (!uid) { msg.textContent = '아이디를 입력하세요.'; msg.className = 'msg error'; return; }
           try {
-            const r = await fetch(`${API}/api/users/check?userid=${encodeURIComponent(uid)}`);
+            const r = await fetch(`${API_ROOT}/users/check?userid=${encodeURIComponent(uid)}`);
             const d = await r.json();
             msg.textContent = d.available ? '사용 가능한 아이디입니다.' : '이미 사용 중인 아이디입니다.';
             msg.className = 'msg' + (d.available ? '' : ' error');
@@ -299,7 +305,7 @@
         }
 
         try {
-          const res = await fetch(`${API}/api/auth/signup`, {
+          const res = await fetch(`${API_ROOT}/auth/signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
