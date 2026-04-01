@@ -1,7 +1,7 @@
 // Use global fetch (Node 18+ / Vercel runtime) to avoid bundling issues
 const BACKEND = process.env.BACKEND_URL || '';
 
-export default async function handler(req, res) {
+module.exports = async function (req, res) {
   if (!BACKEND) {
     res.statusCode = 502;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
