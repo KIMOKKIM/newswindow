@@ -196,8 +196,13 @@
       try {
         const host = (location && location.hostname) ? location.hostname : '';
         if (/^(localhost|127\.0\.0\.1)$/.test(host)) return 'http://127.0.0.1:3000/api';
+        if (host === 'www.newswindow.kr' || host === 'newswindow.kr') {
+          return 'https://newswindow-backend.onrender.com/api';
+        }
         return '/api';
-      } catch (e) { return '/api'; }
+      } catch (e) {
+        return '/api';
+      }
     })();
     const token = localStorage.getItem('accessToken');
     const role = localStorage.getItem('role');
