@@ -168,6 +168,23 @@
       return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0') + ' ' +
         String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
     }
+    /**
+     * 목록→수정 화면 404 원인(2026-04): href 가 /nw-office/article-write (확장자 없음) 로 가서
+     * 정적 호스팅(Vercel)에서 파일이 없어 NOT_FOUND. 실제 파일명은 article-write.html.
+     */
+    function articleRowKey(a) {
+      const k = a && (a.id != null && a.id !== '' ? a.id : a._id != null && a._id !== '' ? a._id : a.articleId != null && a.articleId !== '' ? a.articleId : a.slug);
+      if (k == null || k === '') {
+        console.error('[reporter] article key missing — cannot link to editor', a);
+        return '';
+      }
+      return String(k);
+    }
+
+    function articleEditUrl(key) {
+      return 'article-write.html?id=' + encodeURIComponent(key);
+    }
+
     async function loadArticles() {
       const res = await fetch(`${API_ROOT}/articles`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) { window.location.href = 'login.html?role=reporter'; return; }
@@ -176,24 +193,33 @@
       const statusMap = { draft: '임시저장', pending: '승인대기', published: '게시', rejected: '반려' };
       tbody.innerHTML = list.length === 0
         ? '<tr><td colspan="4">작성한 기사가 없습니다.</td></tr>'
-        : list.map(a => `
+        : list.map(a => {
+          const key = articleRowKey(a);
+          const numCell = key ? (a.id != null ? a.id : key) : '—';
+          const titleCell = key
+            ? `<a href="${articleEditUrl(key)}" class="article-edit-link" data-id="${key.replace(/"/g, '&quot;')}">${(a.title || '-').replace(/</g, '&lt;')}</a>`
+            : `<span title="기사 식별자 없음">${(a.title || '-').replace(/</g, '&lt;')}</span>`;
+          return `
           <tr>
-            <td>${a.id}</td>
-            <td><a href="/nw-office/article-write?id=${a.id}" class="article-edit-link" data-id="${a.id}">${a.title || '-'}</a></td>
+            <td>${numCell}</td>
+            <td>${titleCell}</td>
             <td><span class="status-${a.status}">${statusMap[a.status] || a.status}</span></td>
             <td>${formatToKST(a.created_at)}</td>
-          </tr>
-        `).join('');
+          </tr>`;
+        }).join('');
     }
     loadArticles();
     document.getElementById('articleList').addEventListener('click', (e) => {
       const link = e.target.closest('.article-edit-link');
       if (!link) return;
+      const id = link.getAttribute('data-id');
+      if (!id || id === '') {
+        console.error('[reporter] title click: data-id missing', link);
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
-      const id = link.dataset.id;
-      if (!id) return;
-      // 제목 클릭 시 기사 수정 화면으로 이동
-      window.location.href = `/nw-office/article-write?id=${encodeURIComponent(id)}`;
+      window.location.href = articleEditUrl(id);
     });
 
     // 회원정보 수정 모달

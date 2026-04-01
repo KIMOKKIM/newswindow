@@ -61,6 +61,11 @@ articlesRouter.get('/:id', authMiddleware, (req, res) => {
   const role = (req.user?.role || '').trim().toLowerCase();
   let row;
   if (role === 'reporter') {
+    const ownerId = articlesDb.authorIdForArticle(req.params.id);
+    if (ownerId == null) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+    if (Number(ownerId) !== Number(req.user.id)) {
+      return res.status(403).json({ error: '본인 기사만 조회할 수 있습니다.' });
+    }
     row = articlesDb.findById(req.params.id, req.user.id);
   } else if (role === 'admin' || role === 'editor_in_chief') {
     row = articlesDb.findById(req.params.id, null);

@@ -70,6 +70,13 @@ export const articlesDb = {
     save();
     return rec;
   },
+  /** 숫자 id 기준. 없으면 null (slug 등 비숫자 id는 미지원). */
+  authorIdForArticle(id) {
+    const n = Number(id);
+    if (!Number.isFinite(n)) return null;
+    const a = articles.find((x) => x.id === n);
+    return a ? a.author_id : null;
+  },
   findById(id, authorId) {
     const a = articles.find(x => x.id === Number(id));
     if (!a) return null;
