@@ -61,15 +61,44 @@ var NW_PUBLIC_UPLOAD_ORIGIN = (function () {
     }
 })();
 
-/** `#https://...` 형태는 현재 페이지 해시로 해석됨 → 외부 광고주 URL이면 선행 `#` 제거 */
+function nwIsOurSiteHost(hostname) {
+    var h = String(hostname || '').toLowerCase();
+    return h === 'www.newswindow.kr' || h === 'newswindow.kr' || h === 'localhost' || h === '127.0.0.1';
+}
+
+/**
+ * 1) `#https://광고주…` → 브라우저가 현재 사이트 해시로만 취급 → `https://광고주…` 로 수정
+ * 2) `https://newswindow.kr/#https://광고주…` 처럼 잘못 저장된 전체 주소 → hash 안의 실제 URL 사용
+ */
 function normalizeAdHref(href) {
     var h = String(href == null ? '#' : href).trim();
     if (!h || h === '#') return '#';
     if (h.charAt(0) === '#') {
         var rest = h.slice(1).trim();
-        if (/^https?:\/\//i.test(rest)) return rest;
-        if (rest.indexOf('//') === 0) return 'https:' + rest;
+        if (/^https?:\/\//i.test(rest)) return normalizeAdHref(rest);
+        if (rest.indexOf('//') === 0) return normalizeAdHref('https:' + rest);
+        return h;
     }
+    try {
+        var u = new URL(h);
+        if (nwIsOurSiteHost(u.hostname) && u.hash && u.hash.length > 1) {
+            var inner = u.hash.slice(1).trim();
+            if (/^https?:\/\//i.test(inner)) return normalizeAdHref(inner);
+            if (inner.indexOf('//') === 0) return normalizeAdHref('https:' + inner);
+        }
+    } catch (e1) {}
+    try {
+        var origin =
+            typeof location !== 'undefined' && location.origin
+                ? location.origin
+                : 'https://www.newswindow.kr';
+        var u2 = new URL(h, origin + '/');
+        if (nwIsOurSiteHost(u2.hostname) && u2.hash && u2.hash.length > 1) {
+            var inner2 = u2.hash.slice(1).trim();
+            if (/^https?:\/\//i.test(inner2)) return normalizeAdHref(inner2);
+            if (inner2.indexOf('//') === 0) return normalizeAdHref('https:' + inner2);
+        }
+    } catch (e2) {}
     return h;
 }
 

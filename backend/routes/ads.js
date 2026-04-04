@@ -47,17 +47,42 @@ function getDefaultAds() {
   };
 }
 
+function isNewswindowHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return h === 'www.newswindow.kr' || h === 'newswindow.kr' || h === 'localhost' || h === '127.0.0.1';
+}
+
 /**
- * 잘못된 `#https://...` 는 같은 문서의 해시로 해석되어
- * `https://현재사이트/#https://광고주...` 로 열림 → 선행 `#` 제거.
+ * `#https://…` 와 `https://뉴스의창/#https://광고주/#앵커` 등 잘못된 저장 형태를 광고주 URL로 고침.
  */
 function normalizeAdHref(href) {
   let h = String(href ?? '#').trim();
   if (!h || h === '#') return '#';
   if (h.startsWith('#')) {
     const rest = h.slice(1).trim();
-    if (/^https?:\/\//i.test(rest)) return rest;
-    if (rest.startsWith('//')) return `https:${rest}`;
+    if (/^https?:\/\//i.test(rest)) return normalizeAdHref(rest);
+    if (rest.startsWith('//')) return normalizeAdHref(`https:${rest}`);
+    return h;
+  }
+  try {
+    const u = new URL(h);
+    if (isNewswindowHost(u.hostname) && u.hash && u.hash.length > 1) {
+      const inner = u.hash.slice(1).trim();
+      if (/^https?:\/\//i.test(inner)) return normalizeAdHref(inner);
+      if (inner.startsWith('//')) return normalizeAdHref(`https:${inner}`);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const u = new URL(h, 'https://www.newswindow.kr/');
+    if (isNewswindowHost(u.hostname) && u.hash && u.hash.length > 1) {
+      const inner = u.hash.slice(1).trim();
+      if (/^https?:\/\//i.test(inner)) return normalizeAdHref(inner);
+      if (inner.startsWith('//')) return normalizeAdHref(`https:${inner}`);
+    }
+  } catch {
+    /* ignore */
   }
   return h;
 }
