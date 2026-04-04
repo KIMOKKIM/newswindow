@@ -72,6 +72,7 @@ function saveAds(data) {
 
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)
 adsRouter.get('/', (req, res) => {
+  res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
   res.json(loadAds());
 });
 

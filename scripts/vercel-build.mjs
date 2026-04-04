@@ -3,7 +3,7 @@
  * 배포 산출물에 /admin 정적 파일이 포함되도록 함 (public → 사이트 루트 매핑 전제).
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -54,6 +54,30 @@ function copyMainSiteIntoPublic() {
   }
 }
 
+/** 메인 `script.js`가 `resolveAdImageSrc`에 쓰는 백엔드 공개 origin (업로드 파일 호스트) */
+function injectMainSiteUploadOrigin() {
+  const p = join(publicDir, 'index.html');
+  if (!existsSync(p)) return;
+  let html = readFileSync(p, 'utf8');
+  const origin = String(process.env.PUBLIC_UPLOAD_ORIGIN || process.env.BACKEND_PUBLIC_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+  const snippet =
+    '<script>window.NW_PUBLIC_UPLOAD_ORIGIN=' +
+    JSON.stringify(origin) +
+    ';</scr' +
+    'ipt>';
+  if (/<script>window\.NW_PUBLIC_UPLOAD_ORIGIN=/i.test(html)) {
+    html = html.replace(/<script>window\.NW_PUBLIC_UPLOAD_ORIGIN=[\s\S]*?<\/script>\s*/i, snippet + '\n');
+  } else if (/<\/head>/i.test(html)) {
+    html = html.replace(/<\/head>/i, snippet + '\n</head>');
+  } else {
+    html = snippet + '\n' + html;
+  }
+  writeFileSync(p, html, 'utf8');
+  if (origin) console.log('vercel-build: injected NW_PUBLIC_UPLOAD_ORIGIN for main ads images.');
+}
+
 if (process.env.VERCEL === '1') {
   runNpm(['ci'], adminDir);
 } else {
@@ -74,5 +98,6 @@ copyDirContents(dist, publicAdminDir);
 
 console.log('vercel-build: copying repo-root main site → public/ …');
 copyMainSiteIntoPublic();
+injectMainSiteUploadOrigin();
 
 console.log('vercel-build: public/ (main + admin) ready.');
