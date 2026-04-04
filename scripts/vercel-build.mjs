@@ -20,6 +20,7 @@ const MAIN_SITE_FILES = [
   'article.html',
   'info.html',
   'signup.html',
+  'login.html',
 ];
 const MAIN_SITE_DIRS = ['images'];
 

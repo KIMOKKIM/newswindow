@@ -915,6 +915,21 @@ a:hover {
     font-size: 11px;
 }
 
+.footer-staff-login {
+    margin: 12px 0 0;
+    color: #333;
+    font-size: 11px;
+}
+
+.footer-staff-login a {
+    color: #111;
+    text-decoration: underline;
+}
+
+.footer-staff-login a:hover {
+    color: #000;
+}
+
 /* 반응형 */
 @media (max-width: 992px) {
     .headline-section {
