@@ -63,7 +63,13 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       navigate(session.role === 'reporter' ? '/admin/reporter' : '/admin/admin');
       return;
     }
-    article = data;
+    if (Array.isArray(data)) {
+      console.error('[articleForm] expected object, got array (check /api/articles proxy path)');
+      alert('기사 정보를 불러오지 못했습니다.');
+      navigate(session.role === 'reporter' ? '/admin/reporter' : '/admin/admin');
+      return;
+    }
+    article = data.article ? data.article : data;
   }
 
   const cat = article ? article.category || '' : '';

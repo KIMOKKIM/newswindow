@@ -62,7 +62,14 @@ export async function renderArticlePreview(app, { navigate, articleId }) {
     return;
   }
 
-  const a = data;
+  if (Array.isArray(data)) {
+    console.error('[articlePreview] expected object, got array (check /api/articles proxy path)');
+    alert('기사 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    navigate(dashPath(session));
+    return;
+  }
+
+  const a = data && data.article ? data.article : data;
   const activePath = '/admin/article/' + articleId + '/preview';
   let blocks = '';
   for (const n of [1, 2, 3]) {
@@ -80,6 +87,13 @@ export async function renderArticlePreview(app, { navigate, articleId }) {
         '<div class="nw-prev-body">' +
         esc(cx).replace(/\n/g, '<br/>') +
         '</div>';
+  }
+  const fallbackBody = (a.content || '').trim();
+  if (!blocks && fallbackBody) {
+    blocks =
+      '<div class="nw-prev-body">' +
+      esc(fallbackBody).replace(/\n/g, '<br/>') +
+      '</div>';
   }
 
   const body = `
