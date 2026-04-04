@@ -18,18 +18,31 @@ function fileToBase64(file) {
   });
 }
 
-function slotHtml(label, idBase, src, href) {
+/** 메인 `index.html` / `styles.css` 기준 권장 사이즈 안내 */
+const ADS_LAYOUT_INTRO =
+  '메인 페이지 기준 배치입니다. 좌·우 세로 광고는 브라우저 너비 <strong>1400px 이상</strong>에서만 표시됩니다.';
+
+function slotHtml(label, idBase, src, href, specLine) {
+  const spec = specLine
+    ? `<p class="nw-ads-slot-spec" aria-label="권장 이미지 크기">${escAttr(specLine)}</p>`
+    : '';
   return `
     <div class="nw-ads-slot">
-      <div class="nw-ads-field">
-        <label>${label} — 이미지 URL</label>
-        <input type="text" id="${idBase}_src" value="${escAttr(src)}" />
-        <input type="file" id="${idBase}_file" accept="image/*" style="margin-top:6px;font-size:12px;" />
-        <span id="${idBase}_upMsg" class="nw-ads-upload-hint" aria-live="polite"></span>
+      <div class="nw-ads-slot-head">
+        <h3 class="nw-ads-slot-title">${label}</h3>
+        ${spec}
       </div>
-      <div class="nw-ads-field">
-        <label>링크</label>
-        <input type="text" id="${idBase}_href" value="${escAttr(href)}" />
+      <div class="nw-ads-slot-fields">
+        <div class="nw-ads-field">
+          <label for="${idBase}_src">이미지 URL</label>
+          <input type="text" id="${idBase}_src" value="${escAttr(src)}" />
+          <input type="file" id="${idBase}_file" accept="image/*" class="nw-ads-file-input" />
+          <span id="${idBase}_upMsg" class="nw-ads-upload-hint" aria-live="polite"></span>
+        </div>
+        <div class="nw-ads-field">
+          <label for="${idBase}_href">클릭 시 이동 URL</label>
+          <input type="text" id="${idBase}_href" value="${escAttr(href)}" placeholder="https://…" />
+        </div>
       </div>
     </div>`;
 }
@@ -127,11 +140,11 @@ function renderFooterRowsHtml(footer) {
     .map(
       (f, i) => `
     <div class="nw-ads-footer-row" data-fi="${i}">
-      <input type="text" data-k="image" placeholder="이미지 URL" value="${escAttr(f.image || f.src || '')}" />
-      <input type="text" data-k="alt" placeholder="alt" value="${escAttr(f.alt || '')}" />
-      <input type="text" data-k="href" placeholder="링크" value="${escAttr(f.href || '#')}" />
-      <div>
-        <input type="file" data-footer-upload="${i}" accept="image/*" style="font-size:12px;" />
+      <input type="text" data-k="image" placeholder="이미지 URL (권장 250×101)" value="${escAttr(f.image || f.src || '')}" />
+      <input type="text" data-k="alt" placeholder="대체 텍스트" value="${escAttr(f.alt || '')}" />
+      <input type="text" data-k="href" placeholder="https://…" value="${escAttr(f.href || '#')}" />
+      <div class="nw-ads-footer-actions">
+        <input type="file" data-footer-upload="${i}" accept="image/*" class="nw-ads-file-input" />
         <button type="button" class="nw-btn-sm nw-danger" data-rm-footer="${i}">삭제</button>
       </div>
     </div>`
@@ -162,52 +175,89 @@ export async function renderAds(app, { navigate }) {
   while (sr.length < 3) sr.push({ src: '', href: '#' });
   let footer = Array.isArray(ads.footer) ? ads.footer.map((x) => ({ ...x })) : [];
 
+  const leftSpecs = [
+    '메인 좌측 ① 상단 · 가로형 카드 · 권장 약 250×101 px (세로 스택 첫 칸, 이미지 contain)',
+    '메인 좌측 ② · 가로형 · 권장 약 250×101 px',
+    '메인 좌측 ③ · 가로형 · 권장 약 250×101 px',
+    '메인 좌측 ④ 하단 · 세로형 카드 · 권장 세로가 더 긴 비율(약 3:4), 데스크톱에서 높이 가변',
+  ];
   let leftStacks = '';
   for (let i = 0; i < 4; i++) {
     const x = sl[i] || { src: '', href: '#' };
-    leftStacks += slotHtml('좌측 스택 ' + (i + 1), 'sl' + i, x.src, x.href);
+    leftStacks += slotHtml(`좌측 사이드 ${i + 1}번`, 'sl' + i, x.src, x.href, leftSpecs[i]);
   }
+
+  const rightSpecs = [
+    '메인 우측 ① · 스카이(높은 배너) · 슬롯 높이 약 400px · 가로 폭 약 250px (세로형 소재 권장)',
+    '메인 우측 ② · 짧은 가로 배너 · 권장 약 250×90 px',
+    '메인 우측 ③ · 짧은 가로 배너 · 권장 약 250×90 px',
+  ];
   let rightStacks = '';
   for (let i = 0; i < 3; i++) {
     const x = sr[i] || { src: '', href: '#' };
-    rightStacks += slotHtml('우측 스택 ' + (i + 1), 'sr' + i, x.src, x.href);
+    rightStacks += slotHtml(`우측 사이드 ${i + 1}번`, 'sr' + i, x.src, x.href, rightSpecs[i]);
   }
 
   const body = `
-    <div class="nw-ads-section">
-      <h2>헤더 좌·우</h2>
-      ${slotHtml('헤더 좌측', 'hdrL', hl.src, hl.href)}
-      ${slotHtml('헤더 우측', 'hdrR', hr.src, hr.href)}
+    <p class="nw-ads-map-intro">${ADS_LAYOUT_INTRO}</p>
+
+    <div class="nw-ads-section nw-ads-section--placement">
+      <h2 class="nw-ads-placement-h">① 상단 로고 라인 — 좌·우 제휴 배너</h2>
+      <p class="nw-ads-placement-desc">메인 헤더 상단, 로고 양옆 직사각 배너 자리입니다.</p>
+      <div class="nw-ads-slot-pair">
+        ${slotHtml(
+          '헤더 좌측 배너',
+          'hdrL',
+          hl.src,
+          hl.href,
+          '권장 250 × 101 px (가로형, 헤더 partner-banner-img와 동일 비율)'
+        )}
+        ${slotHtml(
+          '헤더 우측 배너',
+          'hdrR',
+          hr.src,
+          hr.href,
+          '권장 250 × 101 px (가로형)'
+        )}
+      </div>
       <div class="nw-ads-section-foot">
-        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveHeader">이 섹션 저장</button>
+        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveHeader">① 이 영역 저장</button>
         <p id="adsSaveMsgHeader" class="nw-ads-section-msg" role="status"></p>
       </div>
     </div>
 
-    <div class="nw-ads-section">
-      <h2>좌측 세로 스택 (4칸)</h2>
-      ${leftStacks}
+    <div class="nw-ads-section nw-ads-section--placement">
+      <h2 class="nw-ads-placement-h">② 본문 왼쪽 세로 스택 (4단)</h2>
+      <p class="nw-ads-placement-desc">데스크톱에서 본문(중앙 칼럼) 왼쪽에 세로로 쌓이는 광고입니다. 위에서부터 1→4 순서입니다.</p>
+      <div class="nw-ads-slots-stack">
+        ${leftStacks}
+      </div>
       <div class="nw-ads-section-foot">
-        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveLeft">이 섹션 저장</button>
+        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveLeft">② 이 영역 저장</button>
         <p id="adsSaveMsgLeft" class="nw-ads-section-msg" role="status"></p>
       </div>
     </div>
 
-    <div class="nw-ads-section">
-      <h2>우측 세로 스택 (3칸)</h2>
-      ${rightStacks}
+    <div class="nw-ads-section nw-ads-section--placement">
+      <h2 class="nw-ads-placement-h">③ 본문 오른쪽 세로 스택 (3단)</h2>
+      <p class="nw-ads-placement-desc">본문 오른쪽 열입니다. ①은 높은 스카이형, ②·③은 낮은 가로 슬롯입니다.</p>
+      <div class="nw-ads-slots-stack">
+        ${rightStacks}
+      </div>
       <div class="nw-ads-section-foot">
-        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveRight">이 섹션 저장</button>
+        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveRight">③ 이 영역 저장</button>
         <p id="adsSaveMsgRight" class="nw-ads-section-msg" role="status"></p>
       </div>
     </div>
 
-    <div class="nw-ads-section">
-      <h2>푸터 롤링 배너</h2>
-      <div id="adsFooterRows">${renderFooterRowsHtml(footer)}</div>
-      <button type="button" class="nw-btn" id="adsAddFooter">+ 항목 추가</button>
+    <div class="nw-ads-section nw-ads-section--placement">
+      <h2 class="nw-ads-placement-h">④ 푸터 상단 — 가로 롤링 스폰서</h2>
+      <p class="nw-ads-placement-desc">회사 정보 바로 위, 가로로 흐르는 배너 띠입니다. 항목마다 권장 크기는 헤더 배너와 같습니다.</p>
+      <p class="nw-ads-footer-spec">권장 이미지: 각 <strong>250 × 101 px</strong> (가로형)</p>
+      <div id="adsFooterRows" class="nw-ads-footer-rows">${renderFooterRowsHtml(footer)}</div>
+      <button type="button" class="nw-btn" id="adsAddFooter">+ 롤링 항목 추가</button>
       <div class="nw-ads-section-foot">
-        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveFooter">이 섹션 저장</button>
+        <button type="button" class="nw-btn nw-btn-primary" id="adsSaveFooter">④ 이 영역 저장</button>
         <p id="adsSaveMsgFooter" class="nw-ads-section-msg" role="status"></p>
       </div>
     </div>`;
