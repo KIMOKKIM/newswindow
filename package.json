@@ -1,0 +1,9 @@
+{
+  "name": "newswindow",
+  "private": true,
+  "description": "Root package for Vercel build (admin SPA at /admin)",
+  "scripts": {
+    "vercel-build": "node scripts/vercel-build.mjs",
+    "verify-vercel-admin": "node scripts/verify-vercel-admin.mjs"
+  }
+}

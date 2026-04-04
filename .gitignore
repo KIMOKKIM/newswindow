@@ -21,3 +21,12 @@ npm-debug.log*
 
 # Dependencies (if added later)
 node_modules/
+
+# Local Vercel /admin route verification (scripts/verify-vercel-admin.mjs)
+.vercel-admin-sandbox/
+
+# Vercel 빌드 산출 (vercel-build 가 public/admin 에 복사)
+public/admin/
+
+# Admin Vite 빌드 산출 (원격에서는 npm run build 로 생성)
+admin/dist/
