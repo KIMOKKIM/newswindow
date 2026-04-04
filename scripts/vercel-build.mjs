@@ -18,6 +18,8 @@ const MAIN_SITE_FILES = [
   'styles.css',
   'script.js',
   'article.html',
+  'all-articles.html',
+  'all-articles.js',
   'info.html',
   'signup.html',
   'login.html',

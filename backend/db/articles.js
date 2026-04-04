@@ -1,9 +1,12 @@
 import fs from 'fs';
-import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const dataDir = path.join(process.cwd(), 'data');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+/** cwd와 무관하게 항상 backend/data 를 사용 (기사·유저 파일 불일치 방지) */
+const dataDir = join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-const articlesPath = path.join(dataDir, 'articles.json');
+const articlesPath = join(dataDir, 'articles.json');
 
 let articles = [];
 if (fs.existsSync(articlesPath)) {
@@ -15,46 +18,217 @@ if (!Array.isArray(articles)) articles = [];
 
 function save() {
   fs.writeFileSync(articlesPath, JSON.stringify(articles, null, 2), 'utf8');
+  if (process.env.NW_DEBUG === '1') {
+    console.log('[articlesDb] write path=', articlesPath, 'rowCount=', articles.length);
+  }
+}
+
+function nowStr() {
+  return new Date().toISOString().replace('T', ' ').slice(0, 19);
+}
+
+/** 저장용 상태: draft | submitted | published | rejected */
+export function canonicalStoreStatus(s) {
+  const x = (s == null ? '' : String(s)).trim().toLowerCase();
+  if (x === 'pending' || x === 'sent' || x === 'submitted') return 'submitted';
+  if (x === 'approved' || x === 'published') return 'published';
+  if (x === 'rejected') return 'rejected';
+  if (x === 'draft') return 'draft';
+  return 'draft';
+}
+
+/** API/프론트에 내려주는 상태 (레거시 pending → submitted) */
+export function toApiStatus(raw) {
+  const x = (raw == null ? '' : String(raw)).trim().toLowerCase();
+  if (x === 'pending' || x === 'sent' || x === 'submitted') return 'submitted';
+  if (x === 'approved' || x === 'published') return 'published';
+  if (x === 'rejected') return 'rejected';
+  if (x === 'draft') return 'draft';
+  return 'draft';
+}
+
+function authorIdNorm(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function mapListFields(a) {
+  return {
+    id: a.id,
+    title: a.title || '',
+    subtitle: a.subtitle || '',
+    category: a.category || '',
+    author_id: a.author_id,
+    author_name: a.author_name || '',
+    summary: a.summary || '',
+    status: toApiStatus(a.status),
+    created_at: a.created_at || '',
+    updated_at: a.updated_at || a.created_at || '',
+    submitted_at: a.submitted_at || '',
+    published_at: a.published_at || '',
+    rejected_at: a.rejected_at || '',
+    views: Number(a.views) || 0,
+  };
+}
+
+function mapDetail(a) {
+  if (!a) return null;
+  return {
+    id: a.id,
+    title: a.title || '',
+    subtitle: a.subtitle || '',
+    author_name: a.author_name || '',
+    author_id: a.author_id,
+    category: a.category || '',
+    content: a.content || '',
+    content1: a.content1, content2: a.content2, content3: a.content3,
+    image1: a.image1, image2: a.image2, image3: a.image3,
+    image1_caption: a.image1_caption || '', image2_caption: a.image2_caption || '', image3_caption: a.image3_caption || '',
+    status: toApiStatus(a.status),
+    created_at: a.created_at || '',
+    updated_at: a.updated_at || a.created_at || '',
+    submitted_at: a.submitted_at || '',
+    published_at: a.published_at || '',
+    rejected_at: a.rejected_at || '',
+    views: Number(a.views) || 0,
+  };
+}
+
+/** 숫자 id 또는 slug(문자열)로 레코드 탐색 */
+function resolveArticleRecord(id) {
+  if (id == null || id === '') return null;
+  const n = Number(id);
+  if (Number.isFinite(n)) {
+    return articles.find((x) => x.id === n) || null;
+  }
+  const s = String(id);
+  return articles.find((x) => (x.slug || '') === s) || null;
+}
+
+function sortTimePublished(a) {
+  const d = a.published_at || a.updated_at || a.created_at || '';
+  const t = Date.parse(String(d).replace(' ', 'T'));
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** 목록·카드용: URL 이미지만 (base64 대용량 제외) */
+function publicListThumb(a) {
+  const im = a.image1 || '';
+  if (!im) return '';
+  const s = String(im).trim();
+  if (/^https?:\/\//i.test(s) || s.startsWith('/')) return s;
+  return '';
+}
+
+function mapPublishedListItem(a) {
+  return {
+    id: a.id,
+    title: a.title || '',
+    category: a.category || '',
+    author_name: a.author_name || '',
+    published_at: a.published_at || a.updated_at || a.created_at || '',
+    views: Number(a.views) || 0,
+    thumb: publicListThumb(a),
+  };
 }
 
 export const articlesDb = {
+  /** 디버그·보고용: 메모리 기사 개수 */
+  count() {
+    return articles.length;
+  },
+
   all() {
-    return [...articles].reverse().map(a => ({
-      id: a.id,
-      title: a.title || '',
-      subtitle: a.subtitle || '',
-      category: a.category || '',
-      author_id: a.author_id,
-      author_name: a.author_name || '',
-      summary: a.summary || '',
-      status: a.status || 'pending',
-      created_at: a.created_at || ''
-    }));
+    return [...articles].reverse().map((a) => mapListFields(a));
   },
+
+  /** 메인: 게시(published)만, 최신 게시/수정 기준 정렬 */
+  listPublishedForMain() {
+    return [...articles]
+      .filter((a) => toApiStatus(a.status) === 'published')
+      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x))
+      .map((a) => ({
+        id: a.id,
+        title: a.title || '',
+        subtitle: a.subtitle || '',
+        category: a.category || '',
+        author_name: a.author_name || '',
+        created_at: a.created_at || '',
+        published_at: a.published_at || a.updated_at || a.created_at || '',
+        views: Number(a.views) || 0,
+      }));
+  },
+
+  /** 전체기사 페이지: 페이지네이션 (페이지당 최대 20건) */
+  listPublishedPaginated(page, pageSize) {
+    const size = Math.min(20, Math.max(1, Number(pageSize) || 20));
+    const p = Math.max(1, Number(page) || 1);
+    const all = [...articles]
+      .filter((a) => toApiStatus(a.status) === 'published')
+      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
+    const total = all.length;
+    const start = (p - 1) * size;
+    const slice = all.slice(start, start + size);
+    const items = slice.map((a) => mapPublishedListItem(a));
+    return {
+      items,
+      total,
+      page: p,
+      pageSize: size,
+      totalPages: Math.max(1, Math.ceil(total / size)),
+    };
+  },
+
+  /** 최근 N개월(30일×N) 게시 기사 중 조회수 상위 */
+  listPublishedPopularByMonths(months, limit) {
+    const m = Math.max(1, Math.min(24, Number(months) || 3));
+    const sinceMs = Date.now() - m * 30 * 24 * 60 * 60 * 1000;
+    const lim = Math.min(50, Math.max(1, Number(limit) || 10));
+    return [...articles]
+      .filter((a) => toApiStatus(a.status) === 'published')
+      .filter((a) => sortTimePublished(a) >= sinceMs)
+      .sort((x, y) => (Number(y.views) || 0) - (Number(x.views) || 0))
+      .slice(0, lim)
+      .map((a) => mapPublishedListItem(a));
+  },
+
   findByAuthor(authorId) {
-    return articles.filter(a => a.author_id === Number(authorId)).reverse().map(a => ({
-      id: a.id,
-      title: a.title || '',
-      subtitle: a.subtitle || '',
-      author_name: a.author_name || '',
-      category: a.category || '',
-      content: a.content || '',
-      content1: a.content1, content2: a.content2, content3: a.content3,
-      image1: a.image1, image2: a.image2, image3: a.image3,
-      summary: a.summary || '',
-      status: a.status || 'pending',
-      created_at: a.created_at || ''
-    }));
+    const want = authorIdNorm(authorId);
+    if (want == null) return [];
+    return articles
+      .filter((a) => authorIdNorm(a.author_id) === want)
+      .reverse()
+      .map((a) => ({
+        id: a.id,
+        title: a.title || '',
+        subtitle: a.subtitle || '',
+        author_name: a.author_name || '',
+        category: a.category || '',
+        content: a.content || '',
+        content1: a.content1, content2: a.content2, content3: a.content3,
+        image1: a.image1, image2: a.image2, image3: a.image3,
+        summary: a.summary || '',
+        status: toApiStatus(a.status),
+        created_at: a.created_at || '',
+        updated_at: a.updated_at || a.created_at || '',
+        submitted_at: a.submitted_at || '',
+        published_at: a.published_at || '',
+        rejected_at: a.rejected_at || '',
+        views: Number(a.views) || 0,
+      }));
   },
+
   insert(data) {
-    const id = articles.length ? Math.max(...articles.map(a => a.id)) + 1 : 1;
+    const id = articles.length ? Math.max(...articles.map((a) => a.id)) + 1 : 1;
     const allContent = [data.content1, data.content2, data.content3].filter(Boolean).join('\n');
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    const now = nowStr();
+    const st = canonicalStoreStatus(data.status != null ? data.status : 'draft');
     const rec = {
       id,
       title: data.title || '',
       subtitle: data.subtitle || '',
-      author_id: data.authorId,
+      author_id: authorIdNorm(data.authorId),
       author_name: data.authorName || '',
       category: data.category || '',
       content: data.content || allContent,
@@ -62,43 +236,52 @@ export const articlesDb = {
       image1: data.image1 || '', image2: data.image2 || '', image3: data.image3 || '',
       image1_caption: data.image1_caption || '', image2_caption: data.image2_caption || '', image3_caption: data.image3_caption || '',
       summary: data.summary || allContent.slice(0, 200) || '',
-      status: data.status || 'pending',
+      status: st,
       created_at: now,
-      updated_at: now
+      updated_at: now,
+      submitted_at: st === 'submitted' ? now : '',
+      published_at: st === 'published' ? now : '',
+      rejected_at: st === 'rejected' ? now : '',
+      views: 0,
     };
     articles.push(rec);
     save();
-    return rec;
+    if (process.env.NW_DEBUG === '1') {
+      console.log('[articlesDb] insert id=', rec.id, 'author_id=', rec.author_id, 'status=', rec.status, 'path=', articlesPath);
+    }
+    return mapDetail(rec);
   },
-  /** 숫자 id 기준. 없으면 null (slug 등 비숫자 id는 미지원). */
+
   authorIdForArticle(id) {
-    const n = Number(id);
-    if (!Number.isFinite(n)) return null;
-    const a = articles.find((x) => x.id === n);
+    const a = resolveArticleRecord(id);
     return a ? a.author_id : null;
   },
-  findById(id, authorId) {
-    const a = articles.find(x => x.id === Number(id));
-    if (!a) return null;
-    if (authorId != null && a.author_id !== Number(authorId)) return null;
-    return {
-      id: a.id,
-      title: a.title || '',
-      subtitle: a.subtitle || '',
-      author_name: a.author_name || '',
-      category: a.category || '',
-      content: a.content || '',
-      content1: a.content1, content2: a.content2, content3: a.content3,
-      image1: a.image1, image2: a.image2, image3: a.image3,
-      image1_caption: a.image1_caption || '', image2_caption: a.image2_caption || '', image3_caption: a.image3_caption || '',
-      status: a.status || 'pending',
-      created_at: a.created_at || '',
-      updated_at: a.updated_at || a.created_at || ''
-    };
+
+  incrementPublicViews(id) {
+    const a = resolveArticleRecord(id);
+    if (!a || toApiStatus(a.status) !== 'published') return null;
+    a.views = Number(a.views || 0) + 1;
+    a.updated_at = nowStr();
+    save();
+    return mapDetail(a);
   },
+
+  findById(id, authorId) {
+    const a = resolveArticleRecord(id);
+    if (!a) return null;
+    if (authorId != null && authorIdNorm(a.author_id) !== authorIdNorm(authorId)) return null;
+    return mapDetail(a);
+  },
+
+  /** 원본 레코드(디버그) */
+  rawRecord(id) {
+    return resolveArticleRecord(id);
+  },
+
   update(id, authorId, data) {
-    const a = articles.find(x => x.id === Number(id) && x.author_id === Number(authorId));
-    if (!a) return false;
+    const a = resolveArticleRecord(id);
+    if (!a || authorIdNorm(a.author_id) !== authorIdNorm(authorId)) return false;
+    const now = nowStr();
     if (data.title !== undefined) a.title = data.title;
     if (data.subtitle !== undefined) a.subtitle = data.subtitle;
     if (data.category !== undefined) a.category = data.category;
@@ -113,16 +296,62 @@ export const articlesDb = {
     if (data.image2_caption !== undefined) a.image2_caption = data.image2_caption;
     if (data.image3_caption !== undefined) a.image3_caption = data.image3_caption;
     if (data.summary !== undefined) a.summary = data.summary;
-    if (data.status !== undefined) a.status = data.status;
-    a.updated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    if (data.status !== undefined) {
+      const next = canonicalStoreStatus(data.status);
+      const prev = canonicalStoreStatus(a.status);
+      a.status = next;
+      if (next === 'submitted' && prev !== 'submitted') a.submitted_at = a.submitted_at || now;
+      if (next === 'published') a.published_at = a.published_at || now;
+      if (next === 'rejected') a.rejected_at = a.rejected_at || now;
+    }
+    a.updated_at = now;
     save();
     return true;
   },
-  updateStatus(id, status) {
-    const a = articles.find(x => x.id === Number(id));
+
+  updateByStaff(id, data) {
+    const a = resolveArticleRecord(id);
     if (!a) return false;
-    a.status = status;
+    const now = nowStr();
+    if (data.title !== undefined) a.title = data.title;
+    if (data.subtitle !== undefined) a.subtitle = data.subtitle;
+    if (data.category !== undefined) a.category = data.category;
+    if (data.content !== undefined) a.content = data.content;
+    if (data.content1 !== undefined) a.content1 = data.content1;
+    if (data.content2 !== undefined) a.content2 = data.content2;
+    if (data.content3 !== undefined) a.content3 = data.content3;
+    if (data.image1 !== undefined) a.image1 = data.image1;
+    if (data.image2 !== undefined) a.image2 = data.image2;
+    if (data.image3 !== undefined) a.image3 = data.image3;
+    if (data.image1_caption !== undefined) a.image1_caption = data.image1_caption;
+    if (data.image2_caption !== undefined) a.image2_caption = data.image2_caption;
+    if (data.image3_caption !== undefined) a.image3_caption = data.image3_caption;
+    if (data.summary !== undefined) a.summary = data.summary;
+    if (data.status !== undefined) {
+      const next = canonicalStoreStatus(data.status);
+      const prev = canonicalStoreStatus(a.status);
+      a.status = next;
+      if (next === 'submitted' && prev !== 'submitted') a.submitted_at = a.submitted_at || now;
+      if (next === 'published') a.published_at = a.published_at || now;
+      if (next === 'rejected') a.rejected_at = a.rejected_at || now;
+    }
+    a.updated_at = now;
     save();
     return true;
-  }
+  },
+
+  updateStatus(id, status) {
+    const a = resolveArticleRecord(id);
+    if (!a) return false;
+    const now = nowStr();
+    const next = canonicalStoreStatus(status);
+    const prev = canonicalStoreStatus(a.status);
+    a.status = next;
+    if (next === 'submitted' && prev !== 'submitted') a.submitted_at = a.submitted_at || now;
+    if (next === 'published') a.published_at = a.published_at || now;
+    if (next === 'rejected') a.rejected_at = a.rejected_at || now;
+    a.updated_at = now;
+    save();
+    return true;
+  },
 };
