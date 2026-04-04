@@ -76,17 +76,17 @@ export async function renderArticlePreview(app, { navigate, articleId }) {
     const src = a['image' + n];
     const cap = a['image' + n + '_caption'];
     const cx = a['content' + n];
+    if (cx)
+      blocks +=
+        '<div class="nw-prev-body">' +
+        esc(cx).replace(/\n/g, '<br/>') +
+        '</div>';
     if (src)
       blocks +=
         '<figure class="nw-prev-fig"><img src="' +
         escAttr(src) +
         '" alt="" class="nw-prev-img"/></figure>';
     if (cap) blocks += '<p class="nw-prev-cap">' + esc(cap) + '</p>';
-    if (cx)
-      blocks +=
-        '<div class="nw-prev-body">' +
-        esc(cx).replace(/\n/g, '<br/>') +
-        '</div>';
   }
   const fallbackBody = (a.content || '').trim();
   if (!blocks && fallbackBody) {

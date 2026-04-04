@@ -206,6 +206,13 @@
         const addBlock = (idx, img, content, caption) => {
           const block = blocks[idx];
           if (!block) return;
+          if (content) {
+            content.split(/\n/).forEach(para => {
+              const p = document.createElement('p');
+              p.textContent = para;
+              block.appendChild(p);
+            });
+          }
           if (img && (String(img).startsWith('data:') || String(img).trim())) {
             const el = document.createElement('img');
             el.src = String(img).startsWith('data:') ? img : `data:image/jpeg;base64,${img}`;
@@ -218,13 +225,6 @@
             capEl.className = 'preview-img-caption';
             capEl.textContent = caption;
             block.appendChild(capEl);
-          }
-          if (content) {
-            content.split(/\n/).forEach(para => {
-              const p = document.createElement('p');
-              p.textContent = para;
-              block.appendChild(p);
-            });
           }
         };
         if (hasBlocks) {

@@ -261,9 +261,9 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       if (!src && article && article[imgKey]) src = article[imgKey];
       const cap = payload['image' + n + '_caption'];
       const cx = app.querySelector('#c' + n).value.trim();
+      if (cx) h += '<div class="body">' + esc(cx).replace(/\n/g, '<br/>') + '</div>';
       if (src) h += '<img src="' + escAttr(src) + '" class="prev-img" alt="" />';
       if (cap) h += '<p class="cap">' + esc(cap) + '</p>';
-      if (cx) h += '<div class="body">' + esc(cx).replace(/\n/g, '<br/>') + '</div>';
     }
     prevBody.innerHTML = h;
     modal.style.display = 'flex';

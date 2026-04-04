@@ -540,6 +540,7 @@
       html += `<p class="preview-meta">${category ? category + ' | ' : ''}${authorDisplay}</p><div class="preview-body">`;
 
       const addBlock = (imgFile, imgBase64, content, caption) => {
+        if (content) html += `<p>${content.replace(/\n/g, '</p><p>')}</p>`;
         if (imgFile) {
           const url = URL.createObjectURL(imgFile);
           html += `<img src="${url}" alt="" class="preview-img" onload="URL.revokeObjectURL(this.src)" />`;
@@ -547,7 +548,6 @@
           html += `<img src="${imgBase64}" alt="" class="preview-img" />`;
         }
         if (caption) html += `<p class="preview-img-caption">${caption.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`;
-        if (content) html += `<p>${content.replace(/\n/g, '</p><p>')}</p>`;
       };
       addBlock(f1, loaded.image1, c1, cap1);
       addBlock(f2, loaded.image2, c2, cap2);
