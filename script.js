@@ -61,6 +61,18 @@ var NW_PUBLIC_UPLOAD_ORIGIN = (function () {
     }
 })();
 
+/** `#https://...` 형태는 현재 페이지 해시로 해석됨 → 외부 광고주 URL이면 선행 `#` 제거 */
+function normalizeAdHref(href) {
+    var h = String(href == null ? '#' : href).trim();
+    if (!h || h === '#') return '#';
+    if (h.charAt(0) === '#') {
+        var rest = h.slice(1).trim();
+        if (/^https?:\/\//i.test(rest)) return rest;
+        if (rest.indexOf('//') === 0) return 'https:' + rest;
+    }
+    return h;
+}
+
 /** 광고 JSON의 상대 업로드 경로를 실제 파일 호스트로 붙임 (로컬은 API_ORIGIN, 배포는 NW_PUBLIC_UPLOAD_ORIGIN) */
 function resolveAdImageSrc(src) {
     var v = String(src || '').trim();
@@ -105,11 +117,11 @@ function applyHeaderAds(ads) {
     var rightLink = document.getElementById('headerAdRightLink');
     if (ads.headerLeft && leftImg && leftLink) {
         if (ads.headerLeft.src) leftImg.src = resolveAdImageSrc(ads.headerLeft.src);
-        leftLink.href = ads.headerLeft.href || '#';
+        leftLink.href = normalizeAdHref(ads.headerLeft.href || '#');
     }
     if (ads.headerRight && rightImg && rightLink) {
         if (ads.headerRight.src) rightImg.src = resolveAdImageSrc(ads.headerRight.src);
-        rightLink.href = ads.headerRight.href || '#';
+        rightLink.href = normalizeAdHref(ads.headerRight.href || '#');
     }
 }
 
@@ -150,7 +162,7 @@ function setSideStackSlot(prefix, index, item) {
     var ph = card ? card.querySelector('.side-ad-ph') : null;
     var src = item && item.src ? String(item.src).trim() : '';
     var href = item && item.href ? String(item.href).trim() : '#';
-    if (a) a.href = href || '#';
+    if (a) a.href = normalizeAdHref(href || '#');
     if (!img || !card) return;
     if (src) {
         img.onerror = function () {
@@ -196,7 +208,7 @@ function applyFooterStrip(list) {
         var div = document.createElement('div');
         div.className = 'footer-ad-item';
         var a = document.createElement('a');
-        a.href = ad.href || '#';
+        a.href = normalizeAdHref(ad.href || '#');
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         var img = document.createElement('img');

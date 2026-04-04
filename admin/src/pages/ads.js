@@ -38,10 +38,23 @@ function escAttr(s) {
   return String(s == null ? '' : s).replace(/"/g, '&quot;');
 }
 
+/** `#https://광고주/#anchor` 는 메인에서 잘못된 해시로 열림 */
+function normalizeAdHref(href) {
+  let h = String(href == null ? '#' : href).trim();
+  if (!h || h === '#') return '#';
+  if (h.startsWith('#')) {
+    const rest = h.slice(1).trim();
+    if (/^https?:\/\//i.test(rest)) return rest;
+    if (rest.startsWith('//')) return `https:${rest}`;
+  }
+  return h;
+}
+
 function readPair(app, idBase) {
+  const raw = app.querySelector('#' + idBase + '_href').value.trim() || '#';
   return {
     src: app.querySelector('#' + idBase + '_src').value.trim(),
-    href: app.querySelector('#' + idBase + '_href').value.trim() || '#',
+    href: normalizeAdHref(raw),
   };
 }
 
@@ -224,6 +237,7 @@ export async function renderAds(app, { navigate }) {
         if (k) o[k] = inp.value.trim();
       });
       if (!o.href) o.href = '#';
+      o.href = normalizeAdHref(o.href);
       out.push(o);
     });
     return out;

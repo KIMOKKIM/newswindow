@@ -47,6 +47,21 @@ function getDefaultAds() {
   };
 }
 
+/**
+ * 잘못된 `#https://...` 는 같은 문서의 해시로 해석되어
+ * `https://현재사이트/#https://광고주...` 로 열림 → 선행 `#` 제거.
+ */
+function normalizeAdHref(href) {
+  let h = String(href ?? '#').trim();
+  if (!h || h === '#') return '#';
+  if (h.startsWith('#')) {
+    const rest = h.slice(1).trim();
+    if (/^https?:\/\//i.test(rest)) return rest;
+    if (rest.startsWith('//')) return `https:${rest}`;
+  }
+  return h;
+}
+
 /** API 응답용: 스택 길이 보정 + 기존 sideLeft/sideRight를 1번 칸과 병합 */
 function normalizeAdsResponse(data) {
   const base = { ...getDefaultAds(), ...data };
@@ -55,13 +70,45 @@ function normalizeAdsResponse(data) {
   if (base.sideLeft && String(base.sideLeft.src || '').trim() && !String(L[0].src || '').trim()) {
     L[0] = { src: base.sideLeft.src, href: base.sideLeft.href || '#' };
   }
-  base.sideLeftStack = L.map((x) => ({ src: x.src || '', href: x.href || '#' }));
+  base.sideLeftStack = L.map((x) => ({
+    src: x.src || '',
+    href: normalizeAdHref(x.href || '#')
+  }));
   const R = Array.isArray(base.sideRightStack) ? base.sideRightStack.slice(0, 3) : [];
   while (R.length < 3) R.push({ src: '', href: '#' });
   if (base.sideRight && String(base.sideRight.src || '').trim() && !String(R[0].src || '').trim()) {
     R[0] = { src: base.sideRight.src, href: base.sideRight.href || '#' };
   }
-  base.sideRightStack = R.map((x) => ({ src: x.src || '', href: x.href || '#' }));
+  base.sideRightStack = R.map((x) => ({
+    src: x.src || '',
+    href: normalizeAdHref(x.href || '#')
+  }));
+  base.headerLeft = {
+    ...base.headerLeft,
+    src: base.headerLeft.src || '',
+    href: normalizeAdHref(base.headerLeft.href)
+  };
+  base.headerRight = {
+    ...base.headerRight,
+    src: base.headerRight.src || '',
+    href: normalizeAdHref(base.headerRight.href)
+  };
+  base.sideLeft = {
+    ...base.sideLeft,
+    src: base.sideLeft.src || '',
+    href: normalizeAdHref(base.sideLeft.href)
+  };
+  base.sideRight = {
+    ...base.sideRight,
+    src: base.sideRight.src || '',
+    href: normalizeAdHref(base.sideRight.href)
+  };
+  if (Array.isArray(base.footer)) {
+    base.footer = base.footer.map((x) => ({
+      ...x,
+      href: normalizeAdHref(x && x.href)
+    }));
+  }
   return base;
 }
 
@@ -103,8 +150,9 @@ adsRouter.put('/', authMiddleware, (req, res) => {
     while (current.sideRightStack.length < 3) current.sideRightStack.push({ src: '', href: '#' });
   }
   if (Array.isArray(body.footer)) current.footer = body.footer;
-  saveAds(current);
-  res.json(normalizeAdsResponse(current));
+  const out = normalizeAdsResponse({ ...getDefaultAds(), ...current });
+  saveAds(out);
+  res.json(out);
 });
 
 // POST /api/ads/upload — 관리자만 광고 이미지 파일 업로드 (base64)
