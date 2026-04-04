@@ -49,7 +49,10 @@ async function uploadBind(app, session, idBase, msgEl) {
   if (!fi) return;
   fi.addEventListener('change', async () => {
     const file = fi.files && fi.files[0];
-    if (!file) return;
+    if (!file) {
+      msgEl.textContent = '';
+      return;
+    }
     msgEl.textContent = '업로드 중…';
     try {
       const image = await fileToBase64(file);

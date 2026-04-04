@@ -1,13 +1,14 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { authMiddleware } from '../middleware/auth.js';
 
 export const adsRouter = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
-const dataDir = path.join(process.cwd(), 'data');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dataDir = path.join(__dirname, '..', 'data');
 const adsPath = path.join(dataDir, 'ads.json');
-const uploadsAdsDir = path.join(process.cwd(), 'uploads', 'ads');
+const uploadsAdsDir = path.join(__dirname, '..', 'uploads', 'ads');
 
 function loadAds() {
   if (!fs.existsSync(adsPath)) return normalizeAdsResponse(getDefaultAds());
@@ -67,18 +68,6 @@ function normalizeAdsResponse(data) {
 function saveAds(data) {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(adsPath, JSON.stringify(data, null, 2), 'utf8');
-}
-
-function authMiddleware(req, res, next) {
-  const auth = req.headers.authorization;
-  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!token) return res.status(401).json({ error: '인증 필요' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: '토큰 만료 또는 유효하지 않음' });
-  }
 }
 
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)
@@ -150,7 +139,11 @@ adsRouter.post('/upload', authMiddleware, (req, res) => {
   const baseName = 'ad-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + ext;
   const filePath = path.join(uploadsAdsDir, baseName);
   fs.writeFileSync(filePath, buf);
-  const baseUrl = req.protocol + '://' + (req.get('host') || '127.0.0.1:3001');
-  const url = baseUrl + '/uploads/ads/' + baseName;
+  const rel = '/uploads/ads/' + baseName;
+  /** 프로덕션: 메인이 Vercel이면 상대 경로 /uploads 는 원본 호스트에 없을 수 있음 → Render 등 공개 origin 설정 */
+  const base = String(process.env.PUBLIC_UPLOAD_ORIGIN || process.env.BACKEND_PUBLIC_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+  const url = base ? base + rel : rel;
   res.json({ url });
 });
