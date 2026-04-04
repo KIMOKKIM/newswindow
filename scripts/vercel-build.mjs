@@ -9,7 +9,19 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const adminDir = join(root, 'admin');
-const publicAdminDir = join(root, 'public', 'admin');
+const publicDir = join(root, 'public');
+const publicAdminDir = join(publicDir, 'admin');
+
+/** Repo-root static files served at site `/` (Vercel static root is `public/`). */
+const MAIN_SITE_FILES = [
+  'index.html',
+  'styles.css',
+  'script.js',
+  'article.html',
+  'info.html',
+  'signup.html',
+];
+const MAIN_SITE_DIRS = ['images'];
 
 function runNpm(args, cwd) {
   const r =
@@ -24,6 +36,20 @@ function copyDirContents(srcDir, destDir) {
     const s = join(srcDir, name);
     const d = join(destDir, name);
     cpSync(s, d, { recursive: true, force: true });
+  }
+}
+
+function copyMainSiteIntoPublic() {
+  mkdirSync(publicDir, { recursive: true });
+  for (const name of MAIN_SITE_FILES) {
+    const src = join(root, name);
+    if (!existsSync(src)) continue;
+    cpSync(src, join(publicDir, name), { force: true });
+  }
+  for (const name of MAIN_SITE_DIRS) {
+    const src = join(root, name);
+    if (!existsSync(src)) continue;
+    cpSync(src, join(publicDir, name), { recursive: true, force: true });
   }
 }
 
@@ -45,4 +71,7 @@ rmSync(publicAdminDir, { recursive: true, force: true });
 mkdirSync(publicAdminDir, { recursive: true });
 copyDirContents(dist, publicAdminDir);
 
-console.log('vercel-build: public/admin ready.');
+console.log('vercel-build: copying repo-root main site → public/ …');
+copyMainSiteIntoPublic();
+
+console.log('vercel-build: public/ (main + admin) ready.');
