@@ -739,6 +739,15 @@ a.nw-btn.nw-btn-primary {
   line-height: 1.55;
 }
 
+.nw-modal .sub {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--nw-text);
+  margin: 0 0 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 /* Preview page */
 .nw-preview-article .nw-prev-title {
   margin: 0 0 8px;
@@ -747,8 +756,11 @@ a.nw-btn.nw-btn-primary {
 
 .nw-prev-sub {
   font-size: 1.05rem;
-  color: var(--nw-muted);
+  font-weight: 700;
+  color: var(--nw-text);
   margin: 0 0 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .nw-prev-meta {
