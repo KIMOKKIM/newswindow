@@ -140,7 +140,7 @@ function renderFooterRowsHtml(footer) {
     .map(
       (f, i) => `
     <div class="nw-ads-footer-row" data-fi="${i}">
-      <input type="text" data-k="image" placeholder="이미지 URL (권장 250×101)" value="${escAttr(f.image || f.src || '')}" />
+      <input type="text" data-k="image" placeholder="이미지 URL (롤링 권장 175×71, 250×101의 70%)" value="${escAttr(f.image || f.src || '')}" />
       <input type="text" data-k="alt" placeholder="대체 텍스트" value="${escAttr(f.alt || '')}" />
       <input type="text" data-k="href" placeholder="https://…" value="${escAttr(f.href || '#')}" />
       <div class="nw-ads-footer-actions">
@@ -252,8 +252,8 @@ export async function renderAds(app, { navigate }) {
 
     <div class="nw-ads-section nw-ads-section--placement">
       <h2 class="nw-ads-placement-h">④ 푸터 상단 — 가로 롤링 스폰서</h2>
-      <p class="nw-ads-placement-desc">회사 정보 바로 위, 가로로 흐르는 배너 띠입니다. 항목마다 권장 크기는 헤더 배너와 같습니다.</p>
-      <p class="nw-ads-footer-spec">권장 이미지: 각 <strong>250 × 101 px</strong> (가로형)</p>
+      <p class="nw-ads-placement-desc">회사 정보 바로 위, 가로로 흐르는 배너 띠입니다. 노출 영역은 헤더 배너보다 작게(약 70%) 잡혀 있습니다.</p>
+      <p class="nw-ads-footer-spec">롤링 배너 권장: 각 약 <strong>175 × 71 px</strong> (구 250×101의 <strong>70%</strong>, 동일 가로세로 비율)</p>
       <div id="adsFooterRows" class="nw-ads-footer-rows">${renderFooterRowsHtml(footer)}</div>
       <button type="button" class="nw-btn" id="adsAddFooter">+ 롤링 항목 추가</button>
       <div class="nw-ads-section-foot">
