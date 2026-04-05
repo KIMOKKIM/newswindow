@@ -90,39 +90,6 @@ function normalizeAdHref(href) {
   return h;
 }
 
-/** 사이드 단일/스택 모두에 표시할 이미지 URL이 없는지 */
-function sideStacksHaveNoImages(base) {
-  const L = base.sideLeftStack || [];
-  const R = base.sideRightStack || [];
-  const anyL = L.some((x) => String(x?.src || '').trim());
-  const anyR = R.some((x) => String(x?.src || '').trim());
-  const singleL = String(base.sideLeft?.src || '').trim();
-  const singleR = String(base.sideRight?.src || '').trim();
-  return !anyL && !anyR && !singleL && !singleR;
-}
-
-function footerRowToSideSlot(f) {
-  if (!f) return { src: '', href: '#' };
-  const src = String(f.image ?? f.src ?? '').trim();
-  return { src, href: normalizeAdHref(f.href || '#') };
-}
-
-/**
- * 공개 GET 전용: 사이드가 전부 비었을 때 footer 항목으로 슬롯을 채움.
- * 저장(PUT)에는 넣지 않아 ads.json이 자동 덮어쓰이지 않게 함.
- */
-function applyPublicSideStackFallbackFromFooter(base) {
-  if (!sideStacksHaveNoImages(base)) return;
-  const foot = Array.isArray(base.footer) ? base.footer : [];
-  if (foot.length === 0) return;
-  base.sideLeftStack = [0, 1, 2, 3].map((i) => footerRowToSideSlot(foot[i]));
-  base.sideRightStack = [4, 5, 6].map((i) => footerRowToSideSlot(foot[i]));
-  const l0 = base.sideLeftStack[0];
-  const r0 = base.sideRightStack[0];
-  if (String(l0?.src || '').trim()) base.sideLeft = { src: l0.src, href: l0.href };
-  if (String(r0?.src || '').trim()) base.sideRight = { src: r0.src, href: r0.href };
-}
-
 /** API 응답용: 스택 길이 보정 + 기존 sideLeft/sideRight를 1번 칸과 병합 */
 function normalizeAdsResponse(data) {
   const base = { ...getDefaultAds(), ...data };
@@ -180,12 +147,10 @@ function saveAds(data) {
 }
 
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)
+// 하단 footer만 등록한 경우에도 sideLeftStack에 푸터를 복사하지 않음(중복 노출 방지).
 adsRouter.get('/', (req, res) => {
   res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-  const data = loadAds();
-  const out = JSON.parse(JSON.stringify(data));
-  applyPublicSideStackFallbackFromFooter(out);
-  res.json(out);
+  res.json(loadAds());
 });
 
 // PUT /api/ads — 관리자만 광고 설정 수정
