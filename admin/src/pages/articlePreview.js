@@ -13,7 +13,11 @@ import {
   navAdmin,
   bindShell,
 } from '../layout/shell.js';
-import { categoryLabelForValue } from '../data/categories.js';
+import {
+  categoryLabelForValue,
+  reporterDisplayName,
+  formatArticleMetaDateYmd,
+} from '../../../shared/articleMetaFormat.js';
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -73,31 +77,13 @@ export async function renderArticlePreview(app, { navigate, articleId }) {
   const a = data && data.article ? data.article : data;
   const activePath = '/admin/article/' + articleId + '/preview';
 
-  function reporterDisplayName(name) {
-    const n = String(name || '').trim();
-    if (!n) return '기자';
-    if (/기자\s*$/.test(n)) return n;
-    return n + ' 기자';
-  }
-
-  function formatDateYmd(iso) {
-    if (!iso) return '—';
-    const s = String(iso).replace(' ', 'T');
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10) || '—';
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + day;
-  }
-
   const catShown = categoryLabelForValue(a.category || '') || '—';
   const byline =
     reporterDisplayName(a.author_name) +
     ' · 발행일 ' +
-    formatDateYmd(a.published_at || a.created_at) +
+    formatArticleMetaDateYmd(a.published_at || a.created_at) +
     ' · 수정일 ' +
-    formatDateYmd(a.updated_at || a.created_at);
+    formatArticleMetaDateYmd(a.updated_at || a.created_at);
 
   let blocks = '';
   for (const n of [1, 2, 3, 4]) {

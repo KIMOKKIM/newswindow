@@ -6,7 +6,12 @@ import {
   loginPathForRole,
 } from '../auth/session.js';
 import { renderShell, navReporter, navEditor, navAdmin, bindShell } from '../layout/shell.js';
-import { categorySelectHtml, categoryLabelForValue } from '../data/categories.js';
+import { categorySelectHtml } from '../data/categories.js';
+import {
+  categoryLabelForValue,
+  reporterDisplayName,
+  formatArticleMetaDateYmd,
+} from '../../../shared/articleMetaFormat.js';
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -259,33 +264,6 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     );
   });
 
-  function reporterDisplayName(name) {
-    const n = String(name || '').trim();
-    if (!n) return '기자';
-    if (/기자\s*$/.test(n)) return n;
-    return n + ' 기자';
-  }
-
-  /** API 원본( ISO 또는 `nowStr` 형식 문자열) → 미리보기 표시용 YYYY-MM-DD HH:mm:ss (로컬 해석은 기존 formatDateYmd와 동일한 Date 파싱 경로) */
-  function formatArticleDateTimeForPreview(raw) {
-    if (raw == null || String(raw).trim() === '') return '—';
-    const trimmed = String(raw).trim();
-    const normalized = trimmed.replace(' ', 'T');
-    const d = new Date(normalized);
-    if (!Number.isNaN(d.getTime())) {
-      const y = d.getFullYear();
-      const mo = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
-      const ss = String(d.getSeconds()).padStart(2, '0');
-      return y + '-' + mo + '-' + day + ' ' + hh + ':' + mm + ':' + ss;
-    }
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) return trimmed;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed + ' 00:00:00';
-    return trimmed || '—';
-  }
-
   app.querySelector('#btnPrev').addEventListener('click', async () => {
     const payload = await gatherPayload();
     const modal = app.querySelector('#prevModal');
@@ -301,10 +279,10 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       const pubRaw = article.published_at;
       const creRaw = article.created_at;
       const updRaw = article.updated_at;
-      pubD = formatArticleDateTimeForPreview(
+      pubD = formatArticleMetaDateYmd(
         pubRaw != null && String(pubRaw).trim() !== '' ? pubRaw : creRaw
       );
-      updD = formatArticleDateTimeForPreview(
+      updD = formatArticleMetaDateYmd(
         updRaw != null && String(updRaw).trim() !== '' ? updRaw : creRaw
       );
     }

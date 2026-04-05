@@ -83,6 +83,77 @@ var ARTICLES_API = (function () {
     return NW_CONFIG_API_ORIGIN || ADS_API;
 })();
 
+/** shared/articleCategories.json과 동일 매핑 — admin articleMetaFormat.js 와 동기 */
+var NW_CATEGORY_VALUE_TO_LABEL = null;
+
+function nwLoadCategoryMap(done) {
+    if (NW_CATEGORY_VALUE_TO_LABEL !== null) {
+        done();
+        return;
+    }
+    var url;
+    try {
+        url = new URL('shared/articleCategories.json', window.location.href).href;
+    } catch (eUrl) {
+        url = 'shared/articleCategories.json';
+    }
+    fetch(url, { cache: 'force-cache' })
+        .then(function (res) {
+            return res.ok ? res.json() : Promise.reject();
+        })
+        .then(function (data) {
+            var m = {};
+            var gr = data.groups || [];
+            var i;
+            var j;
+            for (i = 0; i < gr.length; i++) {
+                var items = gr[i].items || [];
+                for (j = 0; j < items.length; j++) {
+                    m[items[j].value] = items[j].label;
+                }
+            }
+            var top = data.topLevel || [];
+            for (i = 0; i < top.length; i++) {
+                m[top[i].value] = top[i].label;
+            }
+            NW_CATEGORY_VALUE_TO_LABEL = m;
+            done();
+        })
+        .catch(function () {
+            NW_CATEGORY_VALUE_TO_LABEL = {};
+            done();
+        });
+}
+
+function nwCategoryLabelForValue(value) {
+    var v = value == null ? '' : String(value).trim();
+    if (!v) return '';
+    if (NW_CATEGORY_VALUE_TO_LABEL && NW_CATEGORY_VALUE_TO_LABEL[v] !== undefined) {
+        return NW_CATEGORY_VALUE_TO_LABEL[v];
+    }
+    return v;
+}
+
+/** shared/articleMetaFormat.js reporterDisplayName 과 동일 */
+function nwReporterDisplayName(name) {
+    var n = name == null ? '' : String(name).trim();
+    if (!n) return '기자';
+    if (/기자\s*$/.test(n)) return n;
+    return n + ' 기자';
+}
+
+/** shared/articleMetaFormat.js formatArticleMetaDateYmd 과 동일 */
+function nwFormatArticleMetaDateYmd(raw) {
+    if (raw == null || String(raw).trim() === '') return '—';
+    var s = String(raw).replace(' ', 'T');
+    var d = new Date(s);
+    if (Number.isNaN(d.getTime())) return String(raw).slice(0, 10) || '—';
+    var y = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + mo + '-' + day;
+}
+
 function nwIsOurSiteHost(hostname) {
     var h = String(hostname || '').toLowerCase();
     return h === 'www.newswindow.kr' || h === 'newswindow.kr' || h === 'localhost' || h === '127.0.0.1';
@@ -195,27 +266,7 @@ function nwModalArticleImageSrc(img) {
     return 'data:image/jpeg;base64,' + v;
 }
 
-function nwModalFormatTs(raw, fallback) {
-    var s = raw == null ? '' : String(raw).trim();
-    if (!s) return fallback || '—';
-    if (s.length >= 19) return s.slice(0, 19);
-    return toDate(s);
-}
-
-/** 기사 상세 메타 줄 표시용(원본 JSON 필드는 변경하지 않음) */
-function formatCategoryLabel(raw) {
-    var s = raw == null ? '' : String(raw).trim();
-    if (s === '경제-금융') return '금융';
-    return s;
-}
-
-function formatAuthorLabel(raw) {
-    var s = raw == null ? '' : String(raw).trim();
-    if (s === '김기목') return '김기목 기자';
-    return s;
-}
-
-/** 메인 인라인 상세 패널 — GET /api/articles/public/:id 응답만 사용(더미 없음) */
+/** 메인 인라인 상세 패널 — GET /api/articles/public/:id 응답만 사용(더미 없음). 메타 줄은 admin 미리보기와 동일 규칙 */
 function nwBuildArticleDetailHtml(a) {
     var mast = [];
     mast.push('<div class="nw-article-detail__masthead">');
@@ -227,15 +278,18 @@ function nwBuildArticleDetailHtml(a) {
     if (a.subtitle) mast.push('<p class="nw-article-detail__subtitle">' + nwModalEscHtml(a.subtitle) + '</p>');
     var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
     var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
-    var meta =
-        nwModalEscHtml(displayCategory(a.category)) +
-        ' | ' +
-        nwModalEscHtml(formatAuthorLabel(a.author_name || '기자')) +
-        ' | 발행 ' +
-        nwModalFormatTs(pubRaw, '—') +
-        ' · 수정 ' +
-        nwModalFormatTs(updRaw, '—');
-    mast.push('<p class="nw-article-detail__meta">' + meta + '</p>');
+    var catShown = nwCategoryLabelForValue(cleanBrokenKoreanText(a.category, '뉴스'));
+    if (!catShown) catShown = '—';
+    var byline =
+        nwReporterDisplayName(a.author_name || '') +
+        ' · 발행일 ' +
+        nwFormatArticleMetaDateYmd(pubRaw) +
+        ' · 수정일 ' +
+        nwFormatArticleMetaDateYmd(updRaw);
+    mast.push('<p class="nw-article-detail__meta nw-article-detail__meta--preview">');
+    mast.push('<span class="nw-article-detail__meta-cat">' + nwModalEscHtml(catShown) + '</span> ');
+    mast.push('<span class="nw-article-detail__meta-byline">' + nwModalEscHtml(byline) + '</span>');
+    mast.push('</p>');
     mast.push('</div>');
     var scroll = [];
     scroll.push('<div class="nw-article-detail__article-scroll">');
@@ -467,9 +521,9 @@ function cleanBrokenKoreanText(s, fallback) {
     return v;
 }
 
-/** 메인 전역 카테고리 표시(??? 보정 후 formatCategoryLabel — 원본 필드 비변경) */
+/** 메인 전역 카테고리 표시(??? 보정 후 articleCategories 매핑 — 원본 필드 비변경) */
 function displayCategory(raw) {
-    return formatCategoryLabel(cleanBrokenKoreanText(raw, '뉴스'));
+    return nwCategoryLabelForValue(cleanBrokenKoreanText(raw, '뉴스'));
 }
 
 function parseCreatedAt(str) {
@@ -734,6 +788,7 @@ function renderLatestTop5FromList(articles) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    nwLoadCategoryMap(function () {
     // 옛 메인 HTML이 nw-office 로 연결된 경우에도 통합 스태프 SPA 로 이동
     document.querySelectorAll('a[href*="nw-office/index"]').forEach(function (a) {
         a.setAttribute('href', '/admin');
@@ -865,5 +920,6 @@ document.addEventListener('DOMContentLoaded', function () {
         el.addEventListener('mouseenter', function () {
             this.style.transition = 'color 0.15s ease';
         });
+    });
     });
 });
