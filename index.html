@@ -159,6 +159,21 @@
                 </aside>
             </div>
         </section>
+        <!-- 기사 상세: 롤링/리스트 active와 별도 — 동일 id로 public API 재조회 후 본문 표시 -->
+        <section
+            id="nwArticleDetail"
+            class="nw-article-detail"
+            hidden
+            aria-hidden="true"
+            aria-labelledby="nwArticleDetailTitle"
+        >
+            <div class="nw-article-detail__chrome">
+                <button type="button" class="nw-article-detail__close" data-nw-article-detail-close aria-label="상세 닫기">
+                    ×
+                </button>
+            </div>
+            <div id="nwArticleDetailBody" class="nw-article-detail__inner"></div>
+        </section>
         <!-- 메인 헤드라인 -->
         <section class="headline-section">
             <article class="headline-main">
@@ -359,17 +374,6 @@
                     </article>
                 </section>
             </aside>
-        </div>
-
-        <!-- 기사 상세: main 콘텐츠 영역만 dim·중앙 팝업 (헤더/네비/푸터는 제외) -->
-        <div id="nwArticleModal" class="nw-article-modal" hidden aria-hidden="true">
-            <div class="nw-article-modal__backdrop" data-nw-article-modal-backdrop tabindex="-1"></div>
-            <div class="nw-article-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="nwArticleModalTitle">
-                <div class="nw-article-modal__dialog-inner">
-                    <button type="button" class="nw-article-modal__close" data-nw-article-modal-close aria-label="닫기">×</button>
-                    <div id="nwArticleModalBody" class="nw-article-modal__body"></div>
-                </div>
-            </div>
         </div>
     </main>
 

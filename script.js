@@ -202,15 +202,16 @@ function nwModalFormatTs(raw, fallback) {
     return toDate(s);
 }
 
-function nwModalBuildArticleHtml(a) {
+/** 메인 인라인 상세 패널 — GET /api/articles/public/:id 응답만 사용(더미 없음) */
+function nwBuildArticleDetailHtml(a) {
     var mast = [];
-    mast.push('<div class="nw-article-modal__masthead">');
+    mast.push('<div class="nw-article-detail__masthead">');
     mast.push(
-        '<h1 id="nwArticleModalTitle" class="nw-article-modal__title">' +
+        '<h1 id="nwArticleDetailTitle" class="nw-article-detail__title">' +
             nwModalEscHtml(a.title || '(제목 없음)') +
             '</h1>'
     );
-    if (a.subtitle) mast.push('<p class="nw-article-modal__subtitle">' + nwModalEscHtml(a.subtitle) + '</p>');
+    if (a.subtitle) mast.push('<p class="nw-article-detail__subtitle">' + nwModalEscHtml(a.subtitle) + '</p>');
     var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
     var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
     var meta =
@@ -221,18 +222,18 @@ function nwModalBuildArticleHtml(a) {
         nwModalFormatTs(pubRaw, '—') +
         ' · 수정 ' +
         nwModalFormatTs(updRaw, '—');
-    mast.push('<p class="nw-article-modal__meta">' + meta + '</p>');
+    mast.push('<p class="nw-article-detail__meta">' + meta + '</p>');
     mast.push('</div>');
     var scroll = [];
-    scroll.push('<div class="nw-article-modal__article-scroll">');
-    scroll.push('<div class="nw-article-modal__article-body">');
+    scroll.push('<div class="nw-article-detail__article-scroll">');
+    scroll.push('<div class="nw-article-detail__article-body">');
     function block(img, cap, content) {
         if (content) scroll.push('<p>' + nwModalPara(content) + '</p>');
         if (img) {
             var src = nwModalArticleImageSrc(img);
-            if (src) scroll.push('<img class="nw-article-modal__img" src="' + nwModalEscAttr(src) + '" alt="">');
+            if (src) scroll.push('<img class="nw-article-detail__img" src="' + nwModalEscAttr(src) + '" alt="">');
         }
-        if (cap) scroll.push('<p class="nw-article-modal__cap">' + nwModalEscHtml(cap) + '</p>');
+        if (cap) scroll.push('<p class="nw-article-detail__cap">' + nwModalEscHtml(cap) + '</p>');
     }
     block(a.image1, a.image1_caption, a.content1);
     block(a.image2, a.image2_caption, a.content2);
@@ -242,55 +243,48 @@ function nwModalBuildArticleHtml(a) {
         scroll.push('<p>' + nwModalPara(a.content) + '</p>');
     }
     scroll.push('</div>');
-    scroll.push('<p class="nw-article-modal__legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
+    scroll.push('<p class="nw-article-detail__legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
     scroll.push('</div>');
     return mast.join('') + scroll.join('');
 }
 
-var nwArticleModalPrevOverflow = '';
-
-function nwArticleModalOnKeydown(e) {
+function nwArticleDetailOnKeydown(e) {
     if (e.key === 'Escape') {
         e.preventDefault();
-        nwCloseArticleModal();
+        nwCloseArticleDetail();
     }
 }
 
-function nwCloseArticleModal() {
-    var shell = document.getElementById('nwArticleModal');
+function nwCloseArticleDetail() {
+    var shell = document.getElementById('nwArticleDetail');
     if (!shell) return;
     shell.hidden = true;
     shell.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('nw-article-modal-open');
-    try {
-        document.documentElement.classList.remove('nw-article-modal-open');
-    } catch (e1) {}
-    try {
-        if (nwArticleModalPrevOverflow !== '') document.body.style.overflow = nwArticleModalPrevOverflow;
-        else document.body.style.removeProperty('overflow');
-    } catch (e2) {}
-    nwArticleModalPrevOverflow = '';
-    document.removeEventListener('keydown', nwArticleModalOnKeydown);
+    document.removeEventListener('keydown', nwArticleDetailOnKeydown);
 }
 
-function nwOpenArticleModal(articleId) {
+function nwSyncLatestTop5UiIfInTop5(articleId) {
+    var j = nwLatestTop5Sync.indexOfId(articleId);
+    if (j >= 0) nwLatestTop5Sync.goTo(j);
+}
+
+function nwOpenArticleDetail(articleId) {
     if (!nwIsHomeModalPage()) return;
-    var shell = document.getElementById('nwArticleModal');
-    var bodyEl = document.getElementById('nwArticleModalBody');
-    if (!shell || !bodyEl) return;
-    var url = ARTICLES_API + '/api/articles/public/' + encodeURIComponent(articleId);
-    bodyEl.className = 'nw-article-modal__body nw-article-modal__body--plain';
-    bodyEl.innerHTML = '<p class="nw-article-modal__loading" role="status">기사를 불러오는 중…</p>';
+    var shell = document.getElementById('nwArticleDetail');
+    var innerEl = document.getElementById('nwArticleDetailBody');
+    if (!shell || !innerEl) return;
+    var idTrim = String(articleId).trim();
+    nwSyncLatestTop5UiIfInTop5(idTrim);
+    var url = ARTICLES_API + '/api/articles/public/' + encodeURIComponent(idTrim);
+    innerEl.className = 'nw-article-detail__inner nw-article-detail__inner--plain';
+    innerEl.innerHTML = '<p class="nw-article-detail__loading" role="status">기사를 불러오는 중…</p>';
     shell.hidden = false;
     shell.setAttribute('aria-hidden', 'false');
-    nwArticleModalPrevOverflow = document.body.style.overflow || '';
-    document.body.style.overflow = 'hidden';
-    document.body.classList.add('nw-article-modal-open');
+    document.removeEventListener('keydown', nwArticleDetailOnKeydown);
+    document.addEventListener('keydown', nwArticleDetailOnKeydown);
     try {
-        document.documentElement.classList.add('nw-article-modal-open');
-    } catch (e0) {}
-    document.removeEventListener('keydown', nwArticleModalOnKeydown);
-    document.addEventListener('keydown', nwArticleModalOnKeydown);
+        shell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (eScroll) {}
     fetch(url, { cache: 'no-store' })
         .then(function (res) {
             return res.json().then(function (data) {
@@ -299,26 +293,24 @@ function nwOpenArticleModal(articleId) {
             });
         })
         .then(function (a) {
-            bodyEl.className = 'nw-article-modal__body';
-            bodyEl.innerHTML = nwModalBuildArticleHtml(a);
+            innerEl.className = 'nw-article-detail__inner';
+            innerEl.innerHTML = nwBuildArticleDetailHtml(a);
         })
         .catch(function (err) {
-            bodyEl.className = 'nw-article-modal__body nw-article-modal__body--plain';
-            bodyEl.innerHTML =
-                '<p class="nw-article-modal__error" role="alert">기사 로드 실패</p><p class="nw-article-modal__errmsg">' +
+            innerEl.className = 'nw-article-detail__inner nw-article-detail__inner--plain';
+            innerEl.innerHTML =
+                '<p class="nw-article-detail__error" role="alert">기사 로드 실패</p><p class="nw-article-detail__errmsg">' +
                 nwModalEscHtml(err.message || '오류') +
                 '</p>';
         });
 }
 
-function nwBindMainArticleModal() {
+function nwBindMainArticleDetail() {
     if (!nwIsHomeModalPage()) return;
-    var shell = document.getElementById('nwArticleModal');
+    var shell = document.getElementById('nwArticleDetail');
     if (!shell) return;
-    var backdrop = shell.querySelector('[data-nw-article-modal-backdrop]');
-    var btnClose = shell.querySelector('[data-nw-article-modal-close]');
-    if (backdrop) backdrop.addEventListener('click', nwCloseArticleModal);
-    if (btnClose) btnClose.addEventListener('click', nwCloseArticleModal);
+    var btnClose = shell.querySelector('[data-nw-article-detail-close]');
+    if (btnClose) btnClose.addEventListener('click', nwCloseArticleDetail);
     document.addEventListener(
         'click',
         function (e) {
@@ -328,7 +320,7 @@ function nwBindMainArticleModal() {
             var id = a.getAttribute('data-public-article-id');
             if (id == null || String(id).trim() === '') return;
             e.preventDefault();
-            nwOpenArticleModal(String(id).trim());
+            nwOpenArticleDetail(String(id).trim());
         },
         true
     );
@@ -555,6 +547,14 @@ function resolveArticleListThumb(src) {
 
 var nwLatestTop5Timer = null;
 
+/** 최신기사 Top5: 클릭 시 리스트/히어로 active만 동기화(show). 상세는 nwOpenArticleDetail에서 fetch */
+var nwLatestTop5Sync = {
+    goTo: function () {},
+    indexOfId: function () {
+        return -1;
+    }
+};
+
 /** index.html에 #nwLatestTop5 가 있어야 함 — DOM 삽입하지 않고 데이터만 바인딩 */
 function getNwLatestTop5Section() {
     return document.getElementById('nwLatestTop5');
@@ -587,6 +587,10 @@ function setLatestTop5EmptyState(sec, titleText, metaText) {
 function renderLatestTop5FromList(articles) {
     var sec = getNwLatestTop5Section();
     if (!sec) return;
+    nwLatestTop5Sync.goTo = function () {};
+    nwLatestTop5Sync.indexOfId = function () {
+        return -1;
+    };
     if (nwLatestTop5Timer) {
         clearInterval(nwLatestTop5Timer);
         nwLatestTop5Timer = null;
@@ -696,6 +700,19 @@ function renderLatestTop5FromList(articles) {
     } else if (dotsEl) {
         dotsEl.innerHTML = '<span class="nw-latest-hero__dot is-active" aria-hidden="true"></span>';
     }
+
+    nwLatestTop5Sync.goTo = function (i) {
+        if (i < 0 || i >= top5.length) return;
+        idx = i;
+        show(i);
+    };
+    nwLatestTop5Sync.indexOfId = function (id) {
+        var s = String(id);
+        for (var j = 0; j < top5.length; j++) {
+            if (String(top5[j].id) === s) return j;
+        }
+        return -1;
+    };
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -705,7 +722,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     bindPublicArticleLinkStorage();
-    nwBindMainArticleModal();
+    nwBindMainArticleDetail();
 
     // 광고 설정 API에서 불러와 적용 (실패 시 기본값 사용) — CDN/브라우저 캐시로 구버전 JSON이 남는 것 방지
     fetch(ADS_API + '/api/ads', { cache: 'no-store' })
