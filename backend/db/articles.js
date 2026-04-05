@@ -124,12 +124,19 @@ function sortTimeMainFeed(a) {
   return Number.isFinite(t) ? t : 0;
 }
 
-/** 목록·카드용: URL 이미지만 (base64 대용량 제외) */
+/**
+ * 목록·메인 히어로: 이미지1만 사용 (작성 폼의 이미지 1 필드).
+ * - 절대 URL, /uploads/…, uploads/…, data:image/* (작성 시 base64 업로드) 허용
+ */
 function publicListThumb(a) {
   const im = a.image1 || '';
   if (!im) return '';
   const s = String(im).trim();
-  if (/^https?:\/\//i.test(s) || s.startsWith('/')) return s;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith('//')) return s;
+  if (s.startsWith('/')) return s;
+  if (/^uploads\//i.test(s)) return '/' + s.replace(/^\/+/, '');
+  if (/^data:image\//i.test(s)) return s;
   return '';
 }
 
