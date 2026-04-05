@@ -19,7 +19,7 @@ function buildCategoryOptions() {
   const out = [{ value: '', label: '선택하세요' }];
   for (const g of raw.groups || []) {
     for (const it of g.items || []) {
-      out.push({ value: it.value, label: it.value });
+      out.push({ value: it.value, label: it.label });
     }
   }
   for (const it of raw.topLevel || []) {
@@ -45,7 +45,7 @@ export function categorySelectHtml(selected) {
         '"' +
         sel +
         '>' +
-        escapeHtml(it.value) +
+        escapeHtml(it.label) +
         '</option>';
     }
     html += '</optgroup>';
