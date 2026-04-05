@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>로그인 - 뉴스의 창</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .member-login-wrap { max-width: 420px; margin: 48px auto 64px; padding: 0 20px; }
+    .member-login-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; text-align: center; }
+    .member-login-sub { text-align: center; color: #666; font-size: 14px; margin-bottom: 24px; }
+    .member-login-form .row { margin-bottom: 14px; }
+    .member-login-form label { display: block; font-size: 13px; margin-bottom: 4px; font-weight: 600; }
+    .member-login-form input {
+      width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+      box-sizing: border-box;
+    }
+    .member-login-form button {
+      width: 100%; padding: 12px; background: #2d7dd2; color: #fff; border: none; border-radius: 4px;
+      font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px;
+    }
+    .member-login-form button:hover { background: #246bb8; }
+    .member-login-form button:disabled { background: #9aa7b2; cursor: not-allowed; }
+    .member-login-error { color: #c00; font-size: 13px; margin-top: 8px; display: none; }
+    .member-login-footer { text-align: center; margin-top: 20px; font-size: 13px; }
+    .member-login-footer a { color: #2d7dd2; }
+  </style>
+</head>
+<body>
+  <div class="member-login-wrap">
+    <h1 class="member-login-title">로그인</h1>
+    <p class="member-login-sub">뉴스의 창 회원 로그인입니다. 스태프(기자·편집장·관리자)는 푸터 메뉴의 스태프 로그인을 이용해 주세요.</p>
+    <form class="member-login-form" id="memberLoginForm">
+      <div class="row">
+        <label for="userid">아이디</label>
+        <input type="text" id="userid" name="userid" required autocomplete="username" placeholder="아이디 입력" />
+      </div>
+      <div class="row">
+        <label for="password">비밀번호</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="비밀번호 입력" />
+      </div>
+      <div id="errorMsg" class="member-login-error"></div>
+      <button type="submit">로그인</button>
+    </form>
+    <div class="member-login-footer">
+      <a href="signup.html">회원가입</a>
+      <span> · </span>
+      <a href="index.html">메인으로</a>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const API_ROOT = (function () {
+        try {
+          const h = String(location.hostname || '').toLowerCase();
+          if (!h || h === 'localhost' || h === '127.0.0.1' || h === '::1') return 'http://127.0.0.1:3000/api';
+          return '/api';
+        } catch (e) {
+          return '/api';
+        }
+      })();
+
+      function staffDashboardPath(role) {
+        const r = String(role || '').trim().toLowerCase().replace(/-/g, '_');
+        if (r === 'admin') return '/admin/admin/dashboard';
+        if (r === 'editor_in_chief' || r === 'editor') return '/admin/editor/dashboard';
+        if (r === 'reporter') return '/admin/reporter/dashboard';
+        return null;
+      }
+
+      document.getElementById('memberLoginForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const userid = document.getElementById('userid').value.trim();
+        const password = document.getElementById('password').value;
+        const errEl = document.getElementById('errorMsg');
+        const btn = e.target.querySelector('button[type="submit"]');
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+        if (btn) btn.disabled = true;
+        try {
+          const res = await fetch(API_ROOT + '/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userid, password }),
+          });
+          const data = await res.json().catch(function () { return {}; });
+          if (!res.ok) {
+            errEl.textContent = data.error || '로그인에 실패했습니다.';
+            errEl.style.display = 'block';
+            return;
+          }
+          const token = data.accessToken || data.token || data.access_token;
+          if (!token) {
+            errEl.textContent = '응답에 토큰이 없습니다.';
+            errEl.style.display = 'block';
+            return;
+          }
+          const dash = staffDashboardPath(data.role);
+          if (dash) {
+            window.location.replace(dash);
+            return;
+          }
+          try {
+            localStorage.setItem(
+              'nw_member_session_v1',
+              JSON.stringify({ token: token, name: (data.name || '').trim(), id: data.id })
+            );
+          } catch (ignore) {}
+          window.location.replace('index.html');
+        } catch (ex) {
+          errEl.textContent = '서버에 연결할 수 없습니다.';
+          errEl.style.display = 'block';
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

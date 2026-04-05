@@ -29,6 +29,11 @@
     (function () {
       const API = (function () {
         try {
+          if (typeof window !== 'undefined' && window.NW_API_ORIGIN != null && String(window.NW_API_ORIGIN).trim()) {
+            return String(window.NW_API_ORIGIN).trim().replace(/\/+$/, '');
+          }
+        } catch (e00) {}
+        try {
           const host = String(location.hostname || '').trim();
           const h = host.toLowerCase();
           if (!h) return 'http://127.0.0.1:3000';

@@ -33,14 +33,18 @@ articlesRouter.get('/public/popular', (req, res) => {
   res.json(rows);
 });
 
-// GET /api/articles/public/:id — 메인 기사 상세(게시 기사만)
+// GET /api/articles/public/:id — 메인·공개 기사 상세 (게시 또는 송고; 조회수는 게시만 증가)
 articlesRouter.get('/public/:id', (req, res) => {
   const raw = articlesDb.rawRecord(req.params.id);
   if (!raw) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-  if (toApiStatus(raw.status) !== 'published') {
-    return res.status(403).json({ error: '게시된 기사만 조회할 수 있습니다.' });
+  const st = toApiStatus(raw.status);
+  if (st !== 'published' && st !== 'submitted') {
+    return res.status(403).json({ error: '공개된 기사만 조회할 수 있습니다.' });
   }
-  const row = articlesDb.incrementPublicViews(req.params.id);
+  const row =
+    st === 'published'
+      ? articlesDb.incrementPublicViews(req.params.id)
+      : articlesDb.findById(req.params.id, null);
   res.json(row || articlesDb.findById(req.params.id, null));
 });
 

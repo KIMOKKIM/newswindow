@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import { authRouter } from './routes/auth.js';
@@ -9,9 +11,9 @@ import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
 import { db } from './db/db.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-// 업로드된 광고 이미지 제공 (backend/uploads 또는 프로젝트 루트/uploads)
-const uploadsDir = path.join(process.cwd(), 'uploads');
+const uploadsDir = path.join(__dirname, 'uploads');
 app.use('/uploads', express.static(uploadsDir));
 const PORT = process.env.PORT || 3000;
 const corsOrigins = (process.env.CORS_ORIGIN ||
@@ -24,7 +26,14 @@ app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
-      if (corsOrigins.includes(origin) || origin.startsWith('http://127.0.0.1:') || origin.startsWith('http://localhost:'))
+      if (
+        corsOrigins.includes(origin) ||
+        origin.startsWith('http://127.0.0.1:') ||
+        origin.startsWith('http://localhost:') ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin) ||
+        /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin) ||
+        /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/.test(origin)
+      )
         return cb(null, true);
       return cb(null, false);
     },
@@ -49,6 +58,15 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/articles', articlesRouter);
 app.use('/api/ads', adsRouter);
+
+const adminDist = path.join(__dirname, '..', 'admin', 'dist');
+if (fs.existsSync(adminDist)) {
+  app.use('/admin', express.static(adminDist));
+  app.use('/admin', (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    res.sendFile(path.join(adminDist, 'index.html'));
+  });
+}
 
 async function start() {
   const hash = await bcrypt.hash('teomok$123', 10);

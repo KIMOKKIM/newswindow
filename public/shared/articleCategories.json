@@ -1,0 +1,72 @@
+{
+  "$schema_comment": "메인 index.html 주메뉴·섹션(.section-subcats)과 동일한 하위 분류. value는 기사 DB·majorCategory(첫 - 앞 구간) 규칙과 호환.",
+  "groups": [
+    {
+      "id": "politics",
+      "title": "정치",
+      "items": [
+        { "value": "정치-최신뉴스", "label": "최신기사" },
+        { "value": "정치-지방자치", "label": "지방자치" },
+        { "value": "정치-외교", "label": "외교" },
+        { "value": "정치-북한", "label": "북한" }
+      ]
+    },
+    {
+      "id": "economy",
+      "title": "경제",
+      "items": [
+        { "value": "경제-금융", "label": "금융" },
+        { "value": "경제-부동산", "label": "부동산" },
+        { "value": "경제-AI/IT", "label": "AI/IT" },
+        { "value": "경제-자동차", "label": "자동차" }
+      ]
+    },
+    {
+      "id": "society",
+      "title": "사회",
+      "items": [
+        { "value": "사회-시사", "label": "시사" },
+        { "value": "사회-건강/의료", "label": "건강/의료" },
+        { "value": "사회-교육", "label": "교육" },
+        { "value": "사회-리조트&테마", "label": "리조트&테마" }
+      ]
+    },
+    {
+      "id": "culture",
+      "title": "문화",
+      "items": [
+        { "value": "문화-대중음악", "label": "대중음악" },
+        { "value": "문화-행사&공연", "label": "행사&공연" },
+        { "value": "문화-갤러리", "label": "갤러리" },
+        { "value": "문화-문학", "label": "문학" }
+      ]
+    },
+    {
+      "id": "national",
+      "title": "전국",
+      "items": [
+        { "value": "전국-서울", "label": "서울" },
+        { "value": "전국-경기", "label": "경기" },
+        { "value": "전국-강원", "label": "강원" },
+        { "value": "전국-충청", "label": "충청" },
+        { "value": "전국-영남", "label": "영남" },
+        { "value": "전국-호남", "label": "호남" },
+        { "value": "전국-제주", "label": "제주" }
+      ]
+    },
+    {
+      "id": "issue",
+      "title": "이슈",
+      "items": [
+        { "value": "이슈-연예&스포츠", "label": "연예&스포츠" },
+        { "value": "이슈-뷰티", "label": "뷰티" },
+        { "value": "이슈-여행&음식", "label": "여행&음식" }
+      ]
+    }
+  ],
+  "topLevel": [
+    { "value": "국제", "label": "국제" },
+    { "value": "칼럼", "label": "칼럼" },
+    { "value": "포토뉴스&영상", "label": "포토뉴스&영상" }
+  ]
+}

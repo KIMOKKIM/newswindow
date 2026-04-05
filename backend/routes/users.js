@@ -1,21 +1,8 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
 import { db } from '../db/db.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 export const usersRouter = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
-
-function authMiddleware(req, res, next) {
-  const auth = req.headers.authorization;
-  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!token) return res.status(401).json({ error: '인증 필요' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: '토큰 만료 또는 유효하지 않음' });
-  }
-}
 
 function adminOnly(req, res, next) {
   if (req.user.role !== 'admin') return res.status(403).json({ error: '관리자 전용' });
@@ -44,7 +31,7 @@ usersRouter.get('/me', authMiddleware, (req, res) => {
     email: row.email,
     ssn: row.ssn || '',
     phone: row.phone || '',
-    address: row.address || ''
+    address: row.address || '',
   });
 });
 
@@ -63,7 +50,7 @@ usersRouter.patch('/me', authMiddleware, async (req, res) => {
     ssn !== undefined ? ssn : (row.ssn || ''),
     phone !== undefined ? phone : (row.phone || ''),
     address !== undefined ? address : (row.address || ''),
-    password ? await bcrypt.hash(password, 10) : row.password_hash
+    password ? await bcrypt.hash(password, 10) : row.password_hash,
   ];
   db.prepare(
     'UPDATE users SET name = ?, email = ?, ssn = ?, phone = ?, address = ?, password_hash = ? WHERE id = ?'

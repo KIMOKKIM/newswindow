@@ -266,15 +266,24 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     return n + ' 기자';
   }
 
-  function formatDateYmd(iso) {
-    if (!iso) return '—';
-    const s = String(iso).replace(' ', 'T');
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10) || '—';
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + day;
+  /** API 원본( ISO 또는 `nowStr` 형식 문자열) → 미리보기 표시용 YYYY-MM-DD HH:mm:ss (로컬 해석은 기존 formatDateYmd와 동일한 Date 파싱 경로) */
+  function formatArticleDateTimeForPreview(raw) {
+    if (raw == null || String(raw).trim() === '') return '—';
+    const trimmed = String(raw).trim();
+    const normalized = trimmed.replace(' ', 'T');
+    const d = new Date(normalized);
+    if (!Number.isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      return y + '-' + mo + '-' + day + ' ' + hh + ':' + mm + ':' + ss;
+    }
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) return trimmed;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed + ' 00:00:00';
+    return trimmed || '—';
   }
 
   app.querySelector('#btnPrev').addEventListener('click', async () => {
@@ -289,8 +298,15 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     let pubD = '—';
     let updD = '—';
     if (article) {
-      pubD = formatDateYmd(article.published_at || article.created_at);
-      updD = formatDateYmd(article.updated_at || article.created_at);
+      const pubRaw = article.published_at;
+      const creRaw = article.created_at;
+      const updRaw = article.updated_at;
+      pubD = formatArticleDateTimeForPreview(
+        pubRaw != null && String(pubRaw).trim() !== '' ? pubRaw : creRaw
+      );
+      updD = formatArticleDateTimeForPreview(
+        updRaw != null && String(updRaw).trim() !== '' ? updRaw : creRaw
+      );
     }
     let h = '<h2>' + esc(payload.title || '(제목 없음)') + '</h2>';
     if (payload.subtitle) h += '<p class="sub">' + esc(payload.subtitle) + '</p>';

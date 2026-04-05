@@ -149,15 +149,181 @@ function bindPublicArticleLinkStorage() {
     }, true);
 }
 
+/** 메인( nw-home )에서는 모달로만 열기 위해 페이지 이동용 URL을 쓰지 않음 — id는 data-public-article-id 로만 전달 */
 function publicArticleHref(id) {
-    var sid = String(id);
-    var enc = encodeURIComponent(sid);
-    return '/article.html?id=' + enc + '#id=' + enc;
+    return '#';
 }
 
 function publicArticleAnchorAttrs(id) {
     var sid = String(id).replace(/"/g, '');
     return ' class="public-article-link" href="' + publicArticleHref(id) + '" data-public-article-id="' + sid + '"';
+}
+
+function nwIsHomeModalPage() {
+    try {
+        return document.body && document.body.classList.contains('nw-home');
+    } catch (e) {
+        return false;
+    }
+}
+
+function nwModalEscHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function nwModalEscAttr(s) {
+    return nwModalEscHtml(s).replace(/"/g, '&quot;');
+}
+
+function nwModalPara(t) {
+    return nwModalEscHtml(t).replace(/\n/g, '</p><p>');
+}
+
+function nwModalArticleImageSrc(img) {
+    var v = String(img || '').trim();
+    if (!v) return '';
+    if (v.indexOf('data:') === 0) return v;
+    if (/^https?:\/\//i.test(v)) return v;
+    if (v.charAt(0) === '/' && v.indexOf('/uploads/') === 0) {
+        var base = (NW_PUBLIC_UPLOAD_ORIGIN || NW_CONFIG_API_ORIGIN || ADS_API || '').replace(/\/+$/, '');
+        return base ? base + v : v;
+    }
+    return 'data:image/jpeg;base64,' + v;
+}
+
+function nwModalFormatTs(raw, fallback) {
+    var s = raw == null ? '' : String(raw).trim();
+    if (!s) return fallback || '—';
+    if (s.length >= 19) return s.slice(0, 19);
+    return toDate(s);
+}
+
+function nwModalBuildArticleHtml(a) {
+    var parts = [];
+    parts.push(
+        '<h1 id="nwArticleModalTitle" class="nw-article-modal__title">' +
+            nwModalEscHtml(a.title || '(제목 없음)') +
+            '</h1>'
+    );
+    if (a.subtitle) parts.push('<p class="nw-article-modal__subtitle">' + nwModalEscHtml(a.subtitle) + '</p>');
+    var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
+    var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
+    var meta =
+        nwModalEscHtml(a.category || '뉴스') +
+        ' | ' +
+        nwModalEscHtml(a.author_name || '기자') +
+        ' | 발행 ' +
+        nwModalFormatTs(pubRaw, '—') +
+        ' · 수정 ' +
+        nwModalFormatTs(updRaw, '—');
+    parts.push('<p class="nw-article-modal__meta">' + meta + '</p>');
+    parts.push('<div class="nw-article-modal__article-body">');
+    function block(img, cap, content) {
+        if (content) parts.push('<p>' + nwModalPara(content) + '</p>');
+        if (img) {
+            var src = nwModalArticleImageSrc(img);
+            if (src) parts.push('<img class="nw-article-modal__img" src="' + nwModalEscAttr(src) + '" alt="">');
+        }
+        if (cap) parts.push('<p class="nw-article-modal__cap">' + nwModalEscHtml(cap) + '</p>');
+    }
+    block(a.image1, a.image1_caption, a.content1);
+    block(a.image2, a.image2_caption, a.content2);
+    block(a.image3, a.image3_caption, a.content3);
+    block(a.image4, a.image4_caption, a.content4);
+    if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
+        parts.push('<p>' + nwModalPara(a.content) + '</p>');
+    }
+    parts.push('</div>');
+    parts.push('<p class="nw-article-modal__legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
+    return parts.join('');
+}
+
+var nwArticleModalPrevOverflow = '';
+
+function nwArticleModalOnKeydown(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        nwCloseArticleModal();
+    }
+}
+
+function nwCloseArticleModal() {
+    var shell = document.getElementById('nwArticleModal');
+    if (!shell) return;
+    shell.hidden = true;
+    shell.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('nw-article-modal-open');
+    try {
+        document.documentElement.classList.remove('nw-article-modal-open');
+    } catch (e1) {}
+    try {
+        if (nwArticleModalPrevOverflow !== '') document.body.style.overflow = nwArticleModalPrevOverflow;
+        else document.body.style.removeProperty('overflow');
+    } catch (e2) {}
+    nwArticleModalPrevOverflow = '';
+    document.removeEventListener('keydown', nwArticleModalOnKeydown);
+}
+
+function nwOpenArticleModal(articleId) {
+    if (!nwIsHomeModalPage()) return;
+    var shell = document.getElementById('nwArticleModal');
+    var bodyEl = document.getElementById('nwArticleModalBody');
+    if (!shell || !bodyEl) return;
+    var url = ARTICLES_API + '/api/articles/public/' + encodeURIComponent(articleId);
+    bodyEl.innerHTML = '<p class="nw-article-modal__loading" role="status">기사를 불러오는 중…</p>';
+    shell.hidden = false;
+    shell.setAttribute('aria-hidden', 'false');
+    nwArticleModalPrevOverflow = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
+    document.body.classList.add('nw-article-modal-open');
+    try {
+        document.documentElement.classList.add('nw-article-modal-open');
+    } catch (e0) {}
+    document.removeEventListener('keydown', nwArticleModalOnKeydown);
+    document.addEventListener('keydown', nwArticleModalOnKeydown);
+    fetch(url, { cache: 'no-store' })
+        .then(function (res) {
+            return res.json().then(function (data) {
+                if (!res.ok) throw new Error((data && data.error) || '기사를 불러오지 못했습니다.');
+                return data;
+            });
+        })
+        .then(function (a) {
+            bodyEl.innerHTML = nwModalBuildArticleHtml(a);
+        })
+        .catch(function (err) {
+            bodyEl.innerHTML =
+                '<p class="nw-article-modal__error" role="alert">기사 로드 실패</p><p class="nw-article-modal__errmsg">' +
+                nwModalEscHtml(err.message || '오류') +
+                '</p>';
+        });
+}
+
+function nwBindMainArticleModal() {
+    if (!nwIsHomeModalPage()) return;
+    var shell = document.getElementById('nwArticleModal');
+    if (!shell) return;
+    var backdrop = shell.querySelector('[data-nw-article-modal-backdrop]');
+    var btnClose = shell.querySelector('[data-nw-article-modal-close]');
+    if (backdrop) backdrop.addEventListener('click', nwCloseArticleModal);
+    if (btnClose) btnClose.addEventListener('click', nwCloseArticleModal);
+    document.addEventListener(
+        'click',
+        function (e) {
+            if (!nwIsHomeModalPage()) return;
+            var a = e.target.closest && e.target.closest('a.public-article-link');
+            if (!a) return;
+            var id = a.getAttribute('data-public-article-id');
+            if (id == null || String(id).trim() === '') return;
+            e.preventDefault();
+            nwOpenArticleModal(String(id).trim());
+        },
+        true
+    );
 }
 
 function applyHeaderAds(ads) {
@@ -531,6 +697,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     bindPublicArticleLinkStorage();
+    nwBindMainArticleModal();
 
     // 광고 설정 API에서 불러와 적용 (실패 시 기본값 사용) — CDN/브라우저 캐시로 구버전 JSON이 남는 것 방지
     fetch(ADS_API + '/api/ads', { cache: 'no-store' })

@@ -1,0 +1,358 @@
+{
+  "prefix": "[TEST_PIPELINE_20260401_1824]",
+  "base": "http://127.0.0.1:3000/api",
+  "articlesPath": "C:\\Users\\elini\\Desktop\\My code\\newswindow\\backend\\data\\articles.json",
+  "steps": [
+    {
+      "step": "POST_draft",
+      "i": 1,
+      "url": "http://127.0.0.1:3000/api/articles",
+      "status": 201,
+      "id": 16,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 1",
+      "apiStatus": "draft"
+    },
+    {
+      "step": "POST_draft",
+      "i": 2,
+      "url": "http://127.0.0.1:3000/api/articles",
+      "status": 201,
+      "id": 17,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 2",
+      "apiStatus": "draft"
+    },
+    {
+      "step": "POST_draft",
+      "i": 3,
+      "url": "http://127.0.0.1:3000/api/articles",
+      "status": 201,
+      "id": 18,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 3",
+      "apiStatus": "draft"
+    },
+    {
+      "step": "POST_draft",
+      "i": 4,
+      "url": "http://127.0.0.1:3000/api/articles",
+      "status": 201,
+      "id": 19,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 4",
+      "apiStatus": "draft"
+    },
+    {
+      "step": "POST_draft",
+      "i": 5,
+      "url": "http://127.0.0.1:3000/api/articles",
+      "status": 201,
+      "id": 20,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 5",
+      "apiStatus": "draft"
+    },
+    {
+      "step": "GET_reporter_list_after_save",
+      "url": "http://127.0.0.1:3000/api/articles",
+      "status": 200,
+      "total": 7,
+      "testRowsInList": [
+        {
+          "id": 20,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 5",
+          "status": "draft"
+        },
+        {
+          "id": 19,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 4",
+          "status": "draft"
+        },
+        {
+          "id": 18,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 3",
+          "status": "draft"
+        },
+        {
+          "id": 17,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 2",
+          "status": "draft"
+        },
+        {
+          "id": 16,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 1",
+          "status": "draft"
+        }
+      ]
+    },
+    {
+      "step": "PATCH_submit",
+      "id": 16,
+      "url": "http://127.0.0.1:3000/api/articles/16",
+      "status": 200,
+      "message": "수정되었습니다.",
+      "article": {
+        "message": "수정되었습니다."
+      }
+    },
+    {
+      "step": "PATCH_submit",
+      "id": 17,
+      "url": "http://127.0.0.1:3000/api/articles/17",
+      "status": 200,
+      "message": "수정되었습니다.",
+      "article": {
+        "message": "수정되었습니다."
+      }
+    },
+    {
+      "step": "PATCH_submit",
+      "id": 18,
+      "url": "http://127.0.0.1:3000/api/articles/18",
+      "status": 200,
+      "message": "수정되었습니다.",
+      "article": {
+        "message": "수정되었습니다."
+      }
+    },
+    {
+      "step": "PATCH_submit",
+      "id": 19,
+      "url": "http://127.0.0.1:3000/api/articles/19",
+      "status": 200,
+      "message": "수정되었습니다.",
+      "article": {
+        "message": "수정되었습니다."
+      }
+    },
+    {
+      "step": "PATCH_submit",
+      "id": 20,
+      "url": "http://127.0.0.1:3000/api/articles/20",
+      "status": 200,
+      "message": "수정되었습니다.",
+      "article": {
+        "message": "수정되었습니다."
+      }
+    },
+    {
+      "step": "GET_reporter_after_submit",
+      "status": 200,
+      "testStatuses": [
+        {
+          "id": 16,
+          "status": "pending"
+        },
+        {
+          "id": 17,
+          "status": "pending"
+        },
+        {
+          "id": 18,
+          "status": "pending"
+        },
+        {
+          "id": 19,
+          "status": "pending"
+        },
+        {
+          "id": 20,
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "step": "GET_editor_after_submit",
+      "status": 200,
+      "total": 20,
+      "testInEditor": [
+        {
+          "id": 16,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 1",
+          "status": "pending"
+        },
+        {
+          "id": 17,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 2",
+          "status": "pending"
+        },
+        {
+          "id": 18,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 3",
+          "status": "pending"
+        },
+        {
+          "id": 19,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 4",
+          "status": "pending"
+        },
+        {
+          "id": 20,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 5",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "step": "GET_detail_editor",
+      "id": 16,
+      "status": 200,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 1",
+      "apiStatus": "pending"
+    },
+    {
+      "step": "GET_detail_editor",
+      "id": 17,
+      "status": 200,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 2",
+      "apiStatus": "pending"
+    },
+    {
+      "step": "GET_detail_editor",
+      "id": 18,
+      "status": 200,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 3",
+      "apiStatus": "pending"
+    },
+    {
+      "step": "GET_detail_editor",
+      "id": 19,
+      "status": 200,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 4",
+      "apiStatus": "pending"
+    },
+    {
+      "step": "GET_detail_editor",
+      "id": 20,
+      "status": 200,
+      "title": "[TEST_PIPELINE_20260401_1824] 기사 5",
+      "apiStatus": "pending"
+    },
+    {
+      "step": "PATCH_approve",
+      "id": 16,
+      "status": 200,
+      "message": "승인되었습니다.",
+      "article": {
+        "message": "승인되었습니다.",
+        "status": "published"
+      }
+    },
+    {
+      "step": "PATCH_approve",
+      "id": 17,
+      "status": 200,
+      "message": "승인되었습니다.",
+      "article": {
+        "message": "승인되었습니다.",
+        "status": "published"
+      }
+    },
+    {
+      "step": "PATCH_approve",
+      "id": 18,
+      "status": 200,
+      "message": "승인되었습니다.",
+      "article": {
+        "message": "승인되었습니다.",
+        "status": "published"
+      }
+    },
+    {
+      "step": "PATCH_approve",
+      "id": 19,
+      "status": 200,
+      "message": "승인되었습니다.",
+      "article": {
+        "message": "승인되었습니다.",
+        "status": "published"
+      }
+    },
+    {
+      "step": "PATCH_approve",
+      "id": 20,
+      "status": 200,
+      "message": "승인되었습니다.",
+      "article": {
+        "message": "승인되었습니다.",
+        "status": "published"
+      }
+    },
+    {
+      "step": "GET_public_list",
+      "url": "http://127.0.0.1:3000/api/articles/public/list",
+      "status": 200,
+      "totalPublished": 9,
+      "testOnMain": [
+        {
+          "id": 16,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 1",
+          "inMainApi": true
+        },
+        {
+          "id": 17,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 2",
+          "inMainApi": true
+        },
+        {
+          "id": 18,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 3",
+          "inMainApi": true
+        },
+        {
+          "id": 19,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 4",
+          "inMainApi": true
+        },
+        {
+          "id": 20,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 5",
+          "inMainApi": true
+        }
+      ],
+      "firstEntries": [
+        {
+          "id": 20,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 5"
+        },
+        {
+          "id": 19,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 4"
+        },
+        {
+          "id": 18,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 3"
+        },
+        {
+          "id": 17,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 2"
+        },
+        {
+          "id": 16,
+          "title": "[TEST_PIPELINE_20260401_1824] 기사 1"
+        },
+        {
+          "id": 15,
+          "title": "[실시간테스트-20260323-163219] 4차 최종송고"
+        },
+        {
+          "id": 14,
+          "title": "[테스트] 수정 후 재송고"
+        },
+        {
+          "id": 13,
+          "title": "001 BTS노믹스로 증명된 'K컬처의 힘'…3000만 관광 시대 앞당긴다"
+        }
+      ]
+    },
+    {
+      "step": "summary",
+      "testIds": [
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "created": 5,
+      "allOnMainApi": true,
+      "missingFromMain": []
+    }
+  ]
+}

@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>회원가입 - 뉴스의 창</title>
+    <link rel="stylesheet" href="styles.css" />
+    <!-- 카카오 주소 검색 -->
+    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <style>
+        .signup-wrap { max-width: 800px; margin: 32px auto 40px; padding: 0 16px; }
+        .signup-steps { display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; }
+        .signup-step { flex:1; text-align:center; position:relative; }
+        .signup-step:not(:last-child)::after {
+            content:""; position:absolute; top:14px; right:-50%; width:100%; height:2px;
+            background:#e0e0e0; z-index:-1;
+        }
+        .step-circle {
+            width:32px;height:32px;border-radius:50%;margin:0 auto 6px;
+            display:flex;align-items:center;justify-content:center;
+            background:#e0e0e0;color:#777;font-weight:700;
+        }
+        .signup-step.active .step-circle { background:#2d7dd2;color:#fff; }
+        .signup-step span { display:block;font-size:12px;color:#777; }
+        .signup-step .label { margin-top:2px;font-size:13px; }
+
+        .signup-section-title { font-size:22px;font-weight:700;margin:8px 0 6px;text-align:center; }
+        .signup-sub { text-align:center;color:#666;font-size:14px;margin-bottom:24px; }
+
+        .member-type-grid { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+        .member-card {
+            flex:1 1 220px; border:1px solid #ddd;border-radius:6px;padding:24px 16px;
+            text-align:center; cursor:pointer; transition:all .2s ease;background:#fff;
+        }
+        .member-card:hover { border-color:#2d7dd2; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+        .member-card.active { border-color:#2d7dd2; background:#f5f9ff; }
+        .member-icon {
+            width:40px;height:40px;border-radius:50%;border:2px solid #2d7dd2;
+            margin:0 auto 10px;
+        }
+        .member-name { font-size:16px;font-weight:600; }
+
+        .agree-wrap { margin-top:12px; }
+        .agree-header { text-align:center;margin-bottom:14px; }
+        .agree-all { margin-bottom:16px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:4px;background:#f8f8f8; }
+        .agree-all label { font-weight:600;font-size:14px; }
+        .agree-item { margin-bottom:12px; }
+        .agree-item > label { display:block;font-size:14px;font-weight:600;margin-bottom:6px; }
+        .agree-item small { font-weight:400;color:#999;margin-left:4px; }
+        .agree-item textarea {
+            width:100%;min-height:120px;border:1px solid #ddd;border-radius:4px;
+            padding:10px;font-size:13px;line-height:1.6;resize:vertical;
+        }
+        .agree-actions { text-align:center;margin-top:18px; }
+        .btn-primary {
+            border:none;border-radius:4px;padding:12px 40px;font-size:15px;font-weight:700;
+            background:#2d7dd2;color:#fff;cursor:pointer;
+        }
+        .btn-primary:disabled { background:#9aa7b2;cursor:not-allowed; }
+        .btn-secondary { border:none;border-radius:4px;padding:10px 26px;font-size:14px;background:#777;color:#fff;cursor:pointer;margin-right:8px; }
+
+        /* Step3 폼 */
+        .form-wrap { margin-top:16px; }
+        .form-section-title { font-size:18px;font-weight:600;margin:16px 0 8px; }
+        .form-note { font-size:13px;color:#777;margin-bottom:14px; }
+        .form-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+        .form-row label { width:100px;font-size:13px;color:#333; }
+        .form-row .required { color:#c00;margin-right:4px; }
+        .form-row input[type="text"],
+        .form-row input[type="password"],
+        .form-row input[type="email"] {
+            flex:1;
+            border:1px solid #ddd;
+            border-radius:3px;
+            padding:8px 10px;
+            font-size:13px;
+        }
+        .form-row-small-group { display:flex; gap:6px; flex:1; }
+        .form-row-small-group input { flex:1; }
+        .form-row button { padding:8px 12px;font-size:12px;border:none;border-radius:3px;cursor:pointer; }
+        .btn-inline { background:#606a80;color:#fff;white-space:nowrap; }
+        .file-input { flex:1; }
+        .radio-group { display:flex; gap:14px; align-items:center; }
+        .captcha-box { margin-top:4px; }
+        /* 주소 검색 모달 레이어 */
+        #postcode-layer {
+            display:none;
+            position:fixed;
+            left:50%;
+            top:50%;
+            transform:translate(-50%, -50%);
+            width:420px;
+            max-width:90%;
+            height:460px;
+            z-index:1000;
+            border:1px solid #333;
+            background:#fff;
+            box-shadow:0 8px 24px rgba(0,0,0,0.25);
+        }
+        #postcode-layer .close-btn {
+            display:block;
+            text-align:right;
+            padding:4px 8px;
+            background:#2d7dd2;
+            color:#fff;
+            font-size:12px;
+            cursor:pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- 카카오 우편번호 검색 레이어 -->
+    <div id="postcode-layer">
+        <div class="close-btn" id="postcode-close">닫기 ✕</div>
+        <div id="postcode-embed" style="width:100%;height:430px;"></div>
+    </div>
+
+    <div class="signup-wrap">
+        <!-- 단계 표시 -->
+        <div class="signup-steps">
+            <div class="signup-step active" data-step="1">
+                <div class="step-circle">1</div>
+                <span>Step.1</span>
+                <span class="label">가입유형</span>
+            </div>
+            <div class="signup-step" data-step="2">
+                <div class="step-circle">2</div>
+                <span>Step.2</span>
+                <span class="label">약관동의</span>
+            </div>
+            <div class="signup-step" data-step="3">
+                <div class="step-circle">3</div>
+                <span>Step.3</span>
+                <span class="label">정보입력</span>
+            </div>
+            <div class="signup-step" data-step="4">
+                <div class="step-circle">4</div>
+                <span>Step.4</span>
+                <span class="label">가입완료</span>
+            </div>
+        </div>
+
+        <!-- Step 1: 가입유형 -->
+        <section id="step1-section">
+            <h2 class="signup-section-title">회원가입</h2>
+            <p class="signup-sub">다음 중 어디에 해당되는지 선택해 주시기 바랍니다.</p>
+
+            <div class="member-type-grid">
+                <div class="member-card active" id="card-general" data-type="general">
+                    <div class="member-icon"></div>
+                    <div class="member-name">일반회원</div>
+                </div>
+                <div class="member-card" id="card-child" data-type="child">
+                    <div class="member-icon"></div>
+                    <div class="member-name">어린이회원</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2: 약관동의 -->
+        <section id="step2-section" style="display:none;">
+            <div class="agree-header">
+                <h2 class="signup-section-title">이용약관</h2>
+                <p class="signup-sub">회원가입을 통해 다양한 혜택을 누리시기 바랍니다.</p>
+            </div>
+
+            <div class="agree-wrap">
+                <div class="agree-all">
+                    <label>
+                        <input type="checkbox" id="chkAll" />
+                        약관, 개인정보 수집 및 이용 안내, 서비스 홍보 및 마케팅 활용에 모두 동의.
+                    </label>
+                </div>
+
+                <div class="agree-item">
+                    <label>
+                        <input type="checkbox" id="chkTerms" />
+                        이용약관동의 <small>(필수)</small>
+                    </label>
+                    <textarea readonly>
+1. 서비스 이용 약관의 동의
+뉴스의창의 서비스를 이용하여 주셔서 감사 합니다. 뉴스의창의 서비스는 아래의 이용약관을 동의 하는 것을 조건으로 하여 사용자에게 서비스를 제공 합니다.
+뉴스의창 회원은 변경된 약관에 동의하지 않을 경우 회원 탈퇴를 요청할 수 있으며, 변경된 약관의 효력 발생일 이후에도 서비스를 계속 사용할 경우 약관의 변경 사항에 동의한 것으로 간주됩니다.
+뉴스의창의 이용 약관은 별도의 통지 없이 수시로 변경 될 수 있으며 사용자는 언제든지 뉴스의창의 서비스 이용 약관 메뉴를 통해 새롭게 갱신된 내용을 보실 수 있습니다.
+뉴스의창의 서비스 이용 약관은 뉴스의창가 제공하는 모든 서비스에 적용 됩니다. 뉴스의창의 컨텐츠라 함은 뉴스의창가 서비스 하는 모든 문자, 그래픽, 모든 종류의 파일, 소프트웨어를 말합니다.
+2. 뉴스의창의 서비스 및 이용자의 권한
+뉴스의창는 인터넷 네트워크를 통해 이용자들에게 다양한 내용의 언론정보 관련 컨텐츠를 서비스 하며 이용자는 인터넷에 접속가능 한 장비를 통해 뉴스의창에서 제공하는 서비스를 이용할 수 있습니다.
+뉴스의창의 이용자는 뉴스의창에서 서비스하는 모든 내용에 대해 자유롭게 이용하고 활용할 수 있습니다.
+뉴스의창의 모든 서비스는 일정한 주기 없이 수시로 내용의 업데이트 또는 확장·변경됩니다.
+뉴스의창의 이용자는 뉴스의창가 제공하는 서비스의 내용에 대한 문제가 있다고 생각되거나 다른 의견에 대해서는 뉴스의창내의 기사의견, 대화, 게시판, 담당자에 보내는 e-mail을 통해 자신의 의견을 게시할 수 있습니다.
+뉴스의창의 이용자가 자유롭게 뉴스의창내의 기사의견, 대화, 게시판, 담당자 등에 올린 내용에 대해서는 뉴스의창는 어떠한 경우도 그 내용에 대한 책임이 없습니다.
+3. 뉴스의창의 이용자가 지켜야 할 사항
+뉴스의창는 아래와 같은 행위에 해당하는 내용을 삭제 또는 제한 할 수 있으며 해당 행위를 한 이용자에 대해 뉴스의창의 서비스 이용을 제한 할 수 있습니다.
+
+이용자가 뉴스의창의 회원가입시 등록한 내용에 허위, 기재누락, 오기가 있는 경우
+이용자가 뉴스의창내의 기사의견, 대화, 게시판, 담당자등에 뉴스의창의 사전 허가 없이 상업적 목적의 광고성 메시지, 타인의 저작권 또는 프라이버시를 침해할 수 있는 내용을 게시할 때
+이용자가 뉴스의창내의 기사의견, 대화, 게시판, 담당자등에 음란물이나 위협적인 내용, 저속한 내용 등의 부적합한 내용을 게시하여 다른 이용자들에게 피해를 줄 수 있는 우려가 있을 때
+이용자가 뉴스의창내의 기사의견, 대화, 게시판, 담당자등에 내용을 타인의 상표, 특허, 영업 비밀, 저작권 등을 침해할 소지가 있는 내용을 게시 할 때
+이용자가 다른 이용자의 개인정보를 수집 또는 저장, 배포 등의 부정 행위를 할 때
+4. 뉴스의창 회원의 ID 및 비밀번호에 대한 의무
+회원 서비스를 받기 위해 뉴스의창의 회원으로 가입하신 이용자께서는 회원의 ID와 비밀번호에 대해 다음의 의무를 이행할 책임이 있습니다.
+
+ID와 비밀번호에 관한 관리책임은 뉴스의창 회원에게 있습니다.
+뉴스의창 회원은 자신의 ID 및 비밀번호를 제3자에게 이용하게 해서는 안됩니다.
+뉴스의창 회원이 자신의 ID 및 비밀번호를 도난당하거나 제3자가 사용하고 있음을 인지한 경우에는 바로 사이트에 통보하고 사이트의 안내가 있는 경우에는 그에 따라야 합니다.
+5. 뉴스의창의 개인정보 보호정책
+이용자가 뉴스의창의 서비스를 받기 위해 제공한 개인정보와 서비스 과정 중 얻게 된 이용자의 개인정보를 보호하기 위해서 최선을 하겠습니다.
+
+ID와 비밀번호에 관한 관리책임은 뉴스의창 회원에게 있습니다.
+뉴스의창 회원은 자신의 ID 및 비밀번호를 제3자에게 이용하게 해서는 안됩니다.
+뉴스의창 회원이 자신의 ID 및 비밀번호를 도난당하거나 제3자가 사용하고 있음을 인지한 경우에는 바로 사이트에 통보하고 사이트의 안내가 있는 경우에는 그에 따라야 합니다.
+6. 뉴스의창에서 서비스 한 내용에 대한 저작권
+뉴스의창에서 서비스 하는 모든 내용이라 함은 모든 문자, 그래픽, 모든 종류의 파일, 소프트웨어를 말합니다.
+
+뉴스의창에서 서비스 하는 모든 내용에 대한 저작권은 뉴스의창 및 뉴스의창에 컨텐츠를 제공한 제공처, 광고주에 있습니다. 이 모든 내용들은 지적재산권에 의해 보호 받으며 사전 뉴스의창나 컨텐츠를 제공한 제공처, 광고주의 사전 승인 없이 어떠한 경우도 대여, 배포, 판매, 대출 행위가 금지되어 있습니다.
+
+7. 뉴스의창에서 서비스 한 컨텐츠의 배포 및 인용
+뉴스의창에서 서비스 하는 모든 컨텐츠에 대한 배포는 금지되어 있습니다.
+
+뉴스의창에서 서비스한 컨텐츠의 내용을 인용 또는 발췌, 복제, 개조, 수정 하여 상업적인 목적으로 다수를 대상으로 한 배포하는 행위는 금지 되어 있습니다. 다만, 사전 뉴스의창가 허가한 경우 그 내용의 인용이 가능 합니다.
+
+8. 링크
+뉴스의창 사전 동의 없이 일부 내용을 발췌 또는 인용한 후 뉴스의창의 특정 페이지로 링크하는 행위를 금지합니다.
+
+9. 제공받은 컨텐츠에 대한 책임
+뉴스의창의 컨텐츠 중 뉴스의창의 자체 컨텐츠가 아니고 별도로 제공처가 표기된 컨텐츠에 대해서는 모든 법적 책임이 내용을 제공한 제공처에 있으며 뉴스의창는 해당 컨텐츠에 대한 법적 책임이 없습니다.
+
+본 이용 약관의 위반은 뉴스의창 고객지원(newstop24@naver.com)으로 알려주시기 바랍니다.
+
+10. 기타
+본 약관은 공정거래위원회 표준 약관에 근거하여 작성되었습니다.
+                    </textarea>
+                </div>
+
+                <div class="agree-item">
+                    <label>
+                        <input type="checkbox" id="chkPrivacy" />
+                        개인정보 수집 및 이용에 대한 안내 <small>(필수)</small>
+                    </label>
+                    <textarea readonly>
+1. 수집하는 개인정보 항목 및 수집방법
+회사는 회원 가입, 서비스제공, 기타상담 등을 위해 개인정보를 수집하고 있으며, 또한 설문조사나 이벤트 시에 집단적인 통계분석을 위해서나 경품발송을 위한 목적으로도 개인정보 기재를 요청할 수 있습니다. 그러나, 회사는 이용자의 기본적 인권 침해의 우려가 있는 민감한 개인정보(인종 및 민족, 사상 및 신조, 출신지 및 본적지, 정치적 성향 및 범죄기록 등)는 가급적 수집하지 않으며 부득이하게 수집해야 할 경우 이용자들의 사전동의를 반드시 구합니다. 이때에도 기입하신 정보는 해당서비스 제공이나 회원님께 사전에 밝힌 목적 이외의 다른 어떠한 목적으로도 사용되지 않음을 알려드립니다.
+
+개인정보의 수집 내용은 아래와 같습니다.
+
+필수항목	
+개인회원: 이름, 로그인ID, 로그인Password, e-mail
+개인/법인사업자: 회사/기관명(영문포함), 사업자등록번호, 주소, 전화번호, 로그인ID, 로그인Password, 담당자이름, 담당자 e-mail
+개인회원 14세 미만 : 이름, 로그인ID, 로그인Password, e-mail, 보호자(법정대리인)의 이름과 e-mail
+선택항목	신용카드정보, 은행계좌정보, 이동전화정보 등 대금결제에 필요한 정보
+개인정보수집방법	홈페이지
+2. 개인정보의 수집 및 이용목적
+회사는 아래와 같은 목적으로 개인정보를 수집합니다.
+
+서비스 제공에 관한 계약이행 및 서비스제공에 따른 요금정산	컨텐츠 제공, 청구서 발송, 본인인증, 물품배송, 구매 및 요금결제, 금융서비스
+회원관리	회원제 서비스 이용에 따른 본인 확인, 개인식별, 불량회원의 부정 이용 방지와 비인가 사용방지, 가입 의사 및 연령 확인, 만 14세 미만 아동의 개인정보 수집 시 법정 대리인 동의여부 확인, 불만처리 등 민원처리, 고지사항 전달.
+서비스 안내등 마케팅 및 광고	신규 서비스 개발 및 특화, 인구통계학적 특성에 따른 서비스 제공 및 광고게재, 접속 빈도 파악, 회원의 서비스 이용에 대한 통계, 이벤트 등 광고성 정보 전달
+3. 개인정보 수집에 대한 동의
+회사는 회원님의 개인정보 수집에 대하여 동의를 받고 있으며, 회사 내의 회원가입 절차 중 이용약관 및 개인정보취급방침에 개인정보 수집 동의절차를 마련해 두고 있습니다. 회원님께서['약관 및 정책'에 동의합니다.]란에 체크하시면 개인정보 수집에 대해 동의한 것으로 봅니다.
+
+4. 개인정보 제공 및 공유
+회사는 이용자들의 개인정보를 '2. 개인정보의 수집 및 이용목적'에서 고지한 범위내에서 사용하며, 이용자의 사전 동의 없이는 동 범위를 초과하여 이용하거나 원칙적으로 이용자의 개인정보를 외부에 공개하지 않습니다. 다만, 아래의 경우에는 예외로 합니다.
+
+이용자들이 사전에 공개에 동의한 경우
+법령의 규정에 의거하거나, 수사 목적으로 법령에 정해진 절차와 방법에 따라 수사기관의 요구가 있는 경우
+5. 개인정보 취급위탁 및 제3자 제공
+개인정보 취급 위탁	회사는 서비스 향상을 위해서 아래와 같이 개인정보를 위탁하고 있으며, 관계 법령에 따라 위탁계약 시 개인정보가 안전하게 관리될 수 있도록 필요한 사항을 규정하고 있습니다. 회사의 개인정보 위탁처리 기관 및 위탁업무 내용은 아래와 같습니다.
+수탁업체명 : 엔디소프트 (주)
+위탁업무 내용 : 홈페이지 유지보수(전산관리 위탁)
+개인정보 보유 및 이용기간 : 회원탈퇴 시 혹은 위탁 계약 종료 시까지
+개인정보 제3자 제공	회사는 고객님의 동의없이 고객님의 정보를 제3자에게 제공하지 않습니다. 향후 그러한 필요가 생길 경우, 고객님에게 통지하고 필요한 경우 사전 동의를 받도록 하겠습니다.
+6. 개인정보의 보유 및 이용 기간
+서비스 이용자가 당사의 회원으로서 서비스를 계속 이용하는 동안 당사는 이용자의 개인정보를 계속 보유하며 서비스 제공 등을 위해 이용합니다.
+
+서비스 이용자의 개인정보는 그 수집 및 이용 목적(설문조사, 이벤트 등 일시적인 목적을 포함)이 달성되거나 이용자가 직접 삭제 또는 회원 탈퇴한 경우에 재생할 수 없는 방법으로 파기합니다.
+
+당사는 이용자의 권리 남용, 악용 방지, 권리침해/명예훼손 분쟁 및 수사협조 등의 요청이 있었을 경우에는 이의 재발에 대비하여 회원의 이용계약 해지 시로부터 1년 동안 회원의 개인정보를 보관할 수 있습니다.
+
+상법, 전자상거래 등에서의 소비자보호에 관한 법률 등 관계법령의 규정에 의하여 보존할 필요가 있는 경우 당사는 관계법령에서 정한 일정한 기간 동안 회원정보를 보관합니다. 이 경우 당사는 보관하는 정보를 그 보관의 목적으로만 이용하며 보존기간은 아래와 같습니다.
+
+회사 내부 방침에 의한 정보보유 사유	회원탈퇴 시 개인정보 보존기간은 아래와 같습니다.
+보존근거: 불량 이용자의 재가입 방지, 명예훼손 등 권리침해 분쟁 및 수사협조
+보존기간: 회원탈퇴 후 1년
+관련법령에 의한 정보보유 사유	상법, 전자상거래 등에서의 소비자보호에 관한 법률 등 관계법령의 규정에 의하여 보존할 필요가 있는 경우 회사는 관계법령에서 정한 일정한 기간 동안 회원정보를 보관합니다. 이 경우 회사는 보관하는 정보를 그 보관의 목적으로만 이용하며 보존기간은 아래와 같습니다.
+계약 또는 청약철회 등에 관한 기록 - 보존 이유 및 기간 : 전자상거래 등에서의 소비자보호에 관한 법률 (5년)
+대금결제 및 재화 등의 공급에 관한 기록 - 보존 이유 및 기간 : 전자상거래 등에서의 소비자보호에 관한 법률 (5년)
+소비자의 불만 또는 분쟁처리에 관한 기록 - 보존 이유 및 기간 : 전자상거래 등에서의 소비자보호에 관한 법률 (3년)
+본인확인에 관한 기록 - 보존 이유 및 기간 : 정보통신망 이용촉진 및 정보보호 등에 관한 법률 (6개월)
+방문에 관한 기록 - 보존 이유 및 기간 : 정보통신망 이용촉진 및 정보보호 등에 관한 법률 (3개월)
+7. 개인정보의 파기절차 및 방법
+회원님은 언제든지 등록되어 있는 회원님의 개인 정보를 열람하거나 정정하실 수 있으며, 회원 탈퇴를 요청하실 수 있습니다. 회원님의 개인 정보 열람 및 수정은 사이트 내의 회원정보 변경을 통해 로그인(Log-in) 후 가능하며, 아이디, 이름을 제외한 사항은 수정 가능합니다. 회원 탈퇴를 원하실 경우 사이트 내에서 탈퇴가 가능하며, 등록된 모든 정보를 파기함으로 탈퇴 여부를 신중히 고려하셔야 합니다. 또한 탈퇴 후 재가입에 제약이 따를 수도 있습니다.
+
+회사의 개인정보 파기절차 및 방법은 다음과 같습니다.
+
+파기절차	
+이용자가 회원가입 등을 위해 입력한 정보는 목적이 달성된 후 별도의 DB로 옮겨져(종이의 경우 별도의 서류함) 내부 방침 및 기타 관련 법령에 의한 정보보호 사유에 따라(보유 및 이용기간 참조)일정 기간 저장된 후 파기됩니다.
+동 개인정보는 법률에 의한 경우가 아니고서는 보유되는 이외의 다른 목적으로 이용되지 않습니다.
+파기방법	
+종이에 출력된 개인정보는 분쇄기로 분쇄하거나 소각을 통하여 파기합니다.
+전자적 파일 형태로 저장된 개인정보는 기록을 재생할 수 없는 기술적 방법을 사용하여 삭제합니다.
+8. 이용자 및 법정대리인의 권리와 그 행사방법
+이용자 및 법정대리인은 언제든지 등록되어 있는 자신 혹은 당해 만 14세 미만 아동의 개인정보를 조회하거나 수정할 수 있으며 가입해지를 요청할 수 도 있습니다.
+
+이용자 혹은 만 14세 미만 아동의 개인정보 조회, 수정을 위해서는 '회원정보수정'(또는 '회원정보변경' 등)을 가입해지를 위해서는 '회원탈퇴' 를 클릭하여 본인 확인 절차를 거치신 후 직접 열람, 정정 또는 탈퇴가 가능합니다.
+
+혹은 개인정보관리책임자에게 서면, 전화 또는 이메일로 연락하시면 지체 없이 조치하겠습니다.
+
+이용자가 개인정보의 오류에 대한 정정을 요청하신 경우에는 정정을 완료하기 전까지 당해 개인정보를 이용 또는 제공하지 않습니다. 또한 잘못된 개인정보를 제3자에게 이미 제공한 경우에는 정정 처리 결과를 제 3자에게 지체 없이 통지하여 정정이 이루어지도록 하겠습니다.
+
+회사는 이용자 혹은 법정 대리인의 요청에 의해 해지 또는 삭제된 개인정보는 "개인정보의 보유 및 이용기간" 에 명시된 바에 따라 처리하고 그 외의 용도로 열람 또는 이용할 수 없도록 처리하고 있습니다. 이용자는 정보주체로서 관련 법령에 의거, 개인정보의 열람, 정정·삭제, 처리정지 요구를 할 수 있습니다.
+
+회사는 이에 대해서 10일 이내에 해당 사항에 대한 회사의 조치를 통지하며 개인정보의 열람, 정정·삭제, 처리정지 요구는 회사로 접수하시면 됩니다.
+
+9. 개인정보 자동수집 장치의 설치, 운영 및 그 거부에 관한 사항
+쿠키(cookie)는 HTTP 서버에서 사용자 브라우저에게 보내는 조그마한 데이터 파일로써 회원님의 컴퓨터에 저장됩니다. 회사는 이러한 쿠키(cookie)를 이용하여 회원님의 브라우저 형식이나 서비스 이용 형태를 얻게 되며, 이러한 쿠키 정보를 바탕으로 회원님께 유용하고 보다 편리한 맞춤서비스를 제공하는데 사용하게 됩니다.
+
+회원님은 쿠키에 대한 선택권을 가지고 있습니다. 회원님의 웹브라우저에서 옵션을 선택함으로써 모든 쿠키를 허용하거나, 쿠키가 저장될 때마다 확인을 거치거나, 모든 쿠키의 저장을 거부할 수 있습니다. 단, 쿠키의 저장을 거부하실 경우 로그인 (Log-in) 이 필요한 회사의 모든 서비스는 이용하실 수 없게 됩니다.
+
+10. 개인정보보호를 위한 기술적, 관리적 대책
+회원님의 개인정보는 비밀번호에 의해 보호되고 있습니다. 회원님 계정의 비밀번호는 오직 본인만이 알 수 있으며, 개인정보의 확인 및 변경도 비밀번호를 알고 있는 본인에 의해서만 가능합니다. 따라서 회원님의 비밀번호는 누구에게도 알려주면 안됩니다. 또한 작업을 마치신 후에는 로그아웃(log-out)하시고 웹브라우저를 종료하는 것이 바람직합니다. 특히 다른 사람과 컴퓨터를 공유하여 사용하거나 공공장소에서 이용한 경우 개인정보가 다른 사람에게 알려지는 것을 막기 위해서 이와 같은 절차가 더욱 필요합니다. 이용자 부주의나 인터넷상의 문제로 인한 개인정보 유출에 대해서 회사는 책임을 지지 않습니다.
+
+회사는 개인정보보호를 위한 기술적 관리적 대책을 다음과 같이 시행하고 있습니다.
+
+해킹 방지를 위한 방화벽과 보안시스템에 만전을 기하고 있습니다.
+개인정보 송수신시 SSL 보안서버 인증서를 설치하여 정보를 보호합니다.
+개인정보에의 접근은 해당 업무 수행자, 업무 수행 시 개인정보 취급이 불가피한 자로 제한하여 그 이외의 직원이 접근하지 못하도록 하고 있습니다.
+개인정보취급자의 경우 정기 및 수시로 교육을 실시하고 있습니다.
+개인정보처리시스템의 접속 기록을 유지하고 이를 정기적으로 확인 감독하고 있습니다.
+개인정보 출력 및 복사 시 보호조치를 시행하고 있습니다.
+11. 아동의 개인정보
+회사는 원칙적으로 14세 미만 아동의 개인정보를 수집하지 않습니다. 다만 특별한 경우에 법정대리인의 동의를 얻어 아동의 개인정보를 수집할 수 있습니다.
+
+회사는 회원님의 개인정보를 보호하기 위하여 최선을 다하고 있습니다. 그러나 이러한 노력 이외에 회원님 스스로도 제 3 자에게 비밀번호 등이 노출되지 않도록 주의하셔야 합니다. 특히 비밀번호 등이 공공장소에 설치한 PC를 통해 유출되지 않도록 항상 유의하시기 바랍니다.
+
+또한 회사는 어떠한 경우에도 전화나 E-mail을 통해 사용자의 비밀번호를 묻지 않습니다. 그러므로 본인의 ID와 비밀번호는 꼭 본인만 사용하시고, 비밀번호를 자주 바꿔주시는 것이 좋습니다. 회사는 개인정보보호에 최선을 다하지만, 회원님 개인 실수나 회사의 과실에 기인하지 않는 개인 정보 유출에 대해서는 책임을 지지 않습니다.
+
+12. 개인정보 관리책임자
+회사 개인정보취급방침과 관련하여 의견이 있을 경우 메일을 주시면 접수 즉시 조치하고 처리결과를 알려드리겠습니다. 개인정보 관리책임자는 아래와 같습니다.
+
+개인정보 관리책임자
+책임자	장경욱
+전화번호	010 9885 3967
+E-mail	newstop24@naver.com
+기타 개인정보침해에 대한 신고나 상담이 필요하신 경우에는 아래 기관에 문의하시기 바랍니다.
+개인정보침해신고센터	privacy.kisa.or.kr / 국번없이 118
+대검찰청 사이버범죄수사단	www.spo.go.kr / 국번없이 1301
+경찰청 사이버테러대응센터	www.ctrc.go.kr / 국번없이 182
+13. 부칙
+현 개인정보취급방침의 수정, 변경이 있을 시 최소 7일 이전에 사이트 내 공지를 통하여 고지할 것입니다.
+
+- 개인정보취급방침 시행일자 : 2026년 04월 01일
+                    </textarea>
+                </div>
+
+                <div class="agree-item">
+                    <label>
+                        <input type="checkbox" id="chkPromo" />
+                        이벤트 등 프로모션 알림 메일 수신 <small>(선택)</small>
+                    </label>
+                    <textarea readonly>
+뉴스의 창은 신규 서비스, 이벤트, 프로모션 등 다양한 소식을 이메일을 통해 안내드릴 수 있습니다.
+동의하지 않으셔도 회원가입 및 기본 서비스 이용에는 제한이 없습니다.
+                    </textarea>
+                </div>
+
+                <div class="agree-actions">
+                    <button type="button" class="btn-secondary" id="btnPrev">이전</button>
+                    <button type="button" class="btn-primary" id="btnAgree" disabled>동의</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: 정보입력 - 일반회원 -->
+        <section id="step3-general" style="display:none;">
+            <h2 class="signup-section-title">회원정보</h2>
+            <p class="signup-sub">입력항목 중 <span style="color:#c00;">*</span> 는 필수입력 표시입니다.</p>
+
+            <div class="form-wrap">
+                <div class="form-section-title">회원가입여부 확인</div>
+                <div class="form-row">
+                    <label><span class="required">*</span>이름</label>
+                    <input type="text" placeholder="홍길동" />
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>이메일</label>
+                    <input type="email" placeholder="addr@example.com" />
+                </div>
+                <div class="form-row">
+                    <label></label>
+                    <button type="button" class="btn-inline">확인</button>
+                </div>
+
+                <div class="form-section-title">필수입력사항</div>
+                <div class="form-row">
+                    <label><span class="required">*</span>회원ID</label>
+                    <input type="text" placeholder="ID입력" />
+                    <button type="button" class="btn-inline">중복검사</button>
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>비밀번호</label>
+                    <input type="password" placeholder="영문 대/소, 숫자, 특수문자 중 3가지 이상 조합하여 8~32자 내로 입력." />
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>비밀번호확인</label>
+                    <input type="password" placeholder="영문 대/소, 숫자, 특수문자 중 3가지 이상 조합하여 8~32자 내로 입력." />
+                </div>
+                <div class="form-row">
+                    <label>연락처</label>
+                    <div class="form-row-small-group">
+                        <input type="text" placeholder="042" />
+                        <input type="text" placeholder="610" />
+                        <input type="text" placeholder="3800" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>주소</label>
+                    <div class="form-row-small-group">
+                        <input type="text" id="g_postcode" placeholder="35234" />
+                        <button type="button" class="btn-inline btn-postcode" data-prefix="g">찾기</button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label></label>
+                    <input type="text" id="g_address" placeholder="상세주소" />
+                </div>
+                <div class="form-row">
+                    <label>프로필사진</label>
+                    <input class="file-input" type="file" />
+                </div>
+                <div class="form-row">
+                    <label>이벤트 등 프로모션 알림 메일</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="promo" checked /> 수신희망</label>
+                        <label><input type="radio" name="promo" /> 수신거부</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>자동등록방지</label>
+                    <div class="captcha-box">
+                        <div style="width:300px;height:78px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:12px;color:#777;">
+                            reCAPTCHA 영역 (예시)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agree-actions" style="margin-top:24px;">
+                    <button type="button" class="btn-primary">등록하기</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: 정보입력 - 어린이회원 -->
+        <section id="step3-child" style="display:none;">
+            <h2 class="signup-section-title">회원정보</h2>
+            <p class="signup-sub">입력항목 중 <span style="color:#c00;">*</span> 는 필수입력 표시입니다.</p>
+
+            <div class="form-wrap">
+                <div class="form-section-title">회원가입여부 확인</div>
+                <div class="form-row">
+                    <label><span class="required">*</span>이름</label>
+                    <input type="text" placeholder="홍길동" />
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>이메일</label>
+                    <input type="email" placeholder="addr@example.com" />
+                </div>
+                <div class="form-row">
+                    <label></label>
+                    <button type="button" class="btn-inline">확인</button>
+                </div>
+
+                <div class="form-section-title">필수입력사항</div>
+                <div class="form-row">
+                    <label><span class="required">*</span>회원ID</label>
+                    <input type="text" placeholder="ID입력" />
+                    <button type="button" class="btn-inline">중복검사</button>
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>비밀번호</label>
+                    <input type="password" placeholder="영문 대/소, 숫자, 특수문자 중 3가지 이상 조합하여 8~32자 내로 입력." />
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>비밀번호확인</label>
+                    <input type="password" placeholder="영문 대/소, 숫자, 특수문자 중 3가지 이상 조합하여 8~32자 내로 입력." />
+                </div>
+                <div class="form-row">
+                    <label>연락처</label>
+                    <div class="form-row-small-group">
+                        <input type="text" placeholder="042" />
+                        <input type="text" placeholder="610" />
+                        <input type="text" placeholder="3800" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>주소</label>
+                    <div class="form-row-small-group">
+                        <input type="text" id="c_postcode" placeholder="35234" />
+                        <button type="button" class="btn-inline btn-postcode" data-prefix="c">찾기</button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label></label>
+                    <input type="text" id="c_address" placeholder="상세주소" />
+                </div>
+                <div class="form-row">
+                    <label>프로필사진</label>
+                    <input class="file-input" type="file" />
+                </div>
+                <div class="form-row">
+                    <label>이벤트 등 프로모션 알림 메일</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="promo_child" checked /> 수신희망</label>
+                        <label><input type="radio" name="promo_child" /> 수신거부</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>보호자 이름</label>
+                    <input type="text" placeholder="홍길동" />
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>보호자 이메일</label>
+                    <input type="email" placeholder="admin@example.com" />
+                </div>
+                <div class="form-row">
+                    <label><span class="required">*</span>자동등록방지</label>
+                    <div class="captcha-box">
+                        <div style="width:300px;height:78px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:12px;color:#777;">
+                            reCAPTCHA 영역 (예시)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agree-actions" style="margin-top:24px;">
+                    <button type="button" class="btn-primary">등록하기</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            let currentPostPrefix = null;
+            let memberType = "general";
+
+            const stepEls = document.querySelectorAll(".signup-step");
+            const step1Section = document.getElementById("step1-section");
+            const step2Section = document.getElementById("step2-section");
+            const step3General = document.getElementById("step3-general");
+            const step3Child = document.getElementById("step3-child");
+
+            function setActiveStep(step) {
+                stepEls.forEach((el) => {
+                    const s = el.getAttribute("data-step");
+                    el.classList.toggle("active", String(step) === String(s));
+                });
+            }
+
+            // Step1 카드 선택
+            function selectMember(type) {
+                memberType = type;
+                document.getElementById("card-general").classList.toggle("active", type === "general");
+                document.getElementById("card-child").classList.toggle("active", type === "child");
+                // 바로 Step2로 이동
+                step1Section.style.display = "none";
+                step2Section.style.display = "block";
+                setActiveStep(2);
+            }
+
+            document.getElementById("card-general").addEventListener("click", function () {
+                selectMember("general");
+            });
+            document.getElementById("card-child").addEventListener("click", function () {
+                selectMember("child");
+            });
+
+            // Step2 약관 체크 로직
+            const chkAll = document.getElementById("chkAll");
+            const chkTerms = document.getElementById("chkTerms");
+            const chkPrivacy = document.getElementById("chkPrivacy");
+            const chkPromo = document.getElementById("chkPromo");
+            const btnAgree = document.getElementById("btnAgree");
+            const btnPrev = document.getElementById("btnPrev");
+
+            function updateAgreeButton() {
+                const requiredOk = chkTerms.checked && chkPrivacy.checked;
+                btnAgree.disabled = !requiredOk;
+            }
+
+            chkAll.addEventListener("change", function () {
+                const v = chkAll.checked;
+                chkTerms.checked = v;
+                chkPrivacy.checked = v;
+                chkPromo.checked = v;
+                updateAgreeButton();
+            });
+            [chkTerms, chkPrivacy, chkPromo].forEach((c) =>
+                c.addEventListener("change", function () {
+                    // all 체크박스 상태 동기화
+                    chkAll.checked = chkTerms.checked && chkPrivacy.checked && chkPromo.checked;
+                    updateAgreeButton();
+                })
+            );
+
+            btnPrev.addEventListener("click", function () {
+                // Step1로 돌아가기
+                step2Section.style.display = "none";
+                step1Section.style.display = "block";
+                setActiveStep(1);
+            });
+
+            btnAgree.addEventListener("click", function () {
+                // Step3 정보입력 페이지로 이동
+                step2Section.style.display = "none";
+                if (memberType === "general") {
+                    step3General.style.display = "block";
+                    step3Child.style.display = "none";
+                } else {
+                    step3General.style.display = "none";
+                    step3Child.style.display = "block";
+                }
+                setActiveStep(3);
+            });
+
+            // ----- 카카오 주소 검색 -----
+            const layer = document.getElementById("postcode-layer");
+            const layerClose = document.getElementById("postcode-close");
+
+            function openPostcode(prefix) {
+                currentPostPrefix = prefix;
+                if (!window.daum || !window.daum.Postcode) {
+                    alert("주소 검색 서비스를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.");
+                    return;
+                }
+                new daum.Postcode({
+                    oncomplete: function (data) {
+                        const addr = data.roadAddress || data.jibunAddress;
+                        const zonecode = data.zonecode;
+                        const postInput = document.getElementById(prefix + "_postcode");
+                        const addrInput = document.getElementById(prefix + "_address");
+                        if (postInput) postInput.value = zonecode || "";
+                        if (addrInput) addrInput.value = addr || "";
+                        layer.style.display = "none";
+                    }
+                }).embed(document.getElementById("postcode-embed"));
+                layer.style.display = "block";
+            }
+
+            document.querySelectorAll(".btn-postcode").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    const prefix = this.getAttribute("data-prefix");
+                    openPostcode(prefix);
+                });
+            });
+
+            layerClose.addEventListener("click", function () {
+                layer.style.display = "none";
+            });
+        })();
+    </script>
+</body>
+</html>
+

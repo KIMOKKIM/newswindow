@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const dataDir = path.join(process.cwd(), 'data');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+/** cwd와 무관하게 항상 backend/data (articles·users 동일 디렉터리) */
+const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const dbPath = path.join(dataDir, 'users.json');
 
@@ -57,7 +60,10 @@ export const db = {
           const u = users.find(x => x.id === Number(id));
           if (u) { u.role = role; save(); }
         }
-        if (sql.includes('UPDATE users SET') && sql.includes('WHERE id = ?')) {
+        if (
+          sql.includes('UPDATE users SET name = ?') &&
+          sql.includes('WHERE id = ?')
+        ) {
           const u = users.find(x => x.id === Number(args[args.length - 1]));
           if (u) {
             const updates = args.slice(0, -1);
