@@ -1,12 +1,10 @@
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { writeJsonFileAtomic } from '../lib/atomicJsonWrite.js';
+import { ensureDirForFile, getUsersJsonPath } from '../config/dataPaths.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-/** cwd와 무관하게 항상 backend/data (articles·users 동일 디렉터리) */
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-const dbPath = path.join(dataDir, 'users.json');
+/** NW_USERS_JSON_PATH 미설정 시 backend/data/users.json (재배포 시 유실 가능) */
+const dbPath = getUsersJsonPath();
+ensureDirForFile(dbPath);
 
 let users = [];
 if (fs.existsSync(dbPath)) {
@@ -17,7 +15,7 @@ if (fs.existsSync(dbPath)) {
 if (!Array.isArray(users)) users = [];
 
 function save() {
-  fs.writeFileSync(dbPath, JSON.stringify(users, null, 2), 'utf8');
+  writeJsonFileAtomic(dbPath, users);
 }
 
 export const db = {

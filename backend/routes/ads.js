@@ -1,17 +1,14 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { authMiddleware } from '../middleware/auth.js';
+import { getAdsJsonPath, getUploadsRoot } from '../config/dataPaths.js';
+import { writeJsonFileAtomic } from '../lib/atomicJsonWrite.js';
 
 export const adsRouter = Router();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', 'data');
-/** 운영에서 영구 디스크를 붙인 경로(예: Render Disk). 미설정 시 기본 backend/data/ads.json(재배포 시 리포/이미지와 함께 초기화될 수 있음). */
-const adsPath = process.env.NW_ADS_JSON_PATH
-  ? path.resolve(process.env.NW_ADS_JSON_PATH)
-  : path.join(dataDir, 'ads.json');
-const uploadsAdsDir = path.join(__dirname, '..', 'uploads', 'ads');
+/** NW_ADS_JSON_PATH · NW_UPLOADS_ROOT 미설정 시 backend/data · backend/uploads (재배포 시 유실 가능) */
+const adsPath = getAdsJsonPath();
+const uploadsAdsDir = path.join(getUploadsRoot(), 'ads');
 
 function loadAds() {
   if (!fs.existsSync(adsPath)) return normalizeAdsResponse(getDefaultAds());
@@ -141,9 +138,7 @@ function normalizeAdsResponse(data) {
 }
 
 function saveAds(data) {
-  const dir = path.dirname(adsPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(adsPath, JSON.stringify(data, null, 2), 'utf8');
+  writeJsonFileAtomic(adsPath, data);
 }
 
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)

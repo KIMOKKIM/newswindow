@@ -1,16 +1,10 @@
 import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join, resolve } from 'path';
+import { writeJsonFileAtomic } from '../lib/atomicJsonWrite.js';
+import { ensureDirForFile, getArticlesJsonPath } from '../config/dataPaths.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-/** cwd와 무관하게 기본은 backend/data. 운영: NW_ARTICLES_JSON_PATH로 Render Disk 등 영구 경로 지정 */
-const dataDir = join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-const articlesPath = process.env.NW_ARTICLES_JSON_PATH
-  ? resolve(process.env.NW_ARTICLES_JSON_PATH)
-  : join(dataDir, 'articles.json');
-const articlesDir = dirname(articlesPath);
-if (!fs.existsSync(articlesDir)) fs.mkdirSync(articlesDir, { recursive: true });
+/** 운영: NW_ARTICLES_JSON_PATH 로 Persistent Disk 절대경로 지정(미설정 시 backend/data, 재배포 시 유실 가능) */
+const articlesPath = getArticlesJsonPath();
+ensureDirForFile(articlesPath);
 
 let articles = [];
 if (fs.existsSync(articlesPath)) {
@@ -21,7 +15,7 @@ if (fs.existsSync(articlesPath)) {
 if (!Array.isArray(articles)) articles = [];
 
 function save() {
-  fs.writeFileSync(articlesPath, JSON.stringify(articles, null, 2), 'utf8');
+  writeJsonFileAtomic(articlesPath, articles);
   if (process.env.NW_DEBUG === '1') {
     console.log('[articlesDb] write path=', articlesPath, 'rowCount=', articles.length);
   }
@@ -57,10 +51,25 @@ export function isPublicFeedReadableStatus(raw) {
   return st === 'published' || st === 'submitted';
 }
 
-function authorIdNorm(v) {
+export function authorIdNorm(v) {
   if (v == null || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function isMissingAuthorIdRecord(a) {
+  return a.author_id == null || a.author_id === '' || authorIdNorm(a.author_id) == null;
+}
+
+/** 기자 본인 기사: author_id 일치 또는 (레거시) author_id 없음 + 작성자명·공개 피드 상태 일치 */
+function reporterOwnsArticleRecord(a, reporterId, reporterDisplayName) {
+  if (!a) return false;
+  if (authorIdNorm(a.author_id) === authorIdNorm(reporterId)) return true;
+  if (!isMissingAuthorIdRecord(a)) return false;
+  const nameWant = reporterDisplayName == null ? '' : String(reporterDisplayName).trim();
+  if (!nameWant) return false;
+  if (String(a.author_name || '').trim() !== nameWant) return false;
+  return isPublicFeedReadableStatus(a.status);
 }
 
 function mapListFields(a) {
@@ -234,15 +243,7 @@ export const articlesDb = {
     if (want == null) return [];
     const nameWant = reporterDisplayName == null ? '' : String(reporterDisplayName).trim();
     return articles
-      .filter((a) => {
-        if (authorIdNorm(a.author_id) === want) return true;
-        if (!nameWant) return false;
-        const missingOwner =
-          a.author_id == null || a.author_id === '' || authorIdNorm(a.author_id) == null;
-        if (!missingOwner) return false;
-        if (String(a.author_name || '').trim() !== nameWant) return false;
-        return isPublicFeedReadableStatus(a.status);
-      })
+      .filter((a) => reporterOwnsArticleRecord(a, want, nameWant))
       .reverse()
       .map((a) => ({
         id: a.id,
@@ -312,10 +313,11 @@ export const articlesDb = {
     return mapDetail(a);
   },
 
-  findById(id, authorId) {
+  findById(id, authorId, reporterDisplayName) {
     const a = resolveArticleRecord(id);
     if (!a) return null;
-    if (authorId != null && authorIdNorm(a.author_id) !== authorIdNorm(authorId)) return null;
+    if (authorId == null) return mapDetail(a);
+    if (!reporterOwnsArticleRecord(a, authorId, reporterDisplayName)) return null;
     return mapDetail(a);
   },
 
@@ -324,9 +326,9 @@ export const articlesDb = {
     return resolveArticleRecord(id);
   },
 
-  update(id, authorId, data) {
+  update(id, authorId, data, reporterDisplayName) {
     const a = resolveArticleRecord(id);
-    if (!a || authorIdNorm(a.author_id) !== authorIdNorm(authorId)) return false;
+    if (!a || !reporterOwnsArticleRecord(a, authorId, reporterDisplayName)) return false;
     const now = nowStr();
     if (data.title !== undefined) a.title = data.title;
     if (data.subtitle !== undefined) a.subtitle = data.subtitle;

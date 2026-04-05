@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { articlesDb, isPublicFeedReadableStatus, toApiStatus } from '../db/articles.js';
+import { articlesDb, authorIdNorm, isPublicFeedReadableStatus, toApiStatus } from '../db/articles.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 export const articlesRouter = Router();
@@ -71,12 +71,15 @@ articlesRouter.get('/:id', authMiddleware, (req, res) => {
   const role = req.user.role;
   let row;
   if (role === 'reporter') {
-    const ownerId = articlesDb.authorIdForArticle(req.params.id);
-    if (ownerId == null) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-    if (Number(ownerId) !== Number(req.user.id)) {
+    const raw = articlesDb.rawRecord(req.params.id);
+    if (!raw) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+    const ownerNorm = authorIdNorm(raw.author_id);
+    const uid = authorIdNorm(req.user.id);
+    if (ownerNorm != null && ownerNorm !== uid) {
       return res.status(403).json({ error: '본인 기사만 조회할 수 있습니다.' });
     }
-    row = articlesDb.findById(req.params.id, req.user.id);
+    row = articlesDb.findById(req.params.id, req.user.id, req.user.name);
+    if (!row) return res.status(403).json({ error: '본인 기사만 조회할 수 있습니다.' });
   } else if (role === 'admin' || role === 'editor_in_chief') {
     row = articlesDb.findById(req.params.id, null);
   } else {
@@ -117,9 +120,9 @@ articlesRouter.patch('/:id', authMiddleware, (req, res) => {
     const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status } = req.body;
     const ok = articlesDb.update(req.params.id, req.user.id, {
       title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status,
-    });
+    }, req.user.name);
     if (!ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-    const row = articlesDb.findById(req.params.id, req.user.id);
+    const row = articlesDb.findById(req.params.id, req.user.id, req.user.name);
     if (debug()) console.log('[articles] PATCH reporter', { id: row?.id, status: row?.status });
     return res.json({ message: '수정되었습니다.', article: row });
   }

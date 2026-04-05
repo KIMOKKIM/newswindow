@@ -14,26 +14,29 @@
 
 ※ 프로젝트마다 다르므로 **반드시 대시보드에 표시된 Mount Path**를 사용한다. 여기서는 예시로 `/data`를 쓴다.
 
-## 환경 변수 (정확히 2개)
+## 환경 변수 (권장 4개)
 
 | 변수 | 역할 |
 |------|------|
-| `NW_ADS_JSON_PATH` | 광고 JSON 단일 파일 절대 경로 |
-| `NW_ARTICLES_JSON_PATH` | 기사 JSON 단일 파일 절대 경로 |
+| `NW_ARTICLES_JSON_PATH` | 기사 JSON 절대 경로 |
+| `NW_ADS_JSON_PATH` | 광고 JSON 절대 경로 |
+| `NW_USERS_JSON_PATH` | 사용자 JSON 절대 경로 |
+| `NW_UPLOADS_ROOT` | 업로드 루트(예: `.../uploads`). 광고 이미지는 `{ROOT}/ads/` |
+
+서버 기동 시 `[persistence]` 로그가 실제 경로를 출력한다. 프로덕션에서 기본 `backend/data` 를 쓰면 유실 경고가 난다.
 
 ## 최종 입력 예시 (Mount Path가 `/data`일 때)
 
 ```env
-NW_ADS_JSON_PATH=/data/ads.json
 NW_ARTICLES_JSON_PATH=/data/articles.json
+NW_ADS_JSON_PATH=/data/ads.json
+NW_USERS_JSON_PATH=/data/users.json
+NW_UPLOADS_ROOT=/data/uploads
 ```
 
-다른 마운트 예: `/mnt/render-disk` 이면:
+다른 마운트 예: `/mnt/render-disk` 이면 파일명만 경로에 맞게 바꾼다.
 
-```env
-NW_ADS_JSON_PATH=/mnt/render-disk/ads.json
-NW_ARTICLES_JSON_PATH=/mnt/render-disk/articles.json
-```
+JSON 저장은 **원자적 쓰기**(임시 파일 후 rename)로 보강되었으며, 유실 방지의 핵심은 여전히 **영구 디스크 + 위 환경변수**이다. 자세한 분석은 `DEPLOY_DATA_PERSISTENCE_REPORT.md` 참고.
 
 ## 재배포 후 유지 검증
 

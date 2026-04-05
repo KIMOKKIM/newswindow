@@ -10,10 +10,12 @@ import { usersRouter } from './routes/users.js';
 import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
 import { db } from './db/db.js';
+import { getUploadsRoot } from './config/dataPaths.js';
+import { logPersistenceOnStartup } from './lib/persistenceDiagnostics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = getUploadsRoot();
 app.use('/uploads', express.static(uploadsDir));
 const PORT = process.env.PORT || 3000;
 const corsOrigins = (process.env.CORS_ORIGIN ||
@@ -88,6 +90,7 @@ async function start() {
     console.log('Seed: 관리자 admin1 created');
   }
   app.listen(PORT, () => {
+    logPersistenceOnStartup();
     console.log(`Backend running at http://127.0.0.1:${PORT}`);
   });
 }
