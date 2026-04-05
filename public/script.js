@@ -381,62 +381,51 @@ function resolveArticleListThumb(src) {
 
 var nwLatestTop5Timer = null;
 
-/** 구버전 HTML이면 최신기사 2열 블록을 main 앞에 삽입 */
-function ensureNwLatestTop5Section() {
-    var sec = document.getElementById('nwLatestTop5');
-    if (sec) return sec;
-    var main = document.querySelector('main.main') || document.querySelector('main');
-    if (!main) return null;
-    sec = document.createElement('section');
-    sec.className = 'nw-latest-top5';
-    sec.id = 'nwLatestTop5';
-    sec.style.display = 'none';
-    sec.setAttribute('aria-label', '최신 기사');
-    sec.innerHTML =
-        '<div class="nw-latest-top5__grid">' +
-        '<div class="nw-latest-top5__hero">' +
-        '<a id="nwLatestHeroLink" class="nw-latest-hero__link" href="#">' +
-        '<div class="nw-latest-hero__media" id="nwLatestHeroMedia">' +
-        '<img id="nwLatestHeroImg" class="nw-latest-hero__img" alt="" decoding="async" width="800" height="450" hidden>' +
-        '</div>' +
-        '<div class="nw-latest-hero__text">' +
-        '<p class="nw-latest-hero__kicker">최신기사</p>' +
-        '<h2 id="nwLatestHeroTitle" class="nw-latest-hero__title">불러오는 중…</h2>' +
-        '<p id="nwLatestHeroMeta" class="nw-latest-hero__meta"></p>' +
-        '</div>' +
-        '</a>' +
-        '<div class="nw-latest-hero__dots" id="nwLatestHeroDots" aria-hidden="true"></div>' +
-        '</div>' +
-        '<aside class="nw-latest-top5__aside" aria-label="최신기사 목록">' +
-        '<h2 class="nw-latest-list__heading">최신기사</h2>' +
-        '<ul class="nw-latest-list" id="nwLatestList"></ul>' +
-        '</aside>' +
-        '</div>';
-    main.insertBefore(sec, main.firstChild);
-    return sec;
+/** index.html에 #nwLatestTop5 가 있어야 함 — DOM 삽입하지 않고 데이터만 바인딩 */
+function getNwLatestTop5Section() {
+    return document.getElementById('nwLatestTop5');
 }
 
-function setHeadlineSectionVisible(visible) {
-    var hs = document.querySelector('.headline-section');
-    if (hs) hs.style.display = visible ? '' : 'none';
+function setLatestTop5EmptyState(sec, titleText, metaText) {
+    if (!sec) return;
+    sec.classList.remove('nw-latest-top5--loading');
+    sec.classList.add('nw-latest-top5--empty');
+    var heroTitle = document.getElementById('nwLatestHeroTitle');
+    var heroMeta = document.getElementById('nwLatestHeroMeta');
+    var heroImg = document.getElementById('nwLatestHeroImg');
+    var heroMedia = document.getElementById('nwLatestHeroMedia');
+    var dotsEl = document.getElementById('nwLatestHeroDots');
+    var listEl = document.getElementById('nwLatestList');
+    if (heroTitle) heroTitle.textContent = titleText || '';
+    if (heroMeta) heroMeta.textContent = metaText || '';
+    if (heroImg) {
+        heroImg.removeAttribute('src');
+        heroImg.hidden = true;
+    }
+    if (heroMedia) heroMedia.classList.add('is-placeholder');
+    if (dotsEl) dotsEl.innerHTML = '';
+    if (listEl) listEl.innerHTML = '';
 }
 
 /**
  * 공개 기사 목록에서 최신순 최대 5건 — 좌측 히어로 3초 롤링·우측 고정 리스트·active 동기화
  */
 function renderLatestTop5FromList(articles) {
-    var sec = ensureNwLatestTop5Section();
+    var sec = getNwLatestTop5Section();
     if (!sec) return;
     if (nwLatestTop5Timer) {
         clearInterval(nwLatestTop5Timer);
         nwLatestTop5Timer = null;
     }
     if (!Array.isArray(articles) || articles.length === 0) {
-        sec.style.display = 'none';
-        setHeadlineSectionVisible(true);
+        setLatestTop5EmptyState(
+            sec,
+            '등록된 공개 기사가 없습니다.',
+            '게시·송고된 기사가 있으면 여기에 표시됩니다.'
+        );
         return;
     }
-    setHeadlineSectionVisible(false);
+    sec.classList.remove('nw-latest-top5--loading', 'nw-latest-top5--empty');
 
     var ordered = sortByLatest(articles);
     var top5 = ordered.slice(0, 5);
@@ -450,6 +439,7 @@ function renderLatestTop5FromList(articles) {
     if (!heroLink || !heroTitle || !heroMeta || !listEl) return;
 
     listEl.innerHTML = '';
+
     top5.forEach(function (row, i) {
         var cat = cleanBrokenKoreanText(row.category, '뉴스');
         var dt = toDate(row.published_at || row.submitted_at || row.created_at);
@@ -469,8 +459,6 @@ function renderLatestTop5FromList(articles) {
         li.appendChild(sm);
         listEl.appendChild(li);
     });
-
-    sec.style.display = '';
 
     var idx = 0;
     function applyHeroThumb(row) {
@@ -588,7 +576,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             })
             .catch(function (err) {
-                renderLatestTop5FromList([]);
+                var s = getNwLatestTop5Section();
+                if (s) {
+                    if (nwLatestTop5Timer) {
+                        clearInterval(nwLatestTop5Timer);
+                        nwLatestTop5Timer = null;
+                    }
+                    setLatestTop5EmptyState(
+                        s,
+                        '기사 목록을 불러오지 못했습니다.',
+                        '네트워크 또는 서버 응답을 확인해 주세요.'
+                    );
+                }
                 if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] public/list failed', pubUrl, err);
             });
     })();

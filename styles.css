@@ -1464,6 +1464,11 @@ a:hover {
     font-size: 13px;
 }
 
+/* index 메인: #nwLatestTop5 가 있으면 정적 샘플 헤드라인 숨김 (F5 직후 옛 블록 깜빡임 방지) */
+body:has(#nwLatestTop5) .headline-section {
+    display: none !important;
+}
+
 /* 최신기사 Top5: 좌측 히어로(롤링) + 우측 고정 리스트 */
 .nw-latest-top5 {
     margin-bottom: 28px;
@@ -1473,6 +1478,25 @@ a:hover {
     overflow: hidden;
     background: var(--color-bg);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.nw-latest-top5--loading .nw-latest-hero__media {
+    animation: nw-latest-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes nw-latest-shimmer {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.72;
+    }
+}
+
+.nw-latest-top5--empty .nw-latest-hero__meta {
+    color: var(--color-muted);
+    line-height: 1.5;
 }
 
 .nw-latest-top5__grid {
