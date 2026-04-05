@@ -379,95 +379,160 @@ function resolveArticleListThumb(src) {
     return v;
 }
 
-var nwTop5RotatorTimer = null;
+var nwLatestTop5Timer = null;
 
-/** 운영 index.html이 구버전이면 #nwTop5Rotator가 없어 롤링이 생략됨 → 동일 마크업을 main 앞에 삽입. */
-function ensureNwTop5RotatorSection() {
-    var sec = document.getElementById('nwTop5Rotator');
+/** 구버전 HTML이면 최신기사 2열 블록을 main 앞에 삽입 */
+function ensureNwLatestTop5Section() {
+    var sec = document.getElementById('nwLatestTop5');
     if (sec) return sec;
     var main = document.querySelector('main.main') || document.querySelector('main');
     if (!main) return null;
     sec = document.createElement('section');
-    sec.className = 'nw-top5-rotator';
-    sec.id = 'nwTop5Rotator';
+    sec.className = 'nw-latest-top5';
+    sec.id = 'nwLatestTop5';
     sec.style.display = 'none';
     sec.setAttribute('aria-label', '최신 기사');
     sec.innerHTML =
-        '<div class="nw-top5-inner">' +
-        '<a id="nwTop5Link" class="nw-top5-link" href="#">' +
-        '<div class="nw-top5-thumb-wrap">' +
-        '<img id="nwTop5Thumb" class="nw-top5-thumb" alt="" width="140" height="94" decoding="async" hidden>' +
+        '<div class="nw-latest-top5__grid">' +
+        '<div class="nw-latest-top5__hero">' +
+        '<a id="nwLatestHeroLink" class="nw-latest-hero__link" href="#">' +
+        '<div class="nw-latest-hero__media" id="nwLatestHeroMedia">' +
+        '<img id="nwLatestHeroImg" class="nw-latest-hero__img" alt="" decoding="async" width="800" height="450" hidden>' +
         '</div>' +
-        '<div class="nw-top5-text">' +
-        '<p class="nw-top5-kicker">최신기사</p>' +
-        '<h3 id="nwTop5Title" class="nw-top5-title">불러오는 중…</h3>' +
-        '<p id="nwTop5Meta" class="nw-top5-submeta"></p>' +
+        '<div class="nw-latest-hero__text">' +
+        '<p class="nw-latest-hero__kicker">최신기사</p>' +
+        '<h2 id="nwLatestHeroTitle" class="nw-latest-hero__title">불러오는 중…</h2>' +
+        '<p id="nwLatestHeroMeta" class="nw-latest-hero__meta"></p>' +
         '</div>' +
         '</a>' +
+        '<div class="nw-latest-hero__dots" id="nwLatestHeroDots" aria-hidden="true"></div>' +
         '</div>' +
-        '<div class="nw-top5-dots" id="nwTop5Dots" aria-hidden="true"></div>';
+        '<aside class="nw-latest-top5__aside" aria-label="최신기사 목록">' +
+        '<h2 class="nw-latest-list__heading">최신기사</h2>' +
+        '<ul class="nw-latest-list" id="nwLatestList"></ul>' +
+        '</aside>' +
+        '</div>';
     main.insertBefore(sec, main.firstChild);
     return sec;
 }
 
-function renderTop5RotatorFromList(articles) {
-    var sec = ensureNwTop5RotatorSection();
+function setHeadlineSectionVisible(visible) {
+    var hs = document.querySelector('.headline-section');
+    if (hs) hs.style.display = visible ? '' : 'none';
+}
+
+/**
+ * 공개 기사 목록에서 최신순 최대 5건 — 좌측 히어로 3초 롤링·우측 고정 리스트·active 동기화
+ */
+function renderLatestTop5FromList(articles) {
+    var sec = ensureNwLatestTop5Section();
     if (!sec) return;
-    if (nwTop5RotatorTimer) {
-        clearInterval(nwTop5RotatorTimer);
-        nwTop5RotatorTimer = null;
+    if (nwLatestTop5Timer) {
+        clearInterval(nwLatestTop5Timer);
+        nwLatestTop5Timer = null;
     }
     if (!Array.isArray(articles) || articles.length === 0) {
         sec.style.display = 'none';
+        setHeadlineSectionVisible(true);
         return;
     }
+    setHeadlineSectionVisible(false);
+
     var ordered = sortByLatest(articles);
     var top5 = ordered.slice(0, 5);
-    var linkEl = document.getElementById('nwTop5Link');
-    var titleEl = document.getElementById('nwTop5Title');
-    var metaEl = document.getElementById('nwTop5Meta');
-    var thumbEl = document.getElementById('nwTop5Thumb');
-    var dotsEl = document.getElementById('nwTop5Dots');
-    if (!linkEl || !titleEl || !metaEl) return;
+    var heroLink = document.getElementById('nwLatestHeroLink');
+    var heroTitle = document.getElementById('nwLatestHeroTitle');
+    var heroMeta = document.getElementById('nwLatestHeroMeta');
+    var heroImg = document.getElementById('nwLatestHeroImg');
+    var heroMedia = document.getElementById('nwLatestHeroMedia');
+    var dotsEl = document.getElementById('nwLatestHeroDots');
+    var listEl = document.getElementById('nwLatestList');
+    if (!heroLink || !heroTitle || !heroMeta || !listEl) return;
+
+    listEl.innerHTML = '';
+    top5.forEach(function (row, i) {
+        var cat = cleanBrokenKoreanText(row.category, '뉴스');
+        var dt = toDate(row.published_at || row.submitted_at || row.created_at);
+        var li = document.createElement('li');
+        li.className = 'nw-latest-list__item';
+        li.setAttribute('data-idx', String(i));
+        var sid = String(row.id).replace(/"/g, '');
+        var al = document.createElement('a');
+        al.className = 'public-article-link nw-latest-list__link';
+        al.href = publicArticleHref(row.id);
+        al.setAttribute('data-public-article-id', sid);
+        al.textContent = cleanBrokenKoreanText(row.title, '제목 준비중');
+        var sm = document.createElement('span');
+        sm.className = 'nw-latest-list__item-meta';
+        sm.textContent = cat + ' · ' + dt;
+        li.appendChild(al);
+        li.appendChild(sm);
+        listEl.appendChild(li);
+    });
+
     sec.style.display = '';
 
     var idx = 0;
-    function show(i) {
-        var a = top5[i];
-        if (!a) return;
-        var href = publicArticleHref(a.id);
-        linkEl.setAttribute('href', href);
-        titleEl.textContent = cleanBrokenKoreanText(a.title, '제목 준비중');
-        var cat = cleanBrokenKoreanText(a.category, '뉴스');
-        var by = cleanBrokenKoreanText(a.author_name, '기자');
-        var dt = toDate(a.published_at || a.submitted_at || a.created_at);
-        metaEl.textContent = cat + ' · ' + by + ' · ' + dt;
-        if (thumbEl) {
-            var tsrc = resolveArticleListThumb(a.thumb);
-            if (tsrc) {
-                thumbEl.src = tsrc;
-                thumbEl.hidden = false;
-            } else {
-                thumbEl.removeAttribute('src');
-                thumbEl.hidden = true;
+    function applyHeroThumb(row) {
+        if (!heroImg || !heroMedia) return;
+        var tsrc = resolveArticleListThumb(row.thumb);
+        if (tsrc) {
+            heroMedia.classList.remove('is-placeholder');
+            heroImg.onerror = function () {
+                heroImg.hidden = true;
+                heroMedia.classList.add('is-placeholder');
+            };
+            heroImg.onload = function () {
+                heroImg.hidden = false;
+                heroMedia.classList.remove('is-placeholder');
+            };
+            heroImg.src = tsrc;
+            if (heroImg.complete && heroImg.naturalWidth > 0) {
+                heroImg.hidden = false;
+                heroMedia.classList.remove('is-placeholder');
             }
+        } else {
+            heroImg.removeAttribute('src');
+            heroImg.hidden = true;
+            heroMedia.classList.add('is-placeholder');
         }
+    }
+
+    function show(i) {
+        var row = top5[i];
+        if (!row) return;
+        var href = publicArticleHref(row.id);
+        heroLink.setAttribute('href', href);
+        heroLink.setAttribute('data-public-article-id', String(row.id));
+        heroLink.classList.add('public-article-link');
+        heroTitle.textContent = cleanBrokenKoreanText(row.title, '제목 준비중');
+        var cat = cleanBrokenKoreanText(row.category, '뉴스');
+        var by = cleanBrokenKoreanText(row.author_name, '기자');
+        var dt = toDate(row.published_at || row.submitted_at || row.created_at);
+        heroMeta.textContent = cat + ' · ' + by + ' · ' + dt;
+        applyHeroThumb(row);
+
         if (dotsEl) {
             dotsEl.innerHTML = top5
                 .map(function (_, j) {
-                    return '<span class="nw-top5-dot' + (j === i ? ' is-active' : '') + '" aria-hidden="true"></span>';
+                    return '<span class="nw-latest-hero__dot' + (j === i ? ' is-active' : '') + '" aria-hidden="true"></span>';
                 })
                 .join('');
         }
+
+        listEl.querySelectorAll('.nw-latest-list__item').forEach(function (li, j) {
+            li.classList.toggle('is-active', j === i);
+        });
     }
+
     show(0);
     if (top5.length > 1) {
-        nwTop5RotatorTimer = setInterval(function () {
+        nwLatestTop5Timer = setInterval(function () {
             idx = (idx + 1) % top5.length;
             show(idx);
         }, 3000);
     } else if (dotsEl) {
-        dotsEl.innerHTML = '<span class="nw-top5-dot is-active" aria-hidden="true"></span>';
+        dotsEl.innerHTML = '<span class="nw-latest-hero__dot is-active" aria-hidden="true"></span>';
     }
 }
 
@@ -507,24 +572,23 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(function (articles) {
                 if (!Array.isArray(articles) || articles.length === 0) {
-                    renderTop5RotatorFromList([]);
+                    renderLatestTop5FromList([]);
                     return;
                 }
                 if (/nwdebug=1/.test(location.search)) {
                     var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
                     console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
                 }
-                renderTop5RotatorFromList(articles);
-                renderHeadlineFromPublished(articles);
+                renderLatestTop5FromList(articles);
                 renderSectionListsByCategory(articles);
                 renderTvSectionByCategory(articles);
                 if (/nwdebug=1/.test(location.search)) {
                     var ord = sortByLatest(articles);
-                    console.info('[nw-main] headline+side slot ids (top 5)', ord.slice(0, 5).map(function (x) { return x && x.id; }));
+                    console.info('[nw-main] latest top5 ids', ord.slice(0, 5).map(function (x) { return x && x.id; }));
                 }
             })
             .catch(function (err) {
-                renderTop5RotatorFromList([]);
+                renderLatestTop5FromList([]);
                 if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] public/list failed', pubUrl, err);
             });
     })();
