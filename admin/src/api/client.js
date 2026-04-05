@@ -10,7 +10,20 @@ function normalizeApiOrigin(raw) {
   return s;
 }
 
-const API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_ORIGIN);
+/** 메인(script.js)과 동일: Vercel에서 VITE_API_ORIGIN 없이 빌드돼도 www에서 Render API로 접속 */
+function runtimeProdApiOrigin() {
+  try {
+    const h = String(typeof location !== 'undefined' ? location.hostname : '').toLowerCase();
+    if (h === 'www.newswindow.kr' || h === 'newswindow.kr') {
+      return 'https://newswindow-backend.onrender.com';
+    }
+  } catch {
+    /* ignore */
+  }
+  return '';
+}
+
+const API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_ORIGIN) || runtimeProdApiOrigin();
 
 export function apiUrl(path) {
   const p = path.startsWith('/') ? path : '/' + path;
