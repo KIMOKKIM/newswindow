@@ -456,6 +456,7 @@ a:hover {
 /* 메인 */
 .main {
     padding: 24px 20px 40px;
+    position: relative;
 }
 
 /* 헤드라인 섹션 */
@@ -1694,15 +1695,15 @@ body:has(#nwLatestTop5) .headline-section {
     }
 }
 
-/* 메인 기사 상세 모달 (nw-home: 중앙 오버레이, 본문만 스크롤; 배경 페이지 스크롤 잠금) */
+/* 메인 기사 상세 모달: <main> 내부만 덮음(헤더·로고·카테고리 네비·푸터는 dim 제외), 본문만 스크롤 */
 .nw-article-modal {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 10050;
+    z-index: 40;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+    padding: 12px 14px;
     box-sizing: border-box;
 }
 
@@ -1722,7 +1723,7 @@ body:has(#nwLatestTop5) .headline-section {
     z-index: 1;
     width: 100%;
     max-width: 900px;
-    max-height: min(80vh, 880px);
+    max-height: min(80vh, min(880px, 100%));
     margin: 0;
     background: var(--color-bg);
     border-radius: 12px;
@@ -1738,7 +1739,7 @@ body:has(#nwLatestTop5) .headline-section {
     flex-direction: column;
     min-height: 0;
     flex: 1 1 auto;
-    max-height: min(80vh, 880px);
+    max-height: min(80vh, min(880px, 100%));
 }
 
 @keyframes nw-article-modal-in {
@@ -1868,16 +1869,20 @@ body:has(#nwLatestTop5) .headline-section {
     font-size: 0.9rem;
 }
 
-/* 모달 열림: 페이지 스크롤만 막음.sticky 헤더·네비·푸터는 레이아웃 유지(스크롤하지 않아 고정처럼 보임) */
+/* 모달 열림: 문서 스크롤 잠금(뒤 콘텐츠 스크롤 방지). dim 범위는 main 내부 오버레이에만 적용됨 */
 body.nw-article-modal-open,
 html.nw-article-modal-open {
     overflow: hidden;
     overscroll-behavior: none;
 }
 
+body.nw-article-modal-open main.main {
+    overflow: hidden;
+}
+
 @media (min-width: 769px) {
     .nw-article-modal {
-        padding: 24px 24px 28px;
+        padding: 16px 20px 20px;
     }
 
     .nw-article-modal__title {
@@ -1888,6 +1893,6 @@ html.nw-article-modal-open {
 @media (max-height: 520px) {
     .nw-article-modal__dialog,
     .nw-article-modal__dialog-inner {
-        max-height: min(92vh, 640px);
+        max-height: min(92vh, min(640px, 100%));
     }
 }

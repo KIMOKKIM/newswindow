@@ -360,6 +360,17 @@
                 </section>
             </aside>
         </div>
+
+        <!-- 기사 상세: main 콘텐츠 영역만 dim·중앙 팝업 (헤더/네비/푸터는 제외) -->
+        <div id="nwArticleModal" class="nw-article-modal" hidden aria-hidden="true">
+            <div class="nw-article-modal__backdrop" data-nw-article-modal-backdrop tabindex="-1"></div>
+            <div class="nw-article-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="nwArticleModalTitle">
+                <div class="nw-article-modal__dialog-inner">
+                    <button type="button" class="nw-article-modal__close" data-nw-article-modal-close aria-label="닫기">×</button>
+                    <div id="nwArticleModalBody" class="nw-article-modal__body"></div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- 푸터 바로 위: 스폰서/광고 롤링 배너 (무한 좌측 흐름, hover 시 일시정지) -->
@@ -416,16 +427,6 @@
         </aside>
     </div>
     <!-- /.page-wrapper -->
-
-    <div id="nwArticleModal" class="nw-article-modal" hidden aria-hidden="true">
-        <div class="nw-article-modal__backdrop" data-nw-article-modal-backdrop tabindex="-1"></div>
-        <div class="nw-article-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="nwArticleModalTitle">
-            <div class="nw-article-modal__dialog-inner">
-                <button type="button" class="nw-article-modal__close" data-nw-article-modal-close aria-label="닫기">×</button>
-                <div id="nwArticleModalBody" class="nw-article-modal__body"></div>
-            </div>
-        </div>
-    </div>
 
     <script src="script.js"></script>
 </body>
