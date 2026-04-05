@@ -2,7 +2,11 @@
 
 ## 적용 범위
 
-- `nwBuildArticleDetailHtml` 내 메타 문자열만.
+- **`displayCategory(raw)`** = `formatCategoryLabel(cleanBrokenKoreanText(raw, '뉴스'))`  
+  - 기사 **상세 패널** 메타  
+  - **최신기사** 우측 리스트 메타 · 좌측 히어로 메타  
+  - **헤드라인** 메인·사이드 메타  
+- 섹션 **그룹 키**(`majorCategory`)는 변경 없음.
 
 ## 규칙
 

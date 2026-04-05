@@ -228,7 +228,7 @@ function nwBuildArticleDetailHtml(a) {
     var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
     var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
     var meta =
-        nwModalEscHtml(formatCategoryLabel(a.category || '뉴스')) +
+        nwModalEscHtml(displayCategory(a.category)) +
         ' | ' +
         nwModalEscHtml(formatAuthorLabel(a.author_name || '기자')) +
         ' | 발행 ' +
@@ -467,6 +467,11 @@ function cleanBrokenKoreanText(s, fallback) {
     return v;
 }
 
+/** 메인 전역 카테고리 표시(??? 보정 후 formatCategoryLabel — 원본 필드 비변경) */
+function displayCategory(raw) {
+    return formatCategoryLabel(cleanBrokenKoreanText(raw, '뉴스'));
+}
+
 function parseCreatedAt(str) {
     if (!str) return 0;
     var t = Date.parse(String(str).replace(' ', 'T') + 'Z');
@@ -495,13 +500,13 @@ function renderHeadlineFromPublished(list) {
     if (!main || !side || !Array.isArray(list) || list.length === 0) return;
     var ordered = sortByLatest(list);
     var first = ordered[0];
-    var cat = cleanBrokenKoreanText(first.category, '뉴스');
+    var cat = displayCategory(first.category);
     var title = cleanBrokenKoreanText(first.title, '제목 준비중');
     main.innerHTML = '<a' + publicArticleAnchorAttrs(first.id) + '><h2>' + title + '</h2><p class=\"meta\"><span class=\"category\">' + cat + '</span> | ' + toDate(first.created_at) + '</p></a>';
     var html = '';
     ordered.slice(1, 5).forEach(function (a) {
         html += '<a' + publicArticleAnchorAttrs(a.id) + '>' + cleanBrokenKoreanText(a.title, '제목 준비중') + '</a>';
-        html += '<span class=\"meta\">' + cleanBrokenKoreanText(a.category, '뉴스') + ' | ' + toDate(a.created_at) + '</span>';
+        html += '<span class=\"meta\">' + displayCategory(a.category) + ' | ' + toDate(a.created_at) + '</span>';
     });
     if (html) side.innerHTML = html;
 }
@@ -632,7 +637,7 @@ function renderLatestTop5FromList(articles) {
     listEl.innerHTML = '';
 
     top5.forEach(function (row, i) {
-        var cat = cleanBrokenKoreanText(row.category, '뉴스');
+        var cat = displayCategory(row.category);
         var dt = toDate(row.published_at || row.submitted_at || row.created_at);
         var li = document.createElement('li');
         li.className = 'nw-latest-list__item';
@@ -685,7 +690,7 @@ function renderLatestTop5FromList(articles) {
         heroLink.setAttribute('data-public-article-id', String(row.id));
         heroLink.classList.add('public-article-link');
         heroTitle.textContent = cleanBrokenKoreanText(row.title, '제목 준비중');
-        var cat = cleanBrokenKoreanText(row.category, '뉴스');
+        var cat = displayCategory(row.category);
         var by = cleanBrokenKoreanText(row.author_name, '기자');
         var dt = toDate(row.published_at || row.submitted_at || row.created_at);
         heroMeta.textContent = cat + ' · ' + by + ' · ' + dt;
