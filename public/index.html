@@ -420,8 +420,10 @@
     <div id="nwArticleModal" class="nw-article-modal" hidden aria-hidden="true">
         <div class="nw-article-modal__backdrop" data-nw-article-modal-backdrop tabindex="-1"></div>
         <div class="nw-article-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="nwArticleModalTitle">
-            <button type="button" class="nw-article-modal__close" data-nw-article-modal-close aria-label="닫기">×</button>
-            <div id="nwArticleModalBody" class="nw-article-modal__body"></div>
+            <div class="nw-article-modal__dialog-inner">
+                <button type="button" class="nw-article-modal__close" data-nw-article-modal-close aria-label="닫기">×</button>
+                <div id="nwArticleModalBody" class="nw-article-modal__body"></div>
+            </div>
         </div>
     </div>
 

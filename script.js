@@ -203,13 +203,14 @@ function nwModalFormatTs(raw, fallback) {
 }
 
 function nwModalBuildArticleHtml(a) {
-    var parts = [];
-    parts.push(
+    var mast = [];
+    mast.push('<div class="nw-article-modal__masthead">');
+    mast.push(
         '<h1 id="nwArticleModalTitle" class="nw-article-modal__title">' +
             nwModalEscHtml(a.title || '(제목 없음)') +
             '</h1>'
     );
-    if (a.subtitle) parts.push('<p class="nw-article-modal__subtitle">' + nwModalEscHtml(a.subtitle) + '</p>');
+    if (a.subtitle) mast.push('<p class="nw-article-modal__subtitle">' + nwModalEscHtml(a.subtitle) + '</p>');
     var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
     var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
     var meta =
@@ -220,26 +221,30 @@ function nwModalBuildArticleHtml(a) {
         nwModalFormatTs(pubRaw, '—') +
         ' · 수정 ' +
         nwModalFormatTs(updRaw, '—');
-    parts.push('<p class="nw-article-modal__meta">' + meta + '</p>');
-    parts.push('<div class="nw-article-modal__article-body">');
+    mast.push('<p class="nw-article-modal__meta">' + meta + '</p>');
+    mast.push('</div>');
+    var scroll = [];
+    scroll.push('<div class="nw-article-modal__article-scroll">');
+    scroll.push('<div class="nw-article-modal__article-body">');
     function block(img, cap, content) {
-        if (content) parts.push('<p>' + nwModalPara(content) + '</p>');
+        if (content) scroll.push('<p>' + nwModalPara(content) + '</p>');
         if (img) {
             var src = nwModalArticleImageSrc(img);
-            if (src) parts.push('<img class="nw-article-modal__img" src="' + nwModalEscAttr(src) + '" alt="">');
+            if (src) scroll.push('<img class="nw-article-modal__img" src="' + nwModalEscAttr(src) + '" alt="">');
         }
-        if (cap) parts.push('<p class="nw-article-modal__cap">' + nwModalEscHtml(cap) + '</p>');
+        if (cap) scroll.push('<p class="nw-article-modal__cap">' + nwModalEscHtml(cap) + '</p>');
     }
     block(a.image1, a.image1_caption, a.content1);
     block(a.image2, a.image2_caption, a.content2);
     block(a.image3, a.image3_caption, a.content3);
     block(a.image4, a.image4_caption, a.content4);
     if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
-        parts.push('<p>' + nwModalPara(a.content) + '</p>');
+        scroll.push('<p>' + nwModalPara(a.content) + '</p>');
     }
-    parts.push('</div>');
-    parts.push('<p class="nw-article-modal__legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
-    return parts.join('');
+    scroll.push('</div>');
+    scroll.push('<p class="nw-article-modal__legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
+    scroll.push('</div>');
+    return mast.join('') + scroll.join('');
 }
 
 var nwArticleModalPrevOverflow = '';
@@ -274,6 +279,7 @@ function nwOpenArticleModal(articleId) {
     var bodyEl = document.getElementById('nwArticleModalBody');
     if (!shell || !bodyEl) return;
     var url = ARTICLES_API + '/api/articles/public/' + encodeURIComponent(articleId);
+    bodyEl.className = 'nw-article-modal__body nw-article-modal__body--plain';
     bodyEl.innerHTML = '<p class="nw-article-modal__loading" role="status">기사를 불러오는 중…</p>';
     shell.hidden = false;
     shell.setAttribute('aria-hidden', 'false');
@@ -293,9 +299,11 @@ function nwOpenArticleModal(articleId) {
             });
         })
         .then(function (a) {
+            bodyEl.className = 'nw-article-modal__body';
             bodyEl.innerHTML = nwModalBuildArticleHtml(a);
         })
         .catch(function (err) {
+            bodyEl.className = 'nw-article-modal__body nw-article-modal__body--plain';
             bodyEl.innerHTML =
                 '<p class="nw-article-modal__error" role="alert">기사 로드 실패</p><p class="nw-article-modal__errmsg">' +
                 nwModalEscHtml(err.message || '오류') +

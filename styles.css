@@ -1694,15 +1694,15 @@ body:has(#nwLatestTop5) .headline-section {
     }
 }
 
-/* 메인 기사 상세 모달 (nw-home 전용, ARTICLES_API 상세 재요청) */
+/* 메인 기사 상세 모달 (nw-home: 중앙 오버레이, 본문만 스크롤; 배경 페이지 스크롤 잠금) */
 .nw-article-modal {
     position: fixed;
     inset: 0;
     z-index: 10050;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    padding: 0;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
     box-sizing: border-box;
 }
 
@@ -1713,7 +1713,7 @@ body:has(#nwLatestTop5) .headline-section {
 .nw-article-modal__backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background: rgba(0, 0, 0, 0.5);
     cursor: pointer;
 }
 
@@ -1721,33 +1721,40 @@ body:has(#nwLatestTop5) .headline-section {
     position: relative;
     z-index: 1;
     width: 100%;
-    max-width: 720px;
-    max-height: min(92vh, 900px);
-    margin: 0 auto;
+    max-width: 900px;
+    max-height: min(80vh, 880px);
+    margin: 0;
     background: var(--color-bg);
-    border-radius: 12px 12px 0 0;
-    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
     display: flex;
     flex-direction: column;
+    min-height: 0;
     animation: nw-article-modal-in 0.22s ease-out;
+}
+
+.nw-article-modal__dialog-inner {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+    max-height: min(80vh, 880px);
 }
 
 @keyframes nw-article-modal-in {
     from {
         opacity: 0;
-        transform: translateY(12px);
+        transform: scale(0.98);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1);
     }
 }
 
 .nw-article-modal__close {
-    position: sticky;
-    top: 0;
     align-self: flex-end;
-    margin: 8px 8px 0 0;
+    margin: 10px 10px 0 0;
     z-index: 2;
     border: none;
     background: var(--color-bg-alt);
@@ -1766,8 +1773,32 @@ body:has(#nwLatestTop5) .headline-section {
 }
 
 .nw-article-modal__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+.nw-article-modal__body--plain {
     overflow-y: auto;
-    padding: 0 20px 28px;
+    padding: 16px 20px 24px;
+}
+
+.nw-article-modal__masthead {
+    flex-shrink: 0;
+    padding: 0 20px 4px;
+    border-bottom: 1px solid var(--color-border);
+    background: linear-gradient(to bottom, var(--color-bg), var(--color-bg));
+}
+
+.nw-article-modal__article-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 20px 24px;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -1790,7 +1821,7 @@ body:has(#nwLatestTop5) .headline-section {
 .nw-article-modal__meta {
     font-size: 0.8125rem;
     color: var(--color-muted);
-    margin: 0 0 18px;
+    margin: 0 0 12px;
     line-height: 1.5;
 }
 
@@ -1828,7 +1859,7 @@ body:has(#nwLatestTop5) .headline-section {
 
 .nw-article-modal__loading,
 .nw-article-modal__error {
-    margin: 24px 0 8px;
+    margin: 8px 0;
     font-weight: 600;
 }
 
@@ -1837,23 +1868,26 @@ body:has(#nwLatestTop5) .headline-section {
     font-size: 0.9rem;
 }
 
+/* 모달 열림: 페이지 스크롤만 막음.sticky 헤더·네비·푸터는 레이아웃 유지(스크롤하지 않아 고정처럼 보임) */
 body.nw-article-modal-open,
 html.nw-article-modal-open {
     overflow: hidden;
+    overscroll-behavior: none;
 }
 
 @media (min-width: 769px) {
     .nw-article-modal {
-        align-items: center;
-        padding: 24px 16px;
-    }
-
-    .nw-article-modal__dialog {
-        border-radius: 12px;
-        max-height: min(88vh, 920px);
+        padding: 24px 24px 28px;
     }
 
     .nw-article-modal__title {
         font-size: 1.75rem;
+    }
+}
+
+@media (max-height: 520px) {
+    .nw-article-modal__dialog,
+    .nw-article-modal__dialog-inner {
+        max-height: min(92vh, 640px);
     }
 }
