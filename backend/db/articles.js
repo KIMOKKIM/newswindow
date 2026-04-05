@@ -51,6 +51,12 @@ export function toApiStatus(raw) {
   return 'draft';
 }
 
+/** 메인 공개 목록과 GET /public/:id 허용 범위를 동일하게 유지하기 위한 단일 기준 */
+export function isPublicFeedReadableStatus(raw) {
+  const st = toApiStatus(raw);
+  return st === 'published' || st === 'submitted';
+}
+
 function authorIdNorm(v) {
   if (v == null || v === '') return null;
   const n = Number(v);
@@ -168,10 +174,7 @@ export const articlesDb = {
    */
   listPublishedForMain() {
     return [...articles]
-      .filter((a) => {
-        const s = toApiStatus(a.status);
-        return s === 'published' || s === 'submitted';
-      })
+      .filter((a) => isPublicFeedReadableStatus(a.status))
       .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
       .map((a) => ({
         id: a.id,
@@ -222,11 +225,24 @@ export const articlesDb = {
       .map((a) => mapPublishedListItem(a));
   },
 
-  findByAuthor(authorId) {
+  /**
+   * 기자 본인 기사. 레거시 행에 author_id 가 없고 작성자명만 있는 경우(샘플·이관 데이터)는
+   * JWT name 과 author_name 이 같을 때만 포함해 메인 공개 노출과 목록이 어긋나 보이지 않게 한다.
+   */
+  findByAuthor(authorId, reporterDisplayName) {
     const want = authorIdNorm(authorId);
     if (want == null) return [];
+    const nameWant = reporterDisplayName == null ? '' : String(reporterDisplayName).trim();
     return articles
-      .filter((a) => authorIdNorm(a.author_id) === want)
+      .filter((a) => {
+        if (authorIdNorm(a.author_id) === want) return true;
+        if (!nameWant) return false;
+        const missingOwner =
+          a.author_id == null || a.author_id === '' || authorIdNorm(a.author_id) == null;
+        if (!missingOwner) return false;
+        if (String(a.author_name || '').trim() !== nameWant) return false;
+        return isPublicFeedReadableStatus(a.status);
+      })
       .reverse()
       .map((a) => ({
         id: a.id,
