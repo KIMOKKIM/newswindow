@@ -528,9 +528,9 @@ function cleanBrokenKoreanText(s, fallback) {
     return v;
 }
 
-/** 메인 전역 카테고리 표시(??? 보정 후 formatCategoryLabel — 원본 필드 비변경) */
+/** 메인 전역 카테고리 표시(??? 보정 후 articleCategories 매핑 — 원본 필드 비변경) */
 function displayCategory(raw) {
-    return formatCategoryLabel(cleanBrokenKoreanText(raw, '뉴스'));
+    return nwCategoryLabelForValue(cleanBrokenKoreanText(raw, '뉴스'));
 }
 
 function parseCreatedAt(str) {
