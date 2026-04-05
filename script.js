@@ -202,6 +202,19 @@ function nwModalFormatTs(raw, fallback) {
     return toDate(s);
 }
 
+/** 기사 상세 메타 줄 표시용(원본 JSON 필드는 변경하지 않음) */
+function formatCategoryLabel(raw) {
+    var s = raw == null ? '' : String(raw).trim();
+    if (s === '경제-금융') return '금융';
+    return s;
+}
+
+function formatAuthorLabel(raw) {
+    var s = raw == null ? '' : String(raw).trim();
+    if (s === '김기목') return '김기목 기자';
+    return s;
+}
+
 /** 메인 인라인 상세 패널 — GET /api/articles/public/:id 응답만 사용(더미 없음) */
 function nwBuildArticleDetailHtml(a) {
     var mast = [];
@@ -215,9 +228,9 @@ function nwBuildArticleDetailHtml(a) {
     var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
     var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
     var meta =
-        nwModalEscHtml(a.category || '뉴스') +
+        nwModalEscHtml(formatCategoryLabel(a.category || '뉴스')) +
         ' | ' +
-        nwModalEscHtml(a.author_name || '기자') +
+        nwModalEscHtml(formatAuthorLabel(a.author_name || '기자')) +
         ' | 발행 ' +
         nwModalFormatTs(pubRaw, '—') +
         ' · 수정 ' +
