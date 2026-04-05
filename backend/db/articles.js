@@ -1,12 +1,16 @@
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-/** cwd와 무관하게 항상 backend/data 를 사용 (기사·유저 파일 불일치 방지) */
+/** cwd와 무관하게 기본은 backend/data. 운영: NW_ARTICLES_JSON_PATH로 Render Disk 등 영구 경로 지정 */
 const dataDir = join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-const articlesPath = join(dataDir, 'articles.json');
+const articlesPath = process.env.NW_ARTICLES_JSON_PATH
+  ? resolve(process.env.NW_ARTICLES_JSON_PATH)
+  : join(dataDir, 'articles.json');
+const articlesDir = dirname(articlesPath);
+if (!fs.existsSync(articlesDir)) fs.mkdirSync(articlesDir, { recursive: true });
 
 let articles = [];
 if (fs.existsSync(articlesPath)) {
@@ -113,6 +117,13 @@ function sortTimePublished(a) {
   return Number.isFinite(t) ? t : 0;
 }
 
+/** 메인 최신 기사(게시+송고): 노출 시각 우선순위 */
+function sortTimeMainFeed(a) {
+  const d = a.published_at || a.submitted_at || a.updated_at || a.created_at || '';
+  const t = Date.parse(String(d).replace(' ', 'T'));
+  return Number.isFinite(t) ? t : 0;
+}
+
 /** 목록·카드용: URL 이미지만 (base64 대용량 제외) */
 function publicListThumb(a) {
   const im = a.image1 || '';
@@ -144,11 +155,17 @@ export const articlesDb = {
     return [...articles].reverse().map((a) => mapListFields(a));
   },
 
-  /** 메인: 게시(published)만, 최신 게시/수정 기준 정렬 */
+  /**
+   * 메인 헤드라인·섹션·롤링: 게시(published) 또는 송고(submitted)만 (임시저장·반려 제외).
+   * 정렬: published_at → submitted_at → updated_at → created_at
+   */
   listPublishedForMain() {
     return [...articles]
-      .filter((a) => toApiStatus(a.status) === 'published')
-      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x))
+      .filter((a) => {
+        const s = toApiStatus(a.status);
+        return s === 'published' || s === 'submitted';
+      })
+      .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
       .map((a) => ({
         id: a.id,
         title: a.title || '',
@@ -156,8 +173,12 @@ export const articlesDb = {
         category: a.category || '',
         author_name: a.author_name || '',
         created_at: a.created_at || '',
-        published_at: a.published_at || a.updated_at || a.created_at || '',
+        published_at: a.published_at || '',
+        submitted_at: a.submitted_at || '',
+        updated_at: a.updated_at || '',
+        status: toApiStatus(a.status),
         views: Number(a.views) || 0,
+        thumb: publicListThumb(a),
       }));
   },
 

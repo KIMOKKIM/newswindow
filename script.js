@@ -74,8 +74,14 @@ var NW_CONFIG_API_ORIGIN = (function () {
         return '';
     }
 })();
-/** 기사 공개 API base — 주입 없으면 ADS_API(로컬·동일 출처) */
-var ARTICLES_API = NW_CONFIG_API_ORIGIN || ADS_API;
+/** 기사 공개 API base — 프로덕션 도메인은 HTML 주입과 무관하게 광고·기사 동일 Render origin(단일화). */
+var ARTICLES_API = (function () {
+    try {
+        var hl = (location.hostname || '').trim().toLowerCase();
+        if (hl === 'www.newswindow.kr' || hl === 'newswindow.kr') return NW_PRODUCTION_API_ORIGIN;
+    } catch (e) {}
+    return NW_CONFIG_API_ORIGIN || ADS_API;
+})();
 
 function nwIsOurSiteHost(hostname) {
     var h = String(hostname || '').toLowerCase();
