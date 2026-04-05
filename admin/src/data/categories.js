@@ -1,25 +1,8 @@
-/** 기사 폼 카테고리 (기존 nw-office와 동일 계열) */
-export const CATEGORY_OPTIONS = [
-  { value: '', label: '선택하세요' },
-  { value: '정치-최신뉴스', label: '정치-최신뉴스' },
-  { value: '정치-지방자치', label: '정치-지방자치' },
-  { value: '경제-금융', label: '경제-금융' },
-  { value: '경제-AI/IT', label: '경제-AI/IT' },
-  { value: '사회-시사', label: '사회-시사' },
-  { value: '문화-대중음악', label: '문화-대중음악' },
-  { value: '전국-서울', label: '전국-서울' },
-  { value: '이슈-연예&스포츠', label: '이슈-연예&스포츠' },
-  { value: '국제', label: '국제' },
-  { value: '칼럼', label: '칼럼' },
-  { value: '포토뉴스&영상', label: '포토뉴스&영상' },
-];
-
-export function categorySelectHtml(selected) {
-  return CATEGORY_OPTIONS.map(
-    (o) =>
-      `<option value="${escapeAttr(o.value)}"${o.value === selected ? ' selected' : ''}>${escapeHtml(o.label)}</option>`
-  ).join('');
-}
+/**
+ * 메인 페이지(index.html) 주메뉴·섹션 하위 분류와 동일한 목록.
+ * 원본: ../../../shared/articleCategories.json (단일 source of truth)
+ */
+import raw from '../../../shared/articleCategories.json';
 
 function escapeHtml(s) {
   return String(s)
@@ -30,4 +13,53 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) {
   return escapeHtml(s).replace(/"/g, '&quot;');
+}
+
+function buildCategoryOptions() {
+  const out = [{ value: '', label: '선택하세요' }];
+  for (const g of raw.groups || []) {
+    for (const it of g.items || []) {
+      out.push({ value: it.value, label: it.value });
+    }
+  }
+  for (const it of raw.topLevel || []) {
+    out.push({ value: it.value, label: it.label });
+  }
+  return out;
+}
+
+/** 평탄 목록 (다른 모듈에서 참조 시 JSON과 동일 순서) */
+export const CATEGORY_OPTIONS = buildCategoryOptions();
+
+/** 기사 폼 `<select>` — 메인과 같은 그룹 구조(optgroup) */
+export function categorySelectHtml(selected) {
+  let html =
+    '<option value="">' + escapeHtml('선택하세요') + '</option>';
+  for (const g of raw.groups || []) {
+    html += '<optgroup label="' + escapeAttr(g.title) + '">';
+    for (const it of g.items || []) {
+      const sel = it.value === selected ? ' selected' : '';
+      html +=
+        '<option value="' +
+        escapeAttr(it.value) +
+        '"' +
+        sel +
+        '>' +
+        escapeHtml(it.value) +
+        '</option>';
+    }
+    html += '</optgroup>';
+  }
+  for (const it of raw.topLevel || []) {
+    const sel = it.value === selected ? ' selected' : '';
+    html +=
+      '<option value="' +
+      escapeAttr(it.value) +
+      '"' +
+      sel +
+      '>' +
+      escapeHtml(it.label) +
+      '</option>';
+  }
+  return html;
 }

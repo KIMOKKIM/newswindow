@@ -102,4 +102,12 @@ console.log('vercel-build: copying repo-root main site → public/ …');
 copyMainSiteIntoPublic();
 injectMainSiteUploadOrigin();
 
+const sharedDir = join(root, 'shared');
+const publicSharedDir = join(publicDir, 'shared');
+if (existsSync(join(sharedDir, 'articleCategories.json'))) {
+  mkdirSync(publicSharedDir, { recursive: true });
+  cpSync(join(sharedDir, 'articleCategories.json'), join(publicSharedDir, 'articleCategories.json'), { force: true });
+  console.log('vercel-build: shared/articleCategories.json → public/shared/ …');
+}
+
 console.log('vercel-build: public/ (main + admin) ready.');

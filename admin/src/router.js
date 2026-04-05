@@ -89,10 +89,7 @@ async function renderPathCore(root, fullPath) {
   const session = getSession();
 
   if (route.name === 'portal') {
-    if (session) {
-      await nav(dashboardPathForRole(session.role), { replace: true });
-      return;
-    }
+    /* 세션이 있어도 URL은 /admin 에 둠 — 이전에는 여기서 dashboardPathForRole 로 즉시 치환되어 관리자가 /admin/admin/dashboard 로만 진입했음 */
     await renderPortal(root, { navigate: nav });
     return;
   }

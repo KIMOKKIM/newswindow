@@ -194,9 +194,13 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       return;
     }
     const id = isNew ? data.id : articleId;
-    if (isNew) navigate('/admin/article/' + id + '/edit');
-    else {
-      alert('저장되었습니다.');
+    const savedMsg =
+      status === 'submitted' ? '송고되었습니다.' : '저장되었습니다.';
+    if (isNew) {
+      if (status === 'submitted') alert(savedMsg);
+      navigate('/admin/article/' + id + '/edit');
+    } else {
+      alert(savedMsg);
       article = data.article || data;
     }
   }
