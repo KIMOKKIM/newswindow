@@ -13,6 +13,7 @@ import {
   navAdmin,
   bindShell,
 } from '../layout/shell.js';
+import { categoryLabelForValue } from '../data/categories.js';
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -71,8 +72,35 @@ export async function renderArticlePreview(app, { navigate, articleId }) {
 
   const a = data && data.article ? data.article : data;
   const activePath = '/admin/article/' + articleId + '/preview';
+
+  function reporterDisplayName(name) {
+    const n = String(name || '').trim();
+    if (!n) return '기자';
+    if (/기자\s*$/.test(n)) return n;
+    return n + ' 기자';
+  }
+
+  function formatDateYmd(iso) {
+    if (!iso) return '—';
+    const s = String(iso).replace(' ', 'T');
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10) || '—';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  const catShown = categoryLabelForValue(a.category || '') || '—';
+  const byline =
+    reporterDisplayName(a.author_name) +
+    ' · 발행일 ' +
+    formatDateYmd(a.published_at || a.created_at) +
+    ' · 수정일 ' +
+    formatDateYmd(a.updated_at || a.created_at);
+
   let blocks = '';
-  for (const n of [1, 2, 3]) {
+  for (const n of [1, 2, 3, 4]) {
     const src = a['image' + n];
     const cap = a['image' + n + '_caption'];
     const cx = a['content' + n];
@@ -96,6 +124,15 @@ export async function renderArticlePreview(app, { navigate, articleId }) {
       '</div>';
   }
 
+  const metaBar =
+    '<div class="nw-prev-meta-bar">' +
+    '<span class="nw-prev-meta-cat">' +
+    esc(catShown) +
+    '</span>' +
+    '<span class="nw-prev-meta-byline">' +
+    esc(byline) +
+    '</span></div>';
+
   const body = `
     <p class="nw-toolbar">
       <a href="${dashPath(session)}" data-link>← 목록</a>
@@ -108,12 +145,9 @@ export async function renderArticlePreview(app, { navigate, articleId }) {
           ? '<p class="nw-prev-sub">' + esc(a.subtitle) + '</p>'
           : ''
       }
-      <p class="nw-prev-meta">
-        ${esc(a.author_name || '')}
-        ${a.category ? ' · ' + esc(a.category) : ''}
-        ${a.created_at ? ' · ' + esc(String(a.created_at).slice(0, 19)) : ''}
-      </p>
+      ${metaBar}
       <div class="nw-prev-content">${blocks || '<p class="nw-muted">본문 없음</p>'}</div>
+      <p class="nw-prev-legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>
     </article>`;
 
   app.innerHTML = renderShell({

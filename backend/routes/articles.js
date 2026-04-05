@@ -87,15 +87,16 @@ articlesRouter.post('/', authMiddleware, (req, res) => {
   if (req.user.role !== 'reporter') {
     return res.status(403).json({ error: '기자만 기사를 작성할 수 있습니다.' });
   }
-  const { title, subtitle, category, content, content1, content2, content3, image1, image2, image3, image1_caption, image2_caption, image3_caption, status } = req.body;
+  const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status } = req.body;
   const row = articlesDb.insert({
     title: title || '',
     subtitle: subtitle || '',
     category: category || '',
     content: content || '',
-    content1: content1 || '', content2: content2 || '', content3: content3 || '',
-    image1: image1 || '', image2: image2 || '', image3: image3 || '',
+    content1: content1 || '', content2: content2 || '', content3: content3 || '', content4: content4 || '',
+    image1: image1 || '', image2: image2 || '', image3: image3 || '', image4: image4 || '',
     image1_caption: image1_caption || '', image2_caption: image2_caption || '', image3_caption: image3_caption || '',
+    image4_caption: image4_caption || '',
     status: status != null ? status : 'draft',
     authorId: req.user.id,
     authorName: req.user.name || '',
@@ -108,9 +109,9 @@ articlesRouter.post('/', authMiddleware, (req, res) => {
 articlesRouter.patch('/:id', authMiddleware, (req, res) => {
   const role = req.user.role;
   if (role === 'reporter') {
-    const { title, subtitle, category, content, content1, content2, content3, image1, image2, image3, image1_caption, image2_caption, image3_caption, status } = req.body;
+    const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status } = req.body;
     const ok = articlesDb.update(req.params.id, req.user.id, {
-      title, subtitle, category, content, content1, content2, content3, image1, image2, image3, image1_caption, image2_caption, image3_caption, status,
+      title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status,
     });
     if (!ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
     const row = articlesDb.findById(req.params.id, req.user.id);
@@ -144,12 +145,15 @@ articlesRouter.patch('/:id', authMiddleware, (req, res) => {
     payload.content1 !== undefined ||
     payload.content2 !== undefined ||
     payload.content3 !== undefined ||
+    payload.content4 !== undefined ||
     payload.image1 !== undefined ||
     payload.image2 !== undefined ||
     payload.image3 !== undefined ||
+    payload.image4 !== undefined ||
     payload.image1_caption !== undefined ||
     payload.image2_caption !== undefined ||
     payload.image3_caption !== undefined ||
+    payload.image4_caption !== undefined ||
     payload.summary !== undefined ||
     payload.status !== undefined;
   if (!hasMeta) {

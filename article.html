@@ -15,6 +15,7 @@
     .article-cap { font-size:13px; color:#666; margin: 0 0 14px; }
     .article-top-link { display:inline-block; margin-bottom: 12px; color:#2d7dd2; text-decoration:none; }
     .article-top-link:hover { text-decoration:underline; }
+    .article-legal { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e6e6e6; font-size: 12px; color:#888; text-align: center; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -100,10 +101,12 @@
           block(a.image1, a.image1_caption, a.content1);
           block(a.image2, a.image2_caption, a.content2);
           block(a.image3, a.image3_caption, a.content3);
-          if (!a.content1 && !a.content2 && !a.content3 && a.content) {
+          block(a.image4, a.image4_caption, a.content4);
+          if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
             parts.push('<p>' + para(a.content) + '</p>');
           }
           parts.push('</div>');
+          parts.push('<p class="article-legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
           view.innerHTML = parts.join('');
         })
         .catch((e) => {

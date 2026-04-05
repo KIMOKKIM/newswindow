@@ -6,7 +6,7 @@ import {
   loginPathForRole,
 } from '../auth/session.js';
 import { renderShell, navReporter, navEditor, navAdmin, bindShell } from '../layout/shell.js';
-import { categorySelectHtml } from '../data/categories.js';
+import { categorySelectHtml, categoryLabelForValue } from '../data/categories.js';
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -106,7 +106,11 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         <label>본문 3</label>
         <textarea id="c3" rows="5">${esc(article?.content3 || '')}</textarea>
       </div>
-      ${[1, 2, 3]
+      <div class="nw-form-row">
+        <label>본문 4</label>
+        <textarea id="c4" rows="5">${esc(article?.content4 || '')}</textarea>
+      </div>
+      ${[1, 2, 3, 4]
         .map(
           (n) => `
         <div class="nw-form-row nw-file-block">
@@ -155,12 +159,14 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       content1: app.querySelector('#c1').value.trim(),
       content2: app.querySelector('#c2').value.trim(),
       content3: app.querySelector('#c3').value.trim(),
+      content4: app.querySelector('#c4').value.trim(),
       image1_caption: app.querySelector('#cap1').value.trim(),
       image2_caption: app.querySelector('#cap2').value.trim(),
       image3_caption: app.querySelector('#cap3').value.trim(),
+      image4_caption: app.querySelector('#cap4').value.trim(),
     };
     if (statusMaybe !== undefined) payload.status = statusMaybe;
-    for (const n of [1, 2, 3]) {
+    for (const n of [1, 2, 3, 4]) {
       const f = app.querySelector('#img' + n).files[0];
       if (f) payload['image' + n] = await fileToBase64(f);
       else if (article && article['image' + n]) payload['image' + n] = article['image' + n];
@@ -244,7 +250,8 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       app.querySelector('#subtitle').value +
       app.querySelector('#c1').value +
       app.querySelector('#c2').value +
-      app.querySelector('#c3').value;
+      app.querySelector('#c3').value +
+      app.querySelector('#c4').value;
     alert(
       t.trim()
         ? '맞춤법 검사는 추후 API 연동 시 활성화됩니다. (현재 입력 길이: ' + t.length + '자)'
@@ -252,14 +259,54 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     );
   });
 
+  function reporterDisplayName(name) {
+    const n = String(name || '').trim();
+    if (!n) return '기자';
+    if (/기자\s*$/.test(n)) return n;
+    return n + ' 기자';
+  }
+
+  function formatDateYmd(iso) {
+    if (!iso) return '—';
+    const s = String(iso).replace(' ', 'T');
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10) || '—';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
   app.querySelector('#btnPrev').addEventListener('click', async () => {
     const payload = await gatherPayload();
     const modal = app.querySelector('#prevModal');
     const prevBody = app.querySelector('#prevBody');
+    const catVal = payload.category || '';
+    const catShown = categoryLabelForValue(catVal) || '—';
+    const bylineName = reporterDisplayName(
+      app.querySelector('#authorName').value || session.name || article?.author_name || ''
+    );
+    let pubD = '—';
+    let updD = '—';
+    if (article) {
+      pubD = formatDateYmd(article.published_at || article.created_at);
+      updD = formatDateYmd(article.updated_at || article.created_at);
+    }
     let h = '<h2>' + esc(payload.title || '(제목 없음)') + '</h2>';
     if (payload.subtitle) h += '<p class="sub">' + esc(payload.subtitle) + '</p>';
-    h += '<div class="prev-meta">' + esc(payload.category || '') + '</div>';
-    for (const n of [1, 2, 3]) {
+    h +=
+      '<div class="prev-meta-bar">' +
+      '<span class="prev-cat">' +
+      esc(catShown) +
+      '</span>' +
+      '<span class="prev-byline">' +
+      esc(bylineName) +
+      ' · 발행일 ' +
+      esc(pubD) +
+      ' · 수정일 ' +
+      esc(updD) +
+      '</span></div>';
+    for (const n of [1, 2, 3, 4]) {
       const imgKey = 'image' + n;
       let src = payload[imgKey];
       if (!src && article && article[imgKey]) src = article[imgKey];
@@ -269,6 +316,8 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       if (src) h += '<img src="' + escAttr(src) + '" class="prev-img" alt="" />';
       if (cap) h += '<p class="cap">' + esc(cap) + '</p>';
     }
+    h +=
+      '<p class="prev-footer">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>';
     prevBody.innerHTML = h;
     modal.style.display = 'flex';
   });

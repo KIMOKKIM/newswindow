@@ -82,9 +82,10 @@ function mapDetail(a) {
     author_id: a.author_id,
     category: a.category || '',
     content: a.content || '',
-    content1: a.content1, content2: a.content2, content3: a.content3,
-    image1: a.image1, image2: a.image2, image3: a.image3,
+    content1: a.content1, content2: a.content2, content3: a.content3, content4: a.content4,
+    image1: a.image1, image2: a.image2, image3: a.image3, image4: a.image4,
     image1_caption: a.image1_caption || '', image2_caption: a.image2_caption || '', image3_caption: a.image3_caption || '',
+    image4_caption: a.image4_caption || '',
     status: toApiStatus(a.status),
     created_at: a.created_at || '',
     updated_at: a.updated_at || a.created_at || '',
@@ -206,8 +207,8 @@ export const articlesDb = {
         author_name: a.author_name || '',
         category: a.category || '',
         content: a.content || '',
-        content1: a.content1, content2: a.content2, content3: a.content3,
-        image1: a.image1, image2: a.image2, image3: a.image3,
+        content1: a.content1, content2: a.content2, content3: a.content3, content4: a.content4,
+        image1: a.image1, image2: a.image2, image3: a.image3, image4: a.image4,
         summary: a.summary || '',
         status: toApiStatus(a.status),
         created_at: a.created_at || '',
@@ -221,7 +222,7 @@ export const articlesDb = {
 
   insert(data) {
     const id = articles.length ? Math.max(...articles.map((a) => a.id)) + 1 : 1;
-    const allContent = [data.content1, data.content2, data.content3].filter(Boolean).join('\n');
+    const allContent = [data.content1, data.content2, data.content3, data.content4].filter(Boolean).join('\n');
     const now = nowStr();
     const st = canonicalStoreStatus(data.status != null ? data.status : 'draft');
     const rec = {
@@ -232,9 +233,10 @@ export const articlesDb = {
       author_name: data.authorName || '',
       category: data.category || '',
       content: data.content || allContent,
-      content1: data.content1 || '', content2: data.content2 || '', content3: data.content3 || '',
-      image1: data.image1 || '', image2: data.image2 || '', image3: data.image3 || '',
+      content1: data.content1 || '', content2: data.content2 || '', content3: data.content3 || '', content4: data.content4 || '',
+      image1: data.image1 || '', image2: data.image2 || '', image3: data.image3 || '', image4: data.image4 || '',
       image1_caption: data.image1_caption || '', image2_caption: data.image2_caption || '', image3_caption: data.image3_caption || '',
+      image4_caption: data.image4_caption || '',
       summary: data.summary || allContent.slice(0, 200) || '',
       status: st,
       created_at: now,
@@ -289,12 +291,15 @@ export const articlesDb = {
     if (data.content1 !== undefined) a.content1 = data.content1;
     if (data.content2 !== undefined) a.content2 = data.content2;
     if (data.content3 !== undefined) a.content3 = data.content3;
+    if (data.content4 !== undefined) a.content4 = data.content4;
     if (data.image1 !== undefined) a.image1 = data.image1;
     if (data.image2 !== undefined) a.image2 = data.image2;
     if (data.image3 !== undefined) a.image3 = data.image3;
+    if (data.image4 !== undefined) a.image4 = data.image4;
     if (data.image1_caption !== undefined) a.image1_caption = data.image1_caption;
     if (data.image2_caption !== undefined) a.image2_caption = data.image2_caption;
     if (data.image3_caption !== undefined) a.image3_caption = data.image3_caption;
+    if (data.image4_caption !== undefined) a.image4_caption = data.image4_caption;
     if (data.summary !== undefined) a.summary = data.summary;
     if (data.status !== undefined) {
       const next = canonicalStoreStatus(data.status);
@@ -320,12 +325,15 @@ export const articlesDb = {
     if (data.content1 !== undefined) a.content1 = data.content1;
     if (data.content2 !== undefined) a.content2 = data.content2;
     if (data.content3 !== undefined) a.content3 = data.content3;
+    if (data.content4 !== undefined) a.content4 = data.content4;
     if (data.image1 !== undefined) a.image1 = data.image1;
     if (data.image2 !== undefined) a.image2 = data.image2;
     if (data.image3 !== undefined) a.image3 = data.image3;
+    if (data.image4 !== undefined) a.image4 = data.image4;
     if (data.image1_caption !== undefined) a.image1_caption = data.image1_caption;
     if (data.image2_caption !== undefined) a.image2_caption = data.image2_caption;
     if (data.image3_caption !== undefined) a.image3_caption = data.image3_caption;
+    if (data.image4_caption !== undefined) a.image4_caption = data.image4_caption;
     if (data.summary !== undefined) a.summary = data.summary;
     if (data.status !== undefined) {
       const next = canonicalStoreStatus(data.status);

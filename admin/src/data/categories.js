@@ -28,6 +28,26 @@ function buildCategoryOptions() {
   return out;
 }
 
+const valueToLabel = (() => {
+  const m = new Map();
+  for (const g of raw.groups || []) {
+    for (const it of g.items || []) {
+      m.set(it.value, it.label);
+    }
+  }
+  for (const it of raw.topLevel || []) {
+    m.set(it.value, it.label);
+  }
+  return m;
+})();
+
+/** 저장값(예: 사회-교육) → 드롭다운과 동일한 짧은 표시명(예: 교육). 없으면 원문 반환 */
+export function categoryLabelForValue(value) {
+  const v = String(value ?? '').trim();
+  if (!v) return '';
+  return valueToLabel.get(v) || v;
+}
+
 /** 평탄 목록 (다른 모듈에서 참조 시 JSON과 동일 순서) */
 export const CATEGORY_OPTIONS = buildCategoryOptions();
 
