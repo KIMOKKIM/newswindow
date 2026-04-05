@@ -11,7 +11,7 @@ import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
 import { db } from './db/db.js';
 import { getUploadsRoot } from './config/dataPaths.js';
-import { logPersistenceOnStartup } from './lib/persistenceDiagnostics.js';
+import { logPersistenceOnStartup, exitIfRenderMissingJsonPaths } from './lib/persistenceDiagnostics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -71,6 +71,7 @@ if (fs.existsSync(adminDist)) {
 }
 
 async function start() {
+  exitIfRenderMissingJsonPaths();
   const hash = await bcrypt.hash('teomok$123', 10);
   // 편집장: teomok1
   const t1 = db.prepare('SELECT * FROM users WHERE userid = ?').get('teomok1');

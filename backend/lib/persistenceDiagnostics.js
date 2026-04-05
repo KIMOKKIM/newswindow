@@ -63,6 +63,24 @@ export function logPersistenceOnStartup() {
   console.warn('[persistence] 예: NW_ARTICLES_JSON_PATH=/data/articles.json NW_ADS_JSON_PATH=/data/ads.json NW_USERS_JSON_PATH=/data/users.json NW_UPLOADS_ROOT=/data/uploads');
 }
 
+/**
+ * Render(Web Service)에서 RENDER=true 일 때 기사·광고 JSON 경로가 없으면 기동 중단.
+ * 에페메럴 파일시스템에 쓰는 상태로 뜨는 것을 막고, 재배포 시 유실 원인을 즉시 드러낸다.
+ */
+export function exitIfRenderMissingJsonPaths() {
+  if (process.env.RENDER !== 'true') return;
+  const miss = [];
+  if (!String(process.env.NW_ARTICLES_JSON_PATH || '').trim()) miss.push('NW_ARTICLES_JSON_PATH');
+  if (!String(process.env.NW_ADS_JSON_PATH || '').trim()) miss.push('NW_ADS_JSON_PATH');
+  if (miss.length === 0) return;
+  console.error(
+    '[NW FATAL] Render에서 Persistent Disk 절대경로를 지정하세요: ' +
+      miss.join(', ') +
+      ' (render.yaml 예: /data/articles.json, /data/ads.json)'
+  );
+  process.exit(1);
+}
+
 /** 헬스/운영 점검용 */
 export function getPersistenceSnapshot() {
   const articlesPath = getArticlesJsonPath();

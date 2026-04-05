@@ -42,6 +42,13 @@ var SIDE_ADS = {
 /** nw-office·Admin과 동일한 Render API 베이스. Vercel 정적 호스트(www)는 /api 라우트가 없으므로 반드시 백엔드 오리진으로 요청해야 함. */
 var NW_PRODUCTION_API_ORIGIN = 'https://newswindow-backend.onrender.com';
 
+/** apex·www·서브도메인 공통 — API_ORIGIN 이 빈 문자열이 되면 프론트 호스트로 /api 상대 요청이 나가 404·JSON 파싱 실패로 최신기사 전체가 죽는다 */
+function nwIsProductionNewswindowHost(hostname) {
+    var hl = (hostname || '').trim().toLowerCase();
+    if (!hl) return false;
+    return hl === 'newswindow.kr' || hl.slice(-14) === '.newswindow.kr';
+}
+
 var API_ORIGIN = (function () {
     try {
         var h = (location.hostname || '').trim();
@@ -49,7 +56,7 @@ var API_ORIGIN = (function () {
         if (!hl) return 'http://127.0.0.1:3000';
         if (hl === 'localhost' || hl === '127.0.0.1' || hl === '::1') return 'http://127.0.0.1:3000';
         if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hl) || /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hl)) return 'http://127.0.0.1:3000';
-        if (hl === 'www.newswindow.kr' || hl === 'newswindow.kr') return NW_PRODUCTION_API_ORIGIN;
+        if (nwIsProductionNewswindowHost(hl)) return NW_PRODUCTION_API_ORIGIN;
     } catch (e) {}
     return '';
 })();
@@ -78,7 +85,7 @@ var NW_CONFIG_API_ORIGIN = (function () {
 var ARTICLES_API = (function () {
     try {
         var hl = (location.hostname || '').trim().toLowerCase();
-        if (hl === 'www.newswindow.kr' || hl === 'newswindow.kr') return NW_PRODUCTION_API_ORIGIN;
+        if (nwIsProductionNewswindowHost(hl)) return NW_PRODUCTION_API_ORIGIN;
     } catch (e) {}
     return NW_CONFIG_API_ORIGIN || ADS_API;
 })();
@@ -155,8 +162,8 @@ function nwFormatArticleMetaDateYmd(raw) {
 }
 
 function nwIsOurSiteHost(hostname) {
-    var h = String(hostname || '').toLowerCase();
-    return h === 'www.newswindow.kr' || h === 'newswindow.kr' || h === 'localhost' || h === '127.0.0.1';
+    var h = String(hostname || '').trim().toLowerCase();
+    return nwIsProductionNewswindowHost(h) || h === 'localhost' || h === '127.0.0.1';
 }
 
 /**
@@ -667,6 +674,7 @@ function renderLatestTop5FromList(articles) {
         clearInterval(nwLatestTop5Timer);
         nwLatestTop5Timer = null;
     }
+    try {
     if (!Array.isArray(articles) || articles.length === 0) {
         setLatestTop5EmptyState(
             sec,
@@ -785,10 +793,22 @@ function renderLatestTop5FromList(articles) {
         }
         return -1;
     };
+    } catch (e) {
+        if (nwLatestTop5Timer) {
+            clearInterval(nwLatestTop5Timer);
+            nwLatestTop5Timer = null;
+        }
+        setLatestTop5EmptyState(
+            sec,
+            '최신 기사를 표시하는 중 오류가 났습니다.',
+            '페이지를 새로 고치거나 잠시 후 다시 시도해 주세요.'
+        );
+        if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] renderLatestTop5FromList', e);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    nwLoadCategoryMap(function () {
+    nwLoadCategoryMap(function () {});
     // 옛 메인 HTML이 nw-office 로 연결된 경우에도 통합 스태프 SPA 로 이동
     document.querySelectorAll('a[href*="nw-office/index"]').forEach(function (a) {
         a.setAttribute('href', '/admin');
@@ -833,8 +853,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
                 }
                 renderLatestTop5FromList(articles);
-                renderSectionListsByCategory(articles);
-                renderTvSectionByCategory(articles);
+                try {
+                    renderSectionListsByCategory(articles);
+                    renderTvSectionByCategory(articles);
+                } catch (secErr) {
+                    if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] section/tv render', secErr);
+                }
                 if (/nwdebug=1/.test(location.search)) {
                     var ord = sortByLatest(articles);
                     console.info('[nw-main] latest top5 ids', ord.slice(0, 5).map(function (x) { return x && x.id; }));
@@ -920,6 +944,5 @@ document.addEventListener('DOMContentLoaded', function () {
         el.addEventListener('mouseenter', function () {
             this.style.transition = 'color 0.15s ease';
         });
-    });
     });
 });
