@@ -7,7 +7,10 @@ import { authMiddleware } from '../middleware/auth.js';
 export const adsRouter = Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '..', 'data');
-const adsPath = path.join(dataDir, 'ads.json');
+/** 운영에서 영구 디스크를 붙인 경로(예: Render Disk). 미설정 시 기본 backend/data/ads.json(재배포 시 리포/이미지와 함께 초기화될 수 있음). */
+const adsPath = process.env.NW_ADS_JSON_PATH
+  ? path.resolve(process.env.NW_ADS_JSON_PATH)
+  : path.join(dataDir, 'ads.json');
 const uploadsAdsDir = path.join(__dirname, '..', 'uploads', 'ads');
 
 function loadAds() {
@@ -87,6 +90,39 @@ function normalizeAdHref(href) {
   return h;
 }
 
+/** 사이드 단일/스택 모두에 표시할 이미지 URL이 없는지 */
+function sideStacksHaveNoImages(base) {
+  const L = base.sideLeftStack || [];
+  const R = base.sideRightStack || [];
+  const anyL = L.some((x) => String(x?.src || '').trim());
+  const anyR = R.some((x) => String(x?.src || '').trim());
+  const singleL = String(base.sideLeft?.src || '').trim();
+  const singleR = String(base.sideRight?.src || '').trim();
+  return !anyL && !anyR && !singleL && !singleR;
+}
+
+function footerRowToSideSlot(f) {
+  if (!f) return { src: '', href: '#' };
+  const src = String(f.image ?? f.src ?? '').trim();
+  return { src, href: normalizeAdHref(f.href || '#') };
+}
+
+/**
+ * 공개 GET 전용: 사이드가 전부 비었을 때 footer 항목으로 슬롯을 채움.
+ * 저장(PUT)에는 넣지 않아 ads.json이 자동 덮어쓰이지 않게 함.
+ */
+function applyPublicSideStackFallbackFromFooter(base) {
+  if (!sideStacksHaveNoImages(base)) return;
+  const foot = Array.isArray(base.footer) ? base.footer : [];
+  if (foot.length === 0) return;
+  base.sideLeftStack = [0, 1, 2, 3].map((i) => footerRowToSideSlot(foot[i]));
+  base.sideRightStack = [4, 5, 6].map((i) => footerRowToSideSlot(foot[i]));
+  const l0 = base.sideLeftStack[0];
+  const r0 = base.sideRightStack[0];
+  if (String(l0?.src || '').trim()) base.sideLeft = { src: l0.src, href: l0.href };
+  if (String(r0?.src || '').trim()) base.sideRight = { src: r0.src, href: r0.href };
+}
+
 /** API 응답용: 스택 길이 보정 + 기존 sideLeft/sideRight를 1번 칸과 병합 */
 function normalizeAdsResponse(data) {
   const base = { ...getDefaultAds(), ...data };
@@ -138,14 +174,18 @@ function normalizeAdsResponse(data) {
 }
 
 function saveAds(data) {
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  const dir = path.dirname(adsPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(adsPath, JSON.stringify(data, null, 2), 'utf8');
 }
 
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)
 adsRouter.get('/', (req, res) => {
   res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-  res.json(loadAds());
+  const data = loadAds();
+  const out = JSON.parse(JSON.stringify(data));
+  applyPublicSideStackFallbackFromFooter(out);
+  res.json(out);
 });
 
 // PUT /api/ads — 관리자만 광고 설정 수정
