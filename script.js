@@ -848,6 +848,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     renderLatestTop5FromList([]);
                     return;
                 }
+                // 방어: API는 published 만 내려주지만, 캐시/프록시 오동작 시 송고·임시 글 제외
+                articles = articles.filter(function (a) {
+                    if (!a) return false;
+                    var s = String(a.status || '').toLowerCase();
+                    return s === 'published' || s === 'approved';
+                });
+                if (articles.length === 0) {
+                    renderLatestTop5FromList([]);
+                    return;
+                }
                 if (/nwdebug=1/.test(location.search)) {
                     var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
                     console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);

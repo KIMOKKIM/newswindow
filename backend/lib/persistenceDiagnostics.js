@@ -7,6 +7,7 @@ import {
   getUploadsRoot,
   getUsersJsonPath,
 } from '../config/dataPaths.js';
+import { useSupabasePersistence } from './dbMode.js';
 
 function isUnderBackendBundle(absPath) {
   const norm = absPath.replace(/\\/g, '/');
@@ -18,6 +19,10 @@ function isUnderBackendBundle(absPath) {
  * 배포 환경에서 에페메럴 파일시스템에 쓰고 있으면 경고(데이터가 재배포마다 사라질 수 있음).
  */
 export function logPersistenceOnStartup() {
+  if (useSupabasePersistence()) {
+    console.log('[persistence] Supabase(PostgreSQL + Storage) 사용 중 — 로컬 JSON/ads 경고 생략');
+    return;
+  }
   const articlesPath = getArticlesJsonPath();
   const adsPath = getAdsJsonPath();
   const usersPath = getUsersJsonPath();
@@ -68,6 +73,7 @@ export function logPersistenceOnStartup() {
  * 에페메럴 파일시스템에 쓰는 상태로 뜨는 것을 막고, 재배포 시 유실 원인을 즉시 드러낸다.
  */
 export function exitIfRenderMissingJsonPaths() {
+  if (useSupabasePersistence()) return;
   if (process.env.RENDER !== 'true') return;
   const miss = [];
   if (!String(process.env.NW_ARTICLES_JSON_PATH || '').trim()) miss.push('NW_ARTICLES_JSON_PATH');

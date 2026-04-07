@@ -9,9 +9,10 @@ import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
-import { db } from './db/db.js';
 import { getUploadsRoot } from './config/dataPaths.js';
 import { logPersistenceOnStartup, exitIfRenderMissingJsonPaths } from './lib/persistenceDiagnostics.js';
+import { useSupabasePersistence } from './lib/dbMode.js';
+import { getUserByUserid, createUser, updateUserRoleById } from './db/userStore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -53,13 +54,19 @@ app.use((req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString() });
+  res.json({ ok: true, timestamp: new Date().toISOString(), storage: useSupabasePersistence() ? 'supabase' : 'file' });
 });
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/articles', articlesRouter);
 app.use('/api/ads', adsRouter);
+
+app.use((err, req, res, next) => {
+  console.error('[api]', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err.message || '서버 오류' });
+});
 
 const adminDist = path.join(__dirname, '..', 'admin', 'dist');
 if (fs.existsSync(adminDist)) {
@@ -73,21 +80,35 @@ if (fs.existsSync(adminDist)) {
 async function start() {
   exitIfRenderMissingJsonPaths();
   const hash = await bcrypt.hash('teomok$123', 10);
-  // 편집장: teomok1
-  const t1 = db.prepare('SELECT * FROM users WHERE userid = ?').get('teomok1');
+  const t1 = await getUserByUserid('teomok1');
   if (!t1) {
-    db.prepare('INSERT INTO users (userid, password_hash, name, email, role) VALUES (?, ?, ?, ?, ?)')
-      .run('teomok1', hash, '편집장', 'editor@newswindow.kr', 'editor_in_chief');
+    await createUser({
+      userid: 'teomok1',
+      password_hash: hash,
+      name: '편집장',
+      email: 'editor@newswindow.kr',
+      role: 'editor_in_chief',
+      ssn: '',
+      phone: '',
+      address: '',
+    });
     console.log('Seed: 편집장 teomok1 created');
   } else if (t1.role !== 'editor_in_chief') {
-    db.prepare('UPDATE users SET role = ? WHERE userid = ?').run('editor_in_chief', 'teomok1');
+    await updateUserRoleById(t1.id, 'editor_in_chief');
     console.log('Seed: teomok1 role updated to editor_in_chief');
   }
-  // 관리자: admin1 (테스트용)
-  const a1 = db.prepare('SELECT * FROM users WHERE userid = ?').get('admin1');
+  const a1 = await getUserByUserid('admin1');
   if (!a1) {
-    db.prepare('INSERT INTO users (userid, password_hash, name, email, role) VALUES (?, ?, ?, ?, ?)')
-      .run('admin1', hash, '관리자', 'admin@newswindow.kr', 'admin');
+    await createUser({
+      userid: 'admin1',
+      password_hash: hash,
+      name: '관리자',
+      email: 'admin@newswindow.kr',
+      role: 'admin',
+      ssn: '',
+      phone: '',
+      address: '',
+    });
     console.log('Seed: 관리자 admin1 created');
   }
   app.listen(PORT, () => {

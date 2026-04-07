@@ -652,6 +652,35 @@ a.nw-btn.nw-btn-primary {
   margin-top: 16px;
 }
 
+.nw-form-busy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+  font-size: 0.92rem;
+  color: var(--nw-muted);
+}
+
+.nw-form-busy[hidden] {
+  display: none !important;
+}
+
+.nw-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid var(--nw-border);
+  border-top-color: var(--nw-primary);
+  border-radius: 50%;
+  animation: nw-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes nw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .nw-file-block {
   padding-top: 8px;
   border-top: 1px dashed var(--nw-border);
@@ -686,6 +715,48 @@ a.nw-btn.nw-btn-primary {
 
 .nw-table a {
   color: var(--nw-primary);
+}
+
+.nw-status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 220px;
+}
+
+.nw-status-badge {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.nw-status-pubhint {
+  font-size: 0.78rem;
+  color: var(--nw-muted);
+  line-height: 1.35;
+}
+
+.nw-status-badge--live {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.nw-status-badge--review {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+.nw-status-badge--draft {
+  background: #eceff1;
+  color: #455a64;
+}
+
+.nw-status-badge--rej {
+  background: #ffebee;
+  color: #b71c1c;
 }
 
 /* Modal */

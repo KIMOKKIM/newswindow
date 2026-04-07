@@ -127,6 +127,9 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         )
         .join('')}
       <p id="formErr" class="nw-error" style="display:none;"></p>
+      <p id="formSaveBusy" class="nw-form-busy" hidden aria-live="polite">
+        <span class="nw-spinner" aria-hidden="true"></span> 등록·저장 중…
+      </p>
       <div class="nw-btn-row">
         <button type="button" class="nw-btn" id="btnSpell">맞춤법 검사</button>
         <button type="button" class="nw-btn" id="btnPrev">미리보기</button>
@@ -155,6 +158,15 @@ export async function renderArticleForm(app, { navigate, articleId }) {
 
   const form = app.querySelector('#artForm');
   const errEl = app.querySelector('#formErr');
+  const busyEl = app.querySelector('#formSaveBusy');
+
+  function setFormBusy(busy) {
+    form.setAttribute('aria-busy', busy ? 'true' : 'false');
+    if (busyEl) busyEl.hidden = !busy;
+    app.querySelectorAll('.nw-btn-row button').forEach((b) => {
+      b.disabled = !!busy;
+    });
+  }
 
   async function gatherPayload(statusMaybe) {
     const payload = {
@@ -189,53 +201,63 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     }
     const url = isNew ? '/api/articles' : '/api/articles/' + articleId;
     const method = isNew ? 'POST' : 'PATCH';
-    const { res, data } = await apiFetch(url, {
-      method,
-      headers: authHeaders(session.token, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
-    });
-    if (res.status === 401) {
-      alert('세션이 만료되었습니다.');
-      navigate(loginPathForRole(session.role));
-      return;
-    }
-    if (!res.ok) {
-      errEl.textContent = (data && data.error) || '저장 실패';
-      errEl.style.display = 'block';
-      return;
-    }
-    const id = isNew ? data.id : articleId;
-    const savedMsg =
-      status === 'submitted' ? '송고되었습니다.' : '저장되었습니다.';
-    if (isNew) {
-      if (status === 'submitted') alert(savedMsg);
-      navigate('/admin/article/' + id + '/edit');
-    } else {
-      alert(savedMsg);
-      article = data.article || data;
+    setFormBusy(true);
+    try {
+      const { res, data } = await apiFetch(url, {
+        method,
+        headers: authHeaders(session.token, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 401) {
+        alert('세션이 만료되었습니다.');
+        navigate(loginPathForRole(session.role));
+        return;
+      }
+      if (!res.ok) {
+        errEl.textContent = (data && data.error) || '저장 실패';
+        errEl.style.display = 'block';
+        return;
+      }
+      const id = isNew ? data.id : articleId;
+      const savedMsg =
+        status === 'submitted' ? '송고되었습니다.' : '저장되었습니다.';
+      if (isNew) {
+        if (status === 'submitted') alert(savedMsg);
+        navigate('/admin/article/' + id + '/edit');
+      } else {
+        alert(savedMsg);
+        article = data.article || data;
+      }
+    } finally {
+      setFormBusy(false);
     }
   }
 
   async function saveStaff() {
     errEl.style.display = 'none';
     const payload = await gatherPayload();
-    const { res, data } = await apiFetch('/api/articles/' + articleId, {
-      method: 'PATCH',
-      headers: authHeaders(session.token, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
-    });
-    if (res.status === 401) {
-      alert('세션이 만료되었습니다.');
-      navigate(loginPathForRole(session.role));
-      return;
+    setFormBusy(true);
+    try {
+      const { res, data } = await apiFetch('/api/articles/' + articleId, {
+        method: 'PATCH',
+        headers: authHeaders(session.token, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 401) {
+        alert('세션이 만료되었습니다.');
+        navigate(loginPathForRole(session.role));
+        return;
+      }
+      if (!res.ok) {
+        errEl.textContent = (data && data.error) || '저장 실패';
+        errEl.style.display = 'block';
+        return;
+      }
+      alert((data && data.message) || '저장되었습니다.');
+      if (data && data.article) article = data.article;
+    } finally {
+      setFormBusy(false);
     }
-    if (!res.ok) {
-      errEl.textContent = (data && data.error) || '저장 실패';
-      errEl.style.display = 'block';
-      return;
-    }
-    alert((data && data.message) || '저장되었습니다.');
-    if (data && data.article) article = data.article;
   }
 
   app.querySelector('#btnDraft').addEventListener('click', () => {

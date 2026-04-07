@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db } from '../db/db.js';
+import { createUser, getUserByUserid, userIdExists } from '../db/userStore.js';
 
 export const authRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
 
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', async (req, res) => {
   try {
     const { userid, password } = req.body;
     if (!userid || !password) {
@@ -15,11 +15,10 @@ authRouter.post('/login', (req, res) => {
     if ((process.env.NODE_ENV || 'development') !== 'production') {
       console.log('[auth-debug] login attempt:', { userid, passwordLen: (password || '').length });
     }
-    const row = db.prepare('SELECT * FROM users WHERE userid = ?').get(userid);
+    const row = await getUserByUserid(userid);
     if (!row) {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
-    // Use normal password verification for all environments.
     const ok = bcrypt.compareSync(password, row.password_hash);
     if (!ok) {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
@@ -46,19 +45,27 @@ authRouter.post('/signup', async (req, res) => {
     if (!['reporter', 'editor_in_chief'].includes(roleNorm)) {
       return res.status(400).json({ error: 'role은 reporter 또는 editor_in_chief만 허용' });
     }
-    const exists = db.prepare('SELECT id FROM users WHERE userid = ?').get(userid);
-    if (exists) {
+    if (await userIdExists(userid)) {
       return res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
     }
     const hash = await bcrypt.hash(password, 10);
-    db.prepare(
-      'INSERT INTO users (userid, password_hash, name, email, role, ssn, phone, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(userid, hash, name, email, roleNorm, ssn || '', phone || '', address || '');
+    await createUser({
+      userid,
+      password_hash: hash,
+      name,
+      email,
+      role: roleNorm,
+      ssn,
+      phone,
+      address,
+    });
     res.status(201).json({
       message: '회원가입 완료',
       role: roleNorm,
-      dashboardInfo: (roleNorm === 'reporter' || roleNorm === 'editor_in_chief')
-        ? '편집장 및 관리자 대시보드 기자리스트에 반영됩니다.' : null
+      dashboardInfo:
+        roleNorm === 'reporter' || roleNorm === 'editor_in_chief'
+          ? '편집장 및 관리자 대시보드 기자리스트에 반영됩니다.'
+          : null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

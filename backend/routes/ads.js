@@ -4,21 +4,13 @@ import path from 'path';
 import { authMiddleware } from '../middleware/auth.js';
 import { getAdsJsonPath, getUploadsRoot } from '../config/dataPaths.js';
 import { writeJsonFileAtomic } from '../lib/atomicJsonWrite.js';
+import { useSupabasePersistence } from '../lib/dbMode.js';
+import { assertSupabase, getBannersBucket } from '../lib/supabaseServer.js';
 
 export const adsRouter = Router();
-/** NW_ADS_JSON_PATH · NW_UPLOADS_ROOT 미설정 시 backend/data · backend/uploads (재배포 시 유실 가능) */
+
 const adsPath = getAdsJsonPath();
 const uploadsAdsDir = path.join(getUploadsRoot(), 'ads');
-
-function loadAds() {
-  if (!fs.existsSync(adsPath)) return normalizeAdsResponse(getDefaultAds());
-  try {
-    const data = JSON.parse(fs.readFileSync(adsPath, 'utf8'));
-    return normalizeAdsResponse({ ...getDefaultAds(), ...data });
-  } catch {
-    return normalizeAdsResponse(getDefaultAds());
-  }
-}
 
 function emptySideStacks() {
   return {
@@ -26,13 +18,13 @@ function emptySideStacks() {
       { src: '', href: '#' },
       { src: '', href: '#' },
       { src: '', href: '#' },
-      { src: '', href: '#' }
+      { src: '', href: '#' },
     ],
     sideRightStack: [
       { src: '', href: '#' },
       { src: '', href: '#' },
-      { src: '', href: '#' }
-    ]
+      { src: '', href: '#' },
+    ],
   };
 }
 
@@ -43,7 +35,7 @@ function getDefaultAds() {
     sideLeft: { src: '', href: '#' },
     sideRight: { src: '', href: '#' },
     ...emptySideStacks(),
-    footer: []
+    footer: [],
   };
 }
 
@@ -52,9 +44,6 @@ function isNewswindowHost(hostname) {
   return h === 'www.newswindow.kr' || h === 'newswindow.kr' || h === 'localhost' || h === '127.0.0.1';
 }
 
-/**
- * `#https://…` 와 `https://뉴스의창/#https://광고주/#앵커` 등 잘못된 저장 형태를 광고주 URL로 고침.
- */
 function normalizeAdHref(href) {
   let h = String(href ?? '#').trim();
   if (!h || h === '#') return '#';
@@ -87,7 +76,6 @@ function normalizeAdHref(href) {
   return h;
 }
 
-/** API 응답용: 스택 길이 보정 + 기존 sideLeft/sideRight를 1번 칸과 병합 */
 function normalizeAdsResponse(data) {
   const base = { ...getDefaultAds(), ...data };
   const L = Array.isArray(base.sideLeftStack) ? base.sideLeftStack.slice(0, 4) : [];
@@ -97,7 +85,7 @@ function normalizeAdsResponse(data) {
   }
   base.sideLeftStack = L.map((x) => ({
     src: x.src || '',
-    href: normalizeAdHref(x.href || '#')
+    href: normalizeAdHref(x.href || '#'),
   }));
   const R = Array.isArray(base.sideRightStack) ? base.sideRightStack.slice(0, 3) : [];
   while (R.length < 3) R.push({ src: '', href: '#' });
@@ -106,118 +94,288 @@ function normalizeAdsResponse(data) {
   }
   base.sideRightStack = R.map((x) => ({
     src: x.src || '',
-    href: normalizeAdHref(x.href || '#')
+    href: normalizeAdHref(x.href || '#'),
   }));
   base.headerLeft = {
     ...base.headerLeft,
     src: base.headerLeft.src || '',
-    href: normalizeAdHref(base.headerLeft.href)
+    href: normalizeAdHref(base.headerLeft.href),
   };
   base.headerRight = {
     ...base.headerRight,
     src: base.headerRight.src || '',
-    href: normalizeAdHref(base.headerRight.href)
+    href: normalizeAdHref(base.headerRight.href),
   };
   base.sideLeft = {
     ...base.sideLeft,
     src: base.sideLeft.src || '',
-    href: normalizeAdHref(base.sideLeft.href)
+    href: normalizeAdHref(base.sideLeft.href),
   };
   base.sideRight = {
     ...base.sideRight,
     src: base.sideRight.src || '',
-    href: normalizeAdHref(base.sideRight.href)
+    href: normalizeAdHref(base.sideRight.href),
   };
   if (Array.isArray(base.footer)) {
     base.footer = base.footer.map((x) => ({
       ...x,
-      href: normalizeAdHref(x && x.href)
+      href: normalizeAdHref(x && x.href),
     }));
   }
   return base;
 }
 
-function saveAds(data) {
+async function loadAdsSupabase() {
+  const sb = assertSupabase();
+  const { data, error } = await sb.from('ad_site_config').select('config').eq('id', 1).maybeSingle();
+  if (error) throw error;
+  if (!data) return normalizeAdsResponse(getDefaultAds());
+  let cfg = data.config;
+  if (cfg == null || cfg === '') return normalizeAdsResponse(getDefaultAds());
+  if (typeof cfg === 'string') {
+    try {
+      cfg = JSON.parse(cfg);
+    } catch {
+      cfg = {};
+    }
+  }
+  if (typeof cfg !== 'object' || cfg === null || Array.isArray(cfg)) cfg = {};
+  return normalizeAdsResponse({ ...getDefaultAds(), ...cfg });
+}
+
+/** JSONB 저장용 순수 객체(plain data). undefined 제거, 직렬화 검증 */
+function cloneConfigForStore(payload) {
+  return JSON.parse(JSON.stringify(payload));
+}
+
+/**
+ * Supabase 저장 시 /uploads/… 는 Render/로컬 전용 — Storage public URL 만 허용
+ * (NW_ADS_ALLOW_LOCAL_PATHS_IN_SUPABASE=1 이면 스킵)
+ */
+function sanitizeAdSrcForSupabase(obj) {
+  if (String(process.env.NW_ADS_ALLOW_LOCAL_PATHS_IN_SUPABASE || '').trim() === '1') return obj;
+  const j = cloneConfigForStore(obj);
+  function fixUrl(fieldName, u) {
+    if (typeof u !== 'string') return u;
+    const s = u.trim();
+    if (!s) return '';
+    if (/^https?:\/\//i.test(s) || s.startsWith('//')) return s;
+    if (/^\/?uploads\//i.test(s)) {
+      console.warn('[ads][supabase] removed local path from config (re-upload via admin):', fieldName, s.slice(0, 160));
+      return '';
+    }
+    return s;
+  }
+  for (const k of ['headerLeft', 'headerRight', 'sideLeft', 'sideRight']) {
+    if (j[k] && typeof j[k] === 'object') {
+      j[k] = { ...j[k], src: fixUrl(`${k}.src`, j[k].src) };
+    }
+  }
+  for (const arrKey of ['sideLeftStack', 'sideRightStack']) {
+    if (Array.isArray(j[arrKey])) {
+      j[arrKey] = j[arrKey].map((x, i) => ({
+        ...(x && typeof x === 'object' ? x : {}),
+        src: fixUrl(`${arrKey}[${i}].src`, x && x.src),
+        href: (x && x.href) || '#',
+      }));
+    }
+  }
+  if (Array.isArray(j.footer)) {
+    j.footer = j.footer.map((x, i) => ({
+      ...(x && typeof x === 'object' ? x : {}),
+      image: fixUrl(`footer[${i}].image`, x && x.image),
+      src: fixUrl(`footer[${i}].src`, x && x.src),
+    }));
+  }
+  return j;
+}
+
+function logAdsPersistSnapshot(label, configObj) {
+  const json = JSON.stringify(configObj);
+  const max = 20000;
+  const truncated = json.length > max ? json.slice(0, max) + '…[truncated]' : json;
+  console.log(`[ads][persist] ${label} byteLen=${Buffer.byteLength(json, 'utf8')} snapshot=${truncated}`);
+}
+
+async function saveAdsSupabase(payload) {
+  const sb = assertSupabase();
+  const rawClone = cloneConfigForStore(payload);
+  const configToStore = sanitizeAdSrcForSupabase(rawClone);
+  const updated_at = new Date().toISOString();
+  logAdsPersistSnapshot('before_supabase_write', configToStore);
+
+  const { data: existing, error: selErr } = await sb.from('ad_site_config').select('id').eq('id', 1).maybeSingle();
+  if (selErr) throw selErr;
+
+  let row;
+  let wErr;
+  if (existing) {
+    const q = await sb
+      .from('ad_site_config')
+      .update({ config: configToStore, updated_at })
+      .eq('id', 1)
+      .select('config')
+      .maybeSingle();
+    row = q.data;
+    wErr = q.error;
+  } else {
+    const q = await sb
+      .from('ad_site_config')
+      .insert({ id: 1, config: configToStore, updated_at })
+      .select('config')
+      .maybeSingle();
+    row = q.data;
+    wErr = q.error;
+  }
+  if (wErr) throw wErr;
+  const storedKeys = row && row.config && typeof row.config === 'object' && !Array.isArray(row.config) ? Object.keys(row.config) : [];
+  console.log(
+    '[ads][supabase] after_write',
+    JSON.stringify({
+      storedTopKeys: storedKeys,
+      footerLen: Array.isArray(row && row.config && row.config.footer) ? row.config.footer.length : null,
+      headerLeftSrcLen: row && row.config && row.config.headerLeft && row.config.headerLeft.src != null
+        ? String(row.config.headerLeft.src).length
+        : null,
+    }),
+  );
+}
+
+function loadAdsFile() {
+  if (!fs.existsSync(adsPath)) return normalizeAdsResponse(getDefaultAds());
+  try {
+    const data = JSON.parse(fs.readFileSync(adsPath, 'utf8'));
+    return normalizeAdsResponse({ ...getDefaultAds(), ...data });
+  } catch {
+    return normalizeAdsResponse(getDefaultAds());
+  }
+}
+
+function saveAdsFile(data) {
   writeJsonFileAtomic(adsPath, data);
 }
 
+async function loadAds() {
+  if (useSupabasePersistence()) return loadAdsSupabase();
+  return loadAdsFile();
+}
+
+async function saveAds(data) {
+  if (useSupabasePersistence()) return saveAdsSupabase(data);
+  saveAdsFile(data);
+}
+
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)
-// 하단 footer만 등록한 경우에도 sideLeftStack에 푸터를 복사하지 않음(중복 노출 방지).
-adsRouter.get('/', (req, res) => {
-  res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-  res.json(loadAds());
+adsRouter.get('/', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+    res.json(await loadAds());
+  } catch (e) {
+    next(e);
+  }
 });
 
 // PUT /api/ads — 관리자만 광고 설정 수정
-adsRouter.put('/', authMiddleware, (req, res) => {
-  const role = (req.user?.role || '').trim().toLowerCase();
-  if (role !== 'admin') {
-    return res.status(403).json({ error: '관리자만 수정할 수 있습니다.' });
+adsRouter.put('/', authMiddleware, async (req, res, next) => {
+  try {
+    const role = (req.user?.role || '').trim().toLowerCase();
+    if (role !== 'admin') {
+      return res.status(403).json({ error: '관리자만 수정할 수 있습니다.' });
+    }
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const inboundKeys = Object.keys(body);
+    console.log(
+      '[ads][PUT] inbound',
+      JSON.stringify({ inboundKeys, approxJsonChars: JSON.stringify(body).length }),
+    );
+    const current = await loadAds();
+    if (body.headerLeft != null) current.headerLeft = { ...current.headerLeft, ...body.headerLeft };
+    if (body.headerRight != null) current.headerRight = { ...current.headerRight, ...body.headerRight };
+    if (body.sideLeft != null) current.sideLeft = { ...current.sideLeft, ...body.sideLeft };
+    if (body.sideRight != null) current.sideRight = { ...current.sideRight, ...body.sideRight };
+    if (Array.isArray(body.sideLeftStack)) {
+      current.sideLeftStack = body.sideLeftStack.slice(0, 4).map((x) => ({
+        src: (x && x.src) || '',
+        href: (x && x.href) || '#',
+      }));
+      while (current.sideLeftStack.length < 4) current.sideLeftStack.push({ src: '', href: '#' });
+    }
+    if (Array.isArray(body.sideRightStack)) {
+      current.sideRightStack = body.sideRightStack.slice(0, 3).map((x) => ({
+        src: (x && x.src) || '',
+        href: (x && x.href) || '#',
+      }));
+      while (current.sideRightStack.length < 3) current.sideRightStack.push({ src: '', href: '#' });
+    }
+    if (Array.isArray(body.footer)) current.footer = body.footer;
+    const out = normalizeAdsResponse({ ...getDefaultAds(), ...current });
+    await saveAds(out);
+    res.json(out);
+  } catch (e) {
+    next(e);
   }
-  const body = req.body || {};
-  const current = loadAds();
-  if (body.headerLeft != null) current.headerLeft = { ...current.headerLeft, ...body.headerLeft };
-  if (body.headerRight != null) current.headerRight = { ...current.headerRight, ...body.headerRight };
-  if (body.sideLeft != null) current.sideLeft = { ...current.sideLeft, ...body.sideLeft };
-  if (body.sideRight != null) current.sideRight = { ...current.sideRight, ...body.sideRight };
-  if (Array.isArray(body.sideLeftStack)) {
-    current.sideLeftStack = body.sideLeftStack.slice(0, 4).map((x) => ({
-      src: (x && x.src) || '',
-      href: (x && x.href) || '#'
-    }));
-    while (current.sideLeftStack.length < 4) current.sideLeftStack.push({ src: '', href: '#' });
-  }
-  if (Array.isArray(body.sideRightStack)) {
-    current.sideRightStack = body.sideRightStack.slice(0, 3).map((x) => ({
-      src: (x && x.src) || '',
-      href: (x && x.href) || '#'
-    }));
-    while (current.sideRightStack.length < 3) current.sideRightStack.push({ src: '', href: '#' });
-  }
-  if (Array.isArray(body.footer)) current.footer = body.footer;
-  const out = normalizeAdsResponse({ ...getDefaultAds(), ...current });
-  saveAds(out);
-  res.json(out);
 });
 
-// POST /api/ads/upload — 관리자만 광고 이미지 파일 업로드 (base64)
-adsRouter.post('/upload', authMiddleware, (req, res) => {
-  const role = (req.user?.role || '').trim().toLowerCase();
-  if (role !== 'admin') {
-    return res.status(403).json({ error: '관리자만 업로드할 수 있습니다.' });
-  }
-  const { image, filename } = req.body || {};
-  if (!image || typeof image !== 'string') {
-    return res.status(400).json({ error: 'image (base64) 필수가 필요합니다.' });
-  }
-  let buf;
-  let ext = path.extname(filename || '') || '.png';
-  if (!/^\.(png|jpe?g|gif|webp|svg)$/i.test(ext)) ext = '.png';
-  const dataUri = image.match(/^data:image\/\w+;base64,(.+)$/);
-  if (dataUri) {
-    buf = Buffer.from(dataUri[1], 'base64');
-    const mimeMatch = image.match(/^data:(image\/\w+);/);
-    if (mimeMatch) {
-      const mime = mimeMatch[1];
-      if (mime === 'image/jpeg') ext = '.jpg';
-      else if (mime === 'image/png') ext = '.png';
-      else if (mime === 'image/gif') ext = '.gif';
-      else if (mime === 'image/webp') ext = '.webp';
-      else if (mime === 'image/svg+xml') ext = '.svg';
+// POST /api/ads/upload — 관리자만 광고 이미지 (Supabase Storage 또는 로컬 디스크)
+adsRouter.post('/upload', authMiddleware, async (req, res, next) => {
+  try {
+    const role = (req.user?.role || '').trim().toLowerCase();
+    if (role !== 'admin') {
+      return res.status(403).json({ error: '관리자만 업로드할 수 있습니다.' });
     }
-  } else {
-    buf = Buffer.from(image, 'base64');
+    const { image, filename } = req.body || {};
+    if (!image || typeof image !== 'string') {
+      return res.status(400).json({ error: 'image (base64) 필수가 필요합니다.' });
+    }
+    let buf;
+    let ext = path.extname(filename || '') || '.png';
+    if (!/^\.(png|jpe?g|gif|webp|svg)$/i.test(ext)) ext = '.png';
+    let contentType = 'image/png';
+    const dataUri = image.match(/^data:image\/\w+;base64,(.+)$/);
+    if (dataUri) {
+      buf = Buffer.from(dataUri[1], 'base64');
+      const mimeMatch = image.match(/^data:(image\/\w+);/);
+      if (mimeMatch) {
+        contentType = mimeMatch[1];
+        const mime = mimeMatch[1];
+        if (mime === 'image/jpeg') ext = '.jpg';
+        else if (mime === 'image/png') ext = '.png';
+        else if (mime === 'image/gif') ext = '.gif';
+        else if (mime === 'image/webp') ext = '.webp';
+        else if (mime === 'image/svg+xml') ext = '.svg';
+      }
+    } else {
+      buf = Buffer.from(image, 'base64');
+    }
+    if (!buf.length) return res.status(400).json({ error: '잘못된 이미지 데이터입니다.' });
+
+    if (useSupabasePersistence()) {
+      const sb = assertSupabase();
+      const bucket = getBannersBucket();
+      const objectPath = `ads/${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
+      const { error: upErr } = await sb.storage.from(bucket).upload(objectPath, buf, {
+        contentType,
+        upsert: true,
+      });
+      if (upErr) return res.status(500).json({ error: upErr.message || 'Storage 업로드 실패' });
+      const { data: pub } = sb.storage.from(bucket).getPublicUrl(objectPath);
+      const url = pub?.publicUrl || '';
+      if (!url) return res.status(500).json({ error: '공개 URL 생성 실패' });
+      console.log('[ads][upload] storage_public_url', JSON.stringify({ bucket, objectPath, url }));
+      return res.json({ url });
+    }
+
+    if (!fs.existsSync(uploadsAdsDir)) fs.mkdirSync(uploadsAdsDir, { recursive: true });
+    const baseName = 'ad-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + ext;
+    const filePath = path.join(uploadsAdsDir, baseName);
+    fs.writeFileSync(filePath, buf);
+    const rel = '/uploads/ads/' + baseName;
+    const base = String(process.env.PUBLIC_UPLOAD_ORIGIN || process.env.BACKEND_PUBLIC_URL || '')
+      .trim()
+      .replace(/\/+$/, '');
+    const url = base ? base + rel : rel;
+    res.json({ url });
+  } catch (e) {
+    next(e);
   }
-  if (!buf.length) return res.status(400).json({ error: '잘못된 이미지 데이터입니다.' });
-  if (!fs.existsSync(uploadsAdsDir)) fs.mkdirSync(uploadsAdsDir, { recursive: true });
-  const baseName = 'ad-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + ext;
-  const filePath = path.join(uploadsAdsDir, baseName);
-  fs.writeFileSync(filePath, buf);
-  const rel = '/uploads/ads/' + baseName;
-  /** 프로덕션: 메인이 Vercel이면 상대 경로 /uploads 는 원본 호스트에 없을 수 있음 → Render 등 공개 origin 설정 */
-  const base = String(process.env.PUBLIC_UPLOAD_ORIGIN || process.env.BACKEND_PUBLIC_URL || '')
-    .trim()
-    .replace(/\/+$/, '');
-  const url = base ? base + rel : rel;
-  res.json({ url });
 });

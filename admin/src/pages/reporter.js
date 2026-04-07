@@ -17,10 +17,25 @@ function esc(s) {
 function statusKo(st) {
   const x = (st || '').toLowerCase();
   if (x === 'draft') return '임시저장';
-  if (x === 'submitted') return '송고·검토대기';
-  if (x === 'published') return '게시';
+  if (x === 'submitted' || x === 'pending' || x === 'sent') return '송고·검토대기';
+  if (x === 'published' || x === 'approved') return '게시·승인';
   if (x === 'rejected') return '반려';
   return st || '—';
+}
+
+function reporterStatusCell(stRaw) {
+  const st = (stRaw || '').toLowerCase();
+  const hint =
+    st === 'published' || st === 'approved'
+      ? '메인 공개됨'
+      : '메인 미공개 · 편집장 승인 후 노출';
+  let cls = 'nw-status-badge--draft';
+  if (st === 'published' || st === 'approved') cls = 'nw-status-badge--live';
+  else if (st === 'submitted' || st === 'pending' || st === 'sent') cls = 'nw-status-badge--review';
+  else if (st === 'rejected') cls = 'nw-status-badge--rej';
+  return `<div class="nw-status-cell"><span class="nw-status-badge ${cls}">${esc(
+    statusKo(stRaw),
+  )}</span><span class="nw-status-pubhint">${esc(hint)}</span></div>`;
 }
 
 export async function renderReporter(app, { navigate }) {
@@ -44,7 +59,7 @@ export async function renderReporter(app, { navigate }) {
     <tr>
       <td>${a.id}</td>
       <td><a href="/admin/article/${a.id}/edit" data-link>${esc(a.title || '(제목 없음)')}</a></td>
-      <td>${statusKo(a.status)}</td>
+      <td>${reporterStatusCell(a.status)}</td>
       <td>${esc(a.category || '')}</td>
       <td>${esc((a.created_at || '').slice(0, 19))}</td>
       <td>${esc((a.updated_at || '').slice(0, 19))}</td>
@@ -62,11 +77,12 @@ export async function renderReporter(app, { navigate }) {
       <a href="/admin/article/new" class="nw-btn nw-btn-primary" data-link>기사 작성</a>
       <a href="/admin/reporter/profile" class="nw-btn" data-link>정보 수정</a>
     </div>
+    <p class="nw-muted" style="margin:10px 0 14px">송고한 기사는 편집장이 승인하기 전까지 일반 독자에게는 보이지 않습니다.</p>
     <div class="nw-table-wrap">
       <table class="nw-table">
         <thead>
           <tr>
-            <th>번호</th><th>제목</th><th>상태</th><th>카테고리</th>
+            <th>번호</th><th>제목</th><th>상태 · 노출</th><th>카테고리</th>
             <th>등록일</th><th>수정일</th><th>조회수</th><th>액션</th>
           </tr>
         </thead>

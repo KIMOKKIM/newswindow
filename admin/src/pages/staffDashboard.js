@@ -12,10 +12,33 @@ function esc(s) {
 function statusKo(st) {
   const x = (st || '').toLowerCase();
   if (x === 'draft') return '임시저장';
-  if (x === 'submitted') return '송고·검토대기';
-  if (x === 'published') return '게시';
+  if (x === 'submitted' || x === 'pending' || x === 'sent') return '송고·검토대기';
+  if (x === 'published' || x === 'approved') return '게시·승인';
   if (x === 'rejected') return '반려';
   return st || '—';
+}
+
+/** 대시보드: 승인 여부·일반 노출 여부를 한눈에 */
+function statusCellHtml(stRaw) {
+  const st = (stRaw || '').toLowerCase();
+  const label = statusKo(stRaw);
+  let cls = 'nw-status-badge--draft';
+  let hint = '비공개(메인 미노출)';
+  if (st === 'published' || st === 'approved') {
+    cls = 'nw-status-badge--live';
+    hint = '승인됨 · 메인·공개 목록에 노출';
+  } else if (st === 'submitted' || st === 'pending' || st === 'sent') {
+    cls = 'nw-status-badge--review';
+    hint = '편집장 승인 전 · 미노출';
+  } else if (st === 'rejected') {
+    cls = 'nw-status-badge--rej';
+    hint = '반려됨 · 미노출';
+  } else if (st === 'draft') {
+    hint = '작성 중 · 미노출';
+  }
+  return `<div class="nw-status-cell"><span class="nw-status-badge ${cls}">${esc(label)}</span><span class="nw-status-pubhint">${esc(
+    hint,
+  )}</span></div>`;
 }
 
 /**
@@ -60,7 +83,8 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
 
   const rows = list
     .map((a) => {
-      const canAct = (a.status || '').toLowerCase() === 'submitted';
+      const stl = (a.status || '').toLowerCase();
+      const canAct = stl === 'submitted' || stl === 'pending' || stl === 'sent';
       const actions =
         (canAct
           ? `<button type="button" class="nw-btn-sm nw-ok" data-appr="${a.id}">승인</button>
@@ -72,7 +96,7 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
       <td>${a.id}</td>
       <td><a href="/admin/article/${a.id}/edit" data-link>${esc(a.title || '(제목 없음)')}</a></td>
       <td>${esc(a.author_name || '')}</td>
-      <td>${statusKo(a.status)}</td>
+      <td>${statusCellHtml(a.status)}</td>
       <td>${esc((a.created_at || '').slice(0, 19))}</td>
       <td>${Number(a.views) || 0}</td>
       <td>${actions}</td>
@@ -89,11 +113,14 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
     ${reportersBlock}
     <section class="nw-section">
       <h2>기사 목록</h2>
+      <p id="staffDashBusy" class="nw-form-busy" hidden aria-live="polite">
+        <span class="nw-spinner" aria-hidden="true"></span> 처리 중…
+      </p>
       <div class="nw-table-wrap">
         <table class="nw-table">
           <thead>
             <tr>
-              <th>번호</th><th>제목</th><th>작성자</th><th>상태</th><th>등록일</th><th>조회수</th><th>승인/반려</th>
+              <th>번호</th><th>제목</th><th>작성자</th><th>상태 · 노출</th><th>등록일</th><th>조회수</th><th>승인/반려</th>
             </tr>
           </thead>
           <tbody>${rows || '<tr><td colspan="7">기사가 없습니다.</td></tr>'}</tbody>
@@ -115,23 +142,45 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
   });
   bindShell(app, { navigate });
 
+  const busyEl = app.querySelector('#staffDashBusy');
+  let actionBusy = false;
+
   async function patchAction(id, action) {
-    const { res, data: d } = await apiFetch('/api/articles/' + id, {
-      method: 'PATCH',
-      headers: authHeaders(session.token, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action }),
+    if (actionBusy) return;
+    actionBusy = true;
+    const buttons = app.querySelectorAll('[data-appr], [data-rej]');
+    buttons.forEach((b) => {
+      b.disabled = true;
     });
-    if (res.status === 401) {
-      alert('세션이 만료되었습니다.');
-      navigate(mode === 'admin' ? '/admin/admin/login' : '/admin/editor/login');
-      return;
+    if (busyEl) busyEl.hidden = false;
+    try {
+      const { res, data: d } = await apiFetch('/api/articles/' + id, {
+        method: 'PATCH',
+        headers: authHeaders(session.token, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ action }),
+      });
+      if (res.status === 401) {
+        alert('세션이 만료되었습니다.');
+        navigate(mode === 'admin' ? '/admin/admin/login' : '/admin/editor/login');
+        return;
+      }
+      if (!res.ok) {
+        alert((d && d.error) || '처리 실패');
+        return;
+      }
+      if (d && d.idempotent) {
+        await renderStaffDashboard(app, { navigate, mode });
+        return;
+      }
+      alert((d && d.message) || '처리되었습니다.');
+      await renderStaffDashboard(app, { navigate, mode });
+    } finally {
+      actionBusy = false;
+      if (busyEl) busyEl.hidden = true;
+      app.querySelectorAll('[data-appr], [data-rej]').forEach((b) => {
+        b.disabled = false;
+      });
     }
-    if (!res.ok) {
-      alert((d && d.error) || '처리 실패');
-      return;
-    }
-    alert((d && d.message) || '처리되었습니다.');
-    renderStaffDashboard(app, { navigate, mode });
   }
 
   app.querySelectorAll('[data-appr]').forEach((btn) => {

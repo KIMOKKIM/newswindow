@@ -36,6 +36,32 @@ function getSearch(req) {
   return i >= 0 ? raw.slice(i) : '';
 }
 
+/**
+ * Vercel 등에서 PUT/POST 본문이 req.body 에 아직 없거나, 빈 객체로만 온 경우가 있어
+ * Object.keys(body).length 로 판단하면 실제 JSON 이 버려진다.
+ */
+async function readProxyRequestBody(req) {
+  if (req.body != null) {
+    if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
+    if (typeof req.body === 'string') return req.body;
+    if (typeof req.body === 'object') return JSON.stringify(req.body);
+  }
+  if (req.method === 'GET' || req.method === 'HEAD') return undefined;
+  if (typeof req.on !== 'function') return undefined;
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => {
+      if (!chunks.length) {
+        resolve(undefined);
+        return;
+      }
+      resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+    req.on('error', reject);
+  });
+}
+
 async function runProxy(req, res, path) {
   if (path === 'health') {
     res.statusCode = 200;
@@ -64,8 +90,30 @@ async function runProxy(req, res, path) {
     headers['accept-encoding'] = 'identity';
     const opts = { method: req.method, headers, redirect: 'manual' };
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      opts.body = req.body && Object.keys(req.body).length ? JSON.stringify(req.body) : undefined;
-      if (opts.body && !opts.headers['content-type']) opts.headers['content-type'] = 'application/json';
+      const rawBody = await readProxyRequestBody(req);
+      if (rawBody !== undefined && rawBody !== null && rawBody !== '') {
+        opts.body = rawBody;
+      }
+      const hasCt = !!(opts.headers['content-type'] || opts.headers['Content-Type']);
+      if (opts.body && !hasCt) opts.headers['content-type'] = 'application/json';
+      if (path.startsWith('ads') && opts.body) {
+        try {
+          const preview = JSON.parse(String(opts.body));
+          console.log(
+            '[proxy] forward_body',
+            JSON.stringify({
+              path,
+              bytes: Buffer.byteLength(String(opts.body), 'utf8'),
+              keys: preview && typeof preview === 'object' && !Array.isArray(preview) ? Object.keys(preview) : null,
+            })
+          );
+        } catch {
+          console.log(
+            '[proxy] forward_body_non_json',
+            JSON.stringify({ path, bytes: Buffer.byteLength(String(opts.body), 'utf8') })
+          );
+        }
+      }
     }
     const r = await fetch(target, opts);
     const ab = await r.arrayBuffer();
