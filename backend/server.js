@@ -11,10 +11,36 @@ import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
 import { getUploadsRoot } from './config/dataPaths.js';
 import { logPersistenceOnStartup, exitIfRenderMissingJsonPaths } from './lib/persistenceDiagnostics.js';
-import { useSupabasePersistence } from './lib/dbMode.js';
+import {
+  useSupabasePersistence,
+  useLegacyFileDb,
+  getArticlesReadSource,
+  getAdsReadSource,
+} from './lib/dbMode.js';
+import {
+  assertSupabaseRequiredAtStartup,
+  isSupabaseConfigured,
+  getServiceSupabase,
+  resolveServiceRoleKey,
+  resolveSupabaseUrl,
+} from './lib/supabaseServer.js';
 import { getUserByUserid, createUser, updateUserRoleById } from './db/userStore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** 기동 시 Vercel/Render 등에서 env 주입 여부 확인 (키 값은 출력하지 않음) */
+function logSupabaseEnvOnStartup() {
+  const url = resolveSupabaseUrl();
+  console.log('현재 연결 주소:', url || '(비어 있음)');
+  const canonical = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const hasCanonical = canonical != null && String(canonical).trim() !== '';
+  const hasResolvedKey = !!resolveServiceRoleKey();
+  console.log(
+    'SUPABASE_SERVICE_ROLE_KEY:',
+    hasCanonical ? 'KEY 존재함 (이름 일치)' : hasResolvedKey ? 'KEY 존재함 (레거시 env 이름)' : 'KEY 누락됨',
+  );
+}
+
 const app = express();
 const uploadsDir = getUploadsRoot();
 app.use('/uploads', express.static(uploadsDir));
@@ -53,8 +79,37 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString(), storage: useSupabasePersistence() ? 'supabase' : 'file' });
+app.get('/api/health', async (req, res) => {
+  res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+  let supabaseConnected = false;
+  let adsConfigConnected = false;
+  if (isSupabaseConfigured()) {
+    try {
+      const sb = getServiceSupabase();
+      if (sb) {
+        const articlesProbe = await sb.from('articles').select('id').limit(1);
+        supabaseConnected = !articlesProbe.error;
+        const adsProbe = await sb.from('ad_site_config').select('id').eq('id', 1).maybeSingle();
+        adsConfigConnected = !adsProbe.error;
+      }
+    } catch {
+      supabaseConnected = false;
+      adsConfigConnected = false;
+    }
+  }
+  const allStorageOk = supabaseConnected && adsConfigConnected;
+  res.json({
+    ok: true,
+    timestamp: new Date().toISOString(),
+    storage: useSupabasePersistence() ? 'supabase' : 'file',
+    articlesReadSource: getArticlesReadSource(),
+    adsReadSource: getAdsReadSource(),
+    supabaseConfigured: isSupabaseConfigured(),
+    supabaseConnected,
+    adsConfigConnected,
+    allStorageOk,
+    legacyFileDbFlag: useLegacyFileDb(),
+  });
 });
 
 app.use('/api/auth', authRouter);
@@ -78,6 +133,8 @@ if (fs.existsSync(adminDist)) {
 }
 
 async function start() {
+  logSupabaseEnvOnStartup();
+  assertSupabaseRequiredAtStartup();
   exitIfRenderMissingJsonPaths();
   const hash = await bcrypt.hash('teomok$123', 10);
   const t1 = await getUserByUserid('teomok1');

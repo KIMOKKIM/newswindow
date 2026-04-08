@@ -21,6 +21,7 @@ function isUnderBackendBundle(absPath) {
 export function logPersistenceOnStartup() {
   if (useSupabasePersistence()) {
     console.log('[persistence] Supabase(PostgreSQL + Storage) 사용 중 — 로컬 JSON/ads 경고 생략');
+    console.log('[persistence] 기사 목록·상세·쓰기: Supabase public.articles (대시보드·메인 동일 소스)');
     return;
   }
   const articlesPath = getArticlesJsonPath();
@@ -28,6 +29,9 @@ export function logPersistenceOnStartup() {
   const usersPath = getUsersJsonPath();
   const uploadsRoot = getUploadsRoot();
 
+  console.warn(
+    '[persistence] 기사 데이터는 Supabase가 아니라 로컬 JSON(개발 전용 NW_DEV_LEGACY_FILE_DB=1)입니다. 운영은 NODE_ENV=production에서 항상 Supabase입니다.',
+  );
   const lines = [
     '[persistence] articles JSON → ' + articlesPath + (process.env.NW_ARTICLES_JSON_PATH ? ' (NW_ARTICLES_JSON_PATH)' : ' (default)'),
     '[persistence] ads JSON      → ' + adsPath + (process.env.NW_ADS_JSON_PATH ? ' (NW_ADS_JSON_PATH)' : ' (default)'),

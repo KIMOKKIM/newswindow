@@ -2,15 +2,31 @@ import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { authMiddleware } from '../middleware/auth.js';
-import { getAdsJsonPath, getUploadsRoot } from '../config/dataPaths.js';
-import { writeJsonFileAtomic } from '../lib/atomicJsonWrite.js';
-import { useSupabasePersistence } from '../lib/dbMode.js';
+import { getUploadsRoot } from '../config/dataPaths.js';
+import { useSupabasePersistence, getAdsReadSource, getAdsWriteSource } from '../lib/dbMode.js';
 import { assertSupabase, getBannersBucket } from '../lib/supabaseServer.js';
 
 export const adsRouter = Router();
 
-const adsPath = getAdsJsonPath();
 const uploadsAdsDir = path.join(getUploadsRoot(), 'ads');
+
+adsRouter.use((req, res, next) => {
+  const _json = res.json.bind(res);
+  res.json = (body) => {
+    console.log(
+      '[nw/ads]',
+      JSON.stringify({
+        method: req.method,
+        path: req.originalUrl || req.url,
+        op: req.method === 'GET' ? 'read' : 'write',
+        adsReadSource: getAdsReadSource(),
+        adsWriteSource: getAdsWriteSource(),
+      }),
+    );
+    return _json(body);
+  };
+  next();
+});
 
 function emptySideStacks() {
   return {
@@ -193,8 +209,8 @@ function sanitizeAdSrcForSupabase(obj) {
 function logAdsPersistSnapshot(label, configObj) {
   const json = JSON.stringify(configObj);
   const max = 20000;
-  const truncated = json.length > max ? json.slice(0, max) + '…[truncated]' : json;
-  console.log(`[ads][persist] ${label} byteLen=${Buffer.byteLength(json, 'utf8')} snapshot=${truncated}`);
+  const snapshot = json.length > max ? json.slice(0, max) + '…[truncated]' : json;
+  console.log(`[ads][persist] ${label} byteLen=${Buffer.byteLength(json, 'utf8')} snapshot=${snapshot}`);
 }
 
 async function saveAdsSupabase(payload) {
@@ -206,6 +222,9 @@ async function saveAdsSupabase(payload) {
 
   const { data: existing, error: selErr } = await sb.from('ad_site_config').select('id').eq('id', 1).maybeSingle();
   if (selErr) throw selErr;
+
+  const config = configToStore;
+  console.log('최종 저장 데이터:', config);
 
   let row;
   let wErr;
@@ -234,42 +253,19 @@ async function saveAdsSupabase(payload) {
     JSON.stringify({
       storedTopKeys: storedKeys,
       footerLen: Array.isArray(row && row.config && row.config.footer) ? row.config.footer.length : null,
-      headerLeftSrcLen: row && row.config && row.config.headerLeft && row.config.headerLeft.src != null
-        ? String(row.config.headerLeft.src).length
-        : null,
+      headerLeftSrcLen:
+        row && row.config && row.config.headerLeft && row.config.headerLeft.src != null
+          ? String(row.config.headerLeft.src).length
+          : null,
     }),
   );
-}
-
-function loadAdsFile() {
-  if (!fs.existsSync(adsPath)) return normalizeAdsResponse(getDefaultAds());
-  try {
-    const data = JSON.parse(fs.readFileSync(adsPath, 'utf8'));
-    return normalizeAdsResponse({ ...getDefaultAds(), ...data });
-  } catch {
-    return normalizeAdsResponse(getDefaultAds());
-  }
-}
-
-function saveAdsFile(data) {
-  writeJsonFileAtomic(adsPath, data);
-}
-
-async function loadAds() {
-  if (useSupabasePersistence()) return loadAdsSupabase();
-  return loadAdsFile();
-}
-
-async function saveAds(data) {
-  if (useSupabasePersistence()) return saveAdsSupabase(data);
-  saveAdsFile(data);
 }
 
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)
 adsRouter.get('/', async (req, res, next) => {
   try {
     res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-    res.json(await loadAds());
+    res.json(await loadAdsSupabase());
   } catch (e) {
     next(e);
   }
@@ -282,13 +278,21 @@ adsRouter.put('/', authMiddleware, async (req, res, next) => {
     if (role !== 'admin') {
       return res.status(403).json({ error: '관리자만 수정할 수 있습니다.' });
     }
+    console.log('[ads][PUT] express req.body:', req.body);
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
     const inboundKeys = Object.keys(body);
     console.log(
       '[ads][PUT] inbound',
       JSON.stringify({ inboundKeys, approxJsonChars: JSON.stringify(body).length }),
     );
-    const current = await loadAds();
+
+    if (inboundKeys.length === 0) {
+      return res.status(400).json({
+        error: '요청 본문이 비어 있습니다. 광고 필드를 JSON으로 보내 주세요.',
+      });
+    }
+
+    const current = await loadAdsSupabase();
     if (body.headerLeft != null) current.headerLeft = { ...current.headerLeft, ...body.headerLeft };
     if (body.headerRight != null) current.headerRight = { ...current.headerRight, ...body.headerRight };
     if (body.sideLeft != null) current.sideLeft = { ...current.sideLeft, ...body.sideLeft };
@@ -309,7 +313,7 @@ adsRouter.put('/', authMiddleware, async (req, res, next) => {
     }
     if (Array.isArray(body.footer)) current.footer = body.footer;
     const out = normalizeAdsResponse({ ...getDefaultAds(), ...current });
-    await saveAds(out);
+    await saveAdsSupabase(out);
     res.json(out);
   } catch (e) {
     next(e);

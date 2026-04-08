@@ -8,9 +8,35 @@ import {
   normalizeTitleDedupeKey,
   dedupeWindowMs,
 } from '../db/articles.js';
+import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 export const articlesRouter = Router();
+
+/** 스태프 대시보드·메인 공개 API 모두 동일 articlesDb — 헤더로 저장소 표시 */
+articlesRouter.use((req, res, next) => {
+  res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+  res.set('X-NW-Articles-Source', getArticlesReadSource());
+  next();
+});
+
+articlesRouter.use((req, res, next) => {
+  const _json = res.json.bind(res);
+  res.json = (body) => {
+    console.log(
+      '[nw/articles]',
+      JSON.stringify({
+        method: req.method,
+        path: req.originalUrl || req.url,
+        op: req.method === 'GET' ? 'read' : 'write',
+        articlesReadSource: getArticlesReadSource(),
+        articlesWriteSource: getArticlesWriteSource(),
+      }),
+    );
+    return _json(body);
+  };
+  next();
+});
 
 const debug = () => process.env.NW_DEBUG === '1';
 
@@ -55,7 +81,6 @@ articlesRouter.get('/public/page', async (req, res, next) => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
     const data = await articlesDb.listPublishedPaginated(page, limit);
-    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
     if (debug()) console.log('[articles] GET /public/page', data.page, '/', data.totalPages, 'total', data.total);
     res.json(data);
   } catch (e) {
@@ -80,7 +105,6 @@ articlesRouter.get('/public/popular', async (req, res, next) => {
 // GET /api/articles/public/:id — 공개 기사 상세 (published 만; 조회수 증가는 published)
 articlesRouter.get('/public/:id', async (req, res, next) => {
   try {
-    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
     const raw = await articlesDb.rawRecord(req.params.id);
     if (!raw) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
     if (!isPublicFeedReadableStatus(raw.status)) {
