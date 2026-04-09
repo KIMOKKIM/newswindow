@@ -15,6 +15,8 @@ import {
   rowToArticleRecord,
   normalizeTitleDedupeKey,
   dedupeWindowMs,
+  popularWindowReferenceMs,
+  comparePopularArticlesDesc,
 } from './articles.shared.js';
 
 function sb() {
@@ -91,17 +93,26 @@ export const articlesDb = {
     };
   },
 
+  async listPublishedPopularSince(sinceMs, limit) {
+    const since = Number(sinceMs);
+    const lim = Math.min(50, Math.max(1, Number(limit) || 10));
+    if (!Number.isFinite(since)) return [];
+    const rows = await selectAll();
+    return rows
+      .filter((a) => isPublicFeedReadableStatus(a.status))
+      .filter((a) => {
+        const ref = popularWindowReferenceMs(a);
+        return ref != null && ref >= since;
+      })
+      .sort(comparePopularArticlesDesc)
+      .slice(0, lim)
+      .map((a) => mapPublishedListItem(a));
+  },
+
   async listPublishedPopularByMonths(months, limit) {
     const m = Math.max(1, Math.min(24, Number(months) || 3));
     const sinceMs = Date.now() - m * 30 * 24 * 60 * 60 * 1000;
-    const lim = Math.min(50, Math.max(1, Number(limit) || 10));
-    const rows = await selectAll();
-    return rows
-      .filter((a) => toApiStatus(a.status) === 'published')
-      .filter((a) => sortTimePublished(a) >= sinceMs)
-      .sort((x, y) => (Number(y.views) || 0) - (Number(x.views) || 0))
-      .slice(0, lim)
-      .map((a) => mapPublishedListItem(a));
+    return this.listPublishedPopularSince(sinceMs, limit);
   },
 
   async findByAuthor(authorId, reporterDisplayName) {

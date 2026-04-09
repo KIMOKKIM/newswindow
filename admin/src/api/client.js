@@ -35,7 +35,9 @@ export function apiUrl(path) {
 export async function apiFetch(path, opts = {}) {
   const url = apiUrl(path);
   const headers = { Accept: 'application/json', ...opts.headers };
-  const res = await fetch(url, { ...opts, headers });
+  const cache = opts.cache != null ? opts.cache : 'no-store';
+  const { cache: _omit, ...rest } = opts;
+  const res = await fetch(url, { ...rest, cache, headers });
   const text = await res.text().catch(() => '');
   let data = null;
   try {

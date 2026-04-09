@@ -1,11 +1,14 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
-# 새 서비스를 이 파일로 만들거나, 기존 서비스에 아래 env·디스크를 수동으로 동일하게 맞출 것.
 #
-# 중요:
-# - Persistent Disk는 Render 정책상 유료 Web Service에서 사용하는 것이 일반적이다.
-#   Free 인스턴스만 쓰고 디스크를 붙이지 않으면 NW_* 경로가 에페메럴 스토리지를 가리켜
-#   재배포·재시작 시 ads.json / articles.json 이 초기화될 수 있다.
-# - 서비스 이름·rootDir·build/start 명령은 프로젝트에 맞게 수정한다.
+# 운영 기사·광고 API 영속성: Supabase(Postgres + Storage). 환경 변수는 대시보드에서 설정:
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, CORS_ORIGIN
+#   (선택) SUPABASE_BANNERS_BUCKET, PUBLIC_UPLOAD_ORIGIN / BACKEND_PUBLIC_URL
+#
+# 구버전: NW_ARTICLES_JSON_PATH / NW_ADS_JSON_PATH 는 API에서 더 이상 사용하지 않습니다.
+# NW_LEGACY_FILE_DB 는 미사용(삭제 권장). 로컬 전용 레거시는 NW_DEV_LEGACY_FILE_DB(비운영만).
+#
+# Persistent Disk는 업로드 파일을 인스턴스 디스크에만 둘 때만 필요할 수 있습니다.
+# 광고 이미지는 Storage 사용 시 디스크 없이도 재배포 후 URL이 유지됩니다.
 
 services:
   - type: web
@@ -15,11 +18,9 @@ services:
     buildCommand: npm ci
     startCommand: npm start
     envVars:
-      - key: NW_ADS_JSON_PATH
-        value: /data/ads.json
-      - key: NW_ARTICLES_JSON_PATH
-        value: /data/articles.json
-    disk:
-      name: newswindow-persist
-      mountPath: /data
-      sizeGB: 1
+      - key: NODE_ENV
+        value: production
+    # disk:
+    #   name: newswindow-persist
+    #   mountPath: /data
+    #   sizeGB: 1

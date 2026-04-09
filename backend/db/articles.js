@@ -19,6 +19,7 @@ function wrapLegacy(L) {
     listPublishedForMain: async () => L.listPublishedForMain(),
     listPublishedPaginated: async (...a) => L.listPublishedPaginated(...a),
     listPublishedPopularByMonths: async (...a) => L.listPublishedPopularByMonths(...a),
+    listPublishedPopularSince: async (...a) => L.listPublishedPopularSince(...a),
     findByAuthor: async (...a) => L.findByAuthor(...a),
     insert: async (data) => L.insert(data),
     authorIdForArticle: async (...a) => L.authorIdForArticle(...a),

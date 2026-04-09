@@ -1,3 +1,5 @@
+> **구버전 경고 (2026)**: 이 문서는 과거 **로컬 JSON / NW_* 경로** 전제 하의 감사·설정 기록일 수 있습니다. **현재 운영은 Supabase 단일화**입니다. 절차·환경변수는 [SUPABASE_ENV.md](./SUPABASE_ENV.md), [OPERATIONS_RENDER_VERCEL_CHECKLIST.md](./OPERATIONS_RENDER_VERCEL_CHECKLIST.md)를 따르세요.
+
 # 최근 변경점 비교 (admin 경로·광고, 운영 문제 연관)
 
 기준: 저장소 `git log`(약 최근 48시간~admin 도입 구간)와 해당 커밋의 파일 내용.

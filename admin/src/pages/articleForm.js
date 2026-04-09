@@ -1,4 +1,5 @@
 import { apiFetch, authHeaders } from '../api/client.js';
+import { bumpMainArticleListCache } from '../lib/mainListSync.js';
 import {
   getSession,
   requireRole,
@@ -218,6 +219,7 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         errEl.style.display = 'block';
         return;
       }
+      bumpMainArticleListCache();
       const id = isNew ? data.id : articleId;
       const savedMsg =
         status === 'submitted' ? '송고되었습니다.' : '저장되었습니다.';
@@ -253,6 +255,7 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         errEl.style.display = 'block';
         return;
       }
+      bumpMainArticleListCache();
       alert((data && data.message) || '저장되었습니다.');
       if (data && data.article) article = data.article;
     } finally {

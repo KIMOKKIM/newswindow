@@ -88,14 +88,25 @@ articlesRouter.get('/public/page', async (req, res, next) => {
   }
 });
 
-// GET /api/articles/public/popular — 최근 N개월 게시분 조회수 순 (기본 3개월, 10건)
+// GET /api/articles/public/popular — 조회수 순 (days=30: 최근 30일, months: 생략 시 기본 3개월·전체기사 페이지용)
 articlesRouter.get('/public/popular', async (req, res, next) => {
   try {
-    const months = Number(req.query.months) || 3;
-    const limit = Number(req.query.limit) || 10;
-    const rows = await articlesDb.listPublishedPopularByMonths(months, limit);
-    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-    if (debug()) console.log('[articles] GET /public/popular months=', months, 'count=', rows.length);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const daysQ = req.query.days;
+    const hasDays = daysQ != null && String(daysQ).trim() !== '';
+    let rows;
+    if (hasDays) {
+      const days = Math.max(1, Math.min(366, Number(daysQ) || 30));
+      const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+      rows = await articlesDb.listPublishedPopularSince(sinceMs, limit);
+      res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+      if (debug()) console.log('[articles] GET /public/popular days=', days, 'count=', rows.length);
+    } else {
+      const months = Number(req.query.months) || 3;
+      rows = await articlesDb.listPublishedPopularByMonths(months, limit);
+      res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+      if (debug()) console.log('[articles] GET /public/popular months=', months, 'count=', rows.length);
+    }
     res.json(rows);
   } catch (e) {
     next(e);

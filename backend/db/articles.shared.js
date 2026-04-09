@@ -119,6 +119,45 @@ export function mapDetail(a) {
   };
 }
 
+/** ISO / 'YYYY-MM-DD HH:mm:ss' 등 파싱 (무효면 NaN) */
+export function parseArticleDateMs(v) {
+  if (v == null || v === '') return NaN;
+  let s = String(v).trim();
+  if (!s) return NaN;
+  if (!s.includes('T') && /^\d{4}-\d{2}-\d{2}\s/.test(s)) s = s.replace(' ', 'T');
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : NaN;
+}
+
+/**
+ * 인기 기사 시간 윈도우: 게시일 우선, 없으면 작성일 (updated_at 미사용)
+ * @returns {number|null} epoch ms or null if unusable
+ */
+export function popularWindowReferenceMs(a) {
+  if (!a) return null;
+  let t = parseArticleDateMs(a.published_at);
+  if (Number.isFinite(t)) return t;
+  t = parseArticleDateMs(a.created_at);
+  return Number.isFinite(t) ? t : null;
+}
+
+/** 조회수 내림차순 → 게시일 → 작성일 (동률 시 최신 우선) */
+export function comparePopularArticlesDesc(x, y) {
+  const vx = Number(x.views) || 0;
+  const vy = Number(y.views) || 0;
+  if (vy !== vx) return vy - vx;
+  const px = parseArticleDateMs(x.published_at);
+  const py = parseArticleDateMs(y.published_at);
+  const pnx = Number.isFinite(px) ? px : 0;
+  const pny = Number.isFinite(py) ? py : 0;
+  if (pny !== pnx) return pny - pnx;
+  const cx = parseArticleDateMs(x.created_at);
+  const cy = parseArticleDateMs(y.created_at);
+  const cnx = Number.isFinite(cx) ? cx : 0;
+  const cny = Number.isFinite(cy) ? cy : 0;
+  return cny - cnx;
+}
+
 export function sortTimePublished(a) {
   const d = a.published_at || a.updated_at || a.created_at || '';
   const t = Date.parse(String(d).replace(' ', 'T'));

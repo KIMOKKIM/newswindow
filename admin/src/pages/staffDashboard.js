@@ -1,4 +1,5 @@
 import { apiFetch, authHeaders } from '../api/client.js';
+import { bumpMainArticleListCache } from '../lib/mainListSync.js';
 import { getSession, requireRole, dashboardPathForRole } from '../auth/session.js';
 import { renderShell, navEditor, navAdmin, bindShell } from '../layout/shell.js';
 
@@ -168,6 +169,7 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
         alert((d && d.error) || '처리 실패');
         return;
       }
+      bumpMainArticleListCache();
       if (d && d.idempotent) {
         await renderStaffDashboard(app, { navigate, mode });
         return;

@@ -966,6 +966,45 @@ function nwFetchMainPublicArticleList() {
         });
 }
 
+/** 메인 사이드바 — 최근 30일·공개 피드·조회수 순 상위 10건 */
+function nwFetchMainMostViewed() {
+    var el = document.getElementById('nwMostViewedList');
+    if (!el) return;
+    var url = ARTICLES_API + '/api/articles/public/popular?days=30&limit=10';
+    fetch(url, {
+        cache: 'no-store',
+        credentials: 'omit',
+        headers: { 'Cache-Control': 'no-cache' },
+    })
+        .then(function (res) {
+            if (/nwdebug=1/.test(location.search)) console.info('[nw-main] popular', url, 'status', res.status);
+            return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status));
+        })
+        .then(function (rows) {
+            if (!Array.isArray(rows) || rows.length === 0) {
+                el.innerHTML =
+                    '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
+                return;
+            }
+            var html = '';
+            var i;
+            for (i = 0; i < rows.length; i++) {
+                var a = rows[i];
+                if (!a || a.id == null) continue;
+                var t = cleanBrokenKoreanText(a.title, '제목 준비중');
+                html += '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + t + '</a></li>';
+            }
+            el.innerHTML =
+                html ||
+                '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
+        })
+        .catch(function (err) {
+            el.innerHTML =
+                '<li class="nw-most-viewed-empty">많이 본 기사를 불러오지 못했습니다.</li>';
+            if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] popular failed', url, err);
+        });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     nwLoadCategoryMap(function () {});
     // 옛 메인 HTML이 nw-office 로 연결된 경우에도 통합 스태프 SPA 로 이동
@@ -996,6 +1035,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
     nwFetchMainPublicArticleList();
+    nwFetchMainMostViewed();
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') nwThrottleFetchMainPublicList();
     });

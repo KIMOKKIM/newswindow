@@ -752,6 +752,22 @@ a:hover {
 
 .rank-list a {
     font-size: 13px;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rank-list li.nw-most-viewed-empty {
+    counter-increment: none;
+    padding-left: 0;
+    color: var(--color-muted);
+    font-size: 13px;
+}
+
+.rank-list li.nw-most-viewed-empty::before {
+    display: none;
+    content: none;
 }
 
 /* 포토 */
