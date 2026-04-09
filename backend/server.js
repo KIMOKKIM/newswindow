@@ -9,21 +9,10 @@ import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
+import { healthRouter, HEALTH_ROUTE_VERSION } from './routes/health.js';
 import { getUploadsRoot } from './config/dataPaths.js';
 import { logPersistenceOnStartup, exitIfRenderMissingJsonPaths } from './lib/persistenceDiagnostics.js';
-import {
-  useSupabasePersistence,
-  useLegacyFileDb,
-  getArticlesReadSource,
-  getAdsReadSource,
-} from './lib/dbMode.js';
-import {
-  assertSupabaseRequiredAtStartup,
-  isSupabaseConfigured,
-  getServiceSupabase,
-  resolveServiceRoleKey,
-  resolveSupabaseUrl,
-} from './lib/supabaseServer.js';
+import { assertSupabaseRequiredAtStartup, resolveServiceRoleKey, resolveSupabaseUrl } from './lib/supabaseServer.js';
 import { getUserByUserid, createUser, updateUserRoleById } from './db/userStore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,6 +31,9 @@ function logSupabaseEnvOnStartup() {
 }
 
 const app = express();
+console.log(
+  '[newswindow-backend] entry=backend/server.js health=' + HEALTH_ROUTE_VERSION + ' (Render: set rootDir=backend, start=npm start)',
+);
 const uploadsDir = getUploadsRoot();
 app.use('/uploads', express.static(uploadsDir));
 const PORT = process.env.PORT || 3000;
@@ -79,38 +71,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/api/health', async (req, res) => {
-  res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-  let supabaseConnected = false;
-  let adsConfigConnected = false;
-  if (isSupabaseConfigured()) {
-    try {
-      const sb = getServiceSupabase();
-      if (sb) {
-        const articlesProbe = await sb.from('articles').select('id').limit(1);
-        supabaseConnected = !articlesProbe.error;
-        const adsProbe = await sb.from('ad_site_config').select('id').eq('id', 1).maybeSingle();
-        adsConfigConnected = !adsProbe.error;
-      }
-    } catch {
-      supabaseConnected = false;
-      adsConfigConnected = false;
-    }
-  }
-  const allStorageOk = supabaseConnected && adsConfigConnected;
-  res.json({
-    ok: true,
-    timestamp: new Date().toISOString(),
-    storage: useSupabasePersistence() ? 'supabase' : 'file',
-    articlesReadSource: getArticlesReadSource(),
-    adsReadSource: getAdsReadSource(),
-    supabaseConfigured: isSupabaseConfigured(),
-    supabaseConnected,
-    adsConfigConnected,
-    allStorageOk,
-    legacyFileDbFlag: useLegacyFileDb(),
-  });
-});
+/** 단일 진입: 다른 app.get('/api/health') 는 정의하지 말 것 */
+app.use('/api/health', healthRouter);
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
