@@ -786,16 +786,27 @@ a:hover {
 }
 .footer-ad-track {
     display: flex;
+    flex-direction: row;
     align-items: center;
     white-space: nowrap;
     width: max-content;
-    animation: footer-ad-scroll 36s linear infinite;
-    gap: 12px;
 }
-.footer-ad-track:hover {
+.footer-ad-track.footer-ad-track--marquee {
+    gap: 0;
+    justify-content: flex-start;
+    --footer-marquee-shift: -50%;
+    animation: footer-ad-marquee 36s linear infinite;
+}
+.footer-ad-track.footer-ad-track--marquee:hover {
     animation-play-state: paused;
 }
-/* 1건만 있을 때: DOM 복제 없음 · 무한 스크롤 애니메이션 비활성(중복처럼 보이지 않게) */
+.footer-ad-set {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
 .footer-ad-track.footer-ad-track--static {
     animation: none;
     justify-content: center;
@@ -830,9 +841,9 @@ a:hover {
     max-height: var(--footer-roll-h);
     object-fit: contain;
 }
-@keyframes footer-ad-scroll {
+@keyframes footer-ad-marquee {
     0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
+    100% { transform: translateX(var(--footer-marquee-shift, -50%)); }
 }
 @media (max-width: 768px) {
     .footer-ad-section { padding: 18px 0; }
