@@ -795,6 +795,12 @@ a:hover {
 .footer-ad-track:hover {
     animation-play-state: paused;
 }
+/* 1건만 있을 때: DOM 복제 없음 · 무한 스크롤 애니메이션 비활성(중복처럼 보이지 않게) */
+.footer-ad-track.footer-ad-track--static {
+    animation: none;
+    justify-content: center;
+    margin: 0 auto;
+}
 .footer-ad-item {
     flex-shrink: 0;
     padding: 0 6px;

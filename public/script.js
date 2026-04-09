@@ -488,13 +488,45 @@ function applySideStacks(ads) {
     for (j = 0; j < 3; j++) setSideStackSlot('sideAdR', j, right[j]);
 }
 
+/** 푸터 롤링: href + 이미지 URL + alt 기준 중복 제거 (DB/API 원본만 넘길 것) */
+function dedupeFooterAds(list) {
+    var seen = {};
+    var out = [];
+    (Array.isArray(list) ? list : []).forEach(function (raw) {
+        if (!raw || typeof raw !== 'object') return;
+        var href = String(raw.href != null ? raw.href : '#').trim();
+        var imageUrl = String(raw.image != null ? raw.image : raw.src != null ? raw.src : '').trim();
+        var alt = String(raw.alt != null ? raw.alt : '').trim();
+        var key = href + '\0' + imageUrl + '\0' + alt;
+        if (seen[key]) return;
+        seen[key] = true;
+        out.push({ href: href || '#', image: imageUrl, alt: alt });
+    });
+    return out;
+}
+
 function applyFooterStrip(list) {
     var track = document.getElementById('footerAdTrack');
     if (!track) return;
     track.innerHTML = '';
-    if (!Array.isArray(list) || list.length === 0) return;
-    // 트랙을 2세트로 붙여서 끝과 시작이 자연스럽게 이어지게 함
-    var dup = list.slice().concat(list.slice());
+    track.classList.remove('footer-ad-track--static');
+    var rawList = Array.isArray(list) ? list : [];
+    if (rawList.length === 0) return;
+
+    var unique = dedupeFooterAds(rawList);
+    if (unique.length === 0) return;
+
+    // 2건 이상일 때만 seamless loop용 DOM 복제 (+ translateX -50% 키프레임과 대응)
+    var dup = unique.length >= 2 ? unique.concat(unique) : unique;
+
+    console.log(
+        '[footer-roll]',
+        'sourceLen=' + rawList.length,
+        'dedupedLen=' + unique.length,
+        'renderLen=' + dup.length,
+        '(seamlessDup=' + (unique.length >= 2 ? 'yes' : 'no') + ')',
+    );
+
     dup.forEach(function (ad) {
         var div = document.createElement('div');
         div.className = 'footer-ad-item';
@@ -503,16 +535,18 @@ function applyFooterStrip(list) {
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         var img = document.createElement('img');
-        img.src =
-            ad.image && ad.image.indexOf('data:') !== 0
-                ? resolveAdImageSrc(ad.image)
-                : footerAdPlaceholder(ad.alt);
+        var srcRaw = ad.image && String(ad.image).indexOf('data:') !== 0 ? ad.image : '';
+        img.src = srcRaw ? resolveAdImageSrc(srcRaw) : footerAdPlaceholder(ad.alt);
         img.alt = ad.alt || '';
         img.onerror = function () { this.src = footerAdPlaceholder(ad.alt); };
         a.appendChild(img);
         div.appendChild(a);
         track.appendChild(div);
     });
+
+    if (unique.length < 2) {
+        track.classList.add('footer-ad-track--static');
+    }
 }
 
 function toDate(str) {
@@ -807,6 +841,72 @@ function renderLatestTop5FromList(articles) {
     }
 }
 
+var NW_MAIN_LIST_LAST_FETCH_AT = 0;
+function nwThrottleFetchMainPublicList() {
+    var now = Date.now();
+    if (now - NW_MAIN_LIST_LAST_FETCH_AT < 1200) return;
+    NW_MAIN_LIST_LAST_FETCH_AT = now;
+    nwFetchMainPublicArticleList();
+}
+
+function nwFetchMainPublicArticleList() {
+    var pubUrl = ARTICLES_API + '/api/articles/public/list';
+    fetch(pubUrl, {
+        cache: 'no-store',
+        credentials: 'omit',
+        headers: { 'Cache-Control': 'no-cache' },
+    })
+        .then(function (res) {
+            if (/nwdebug=1/.test(location.search)) console.info('[nw-main] public/list', pubUrl, 'status', res.status);
+            return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status));
+        })
+        .then(function (articles) {
+            if (!Array.isArray(articles) || articles.length === 0) {
+                renderLatestTop5FromList([]);
+                return;
+            }
+            articles = articles.filter(function (a) {
+                if (!a) return false;
+                var s = String(a.status || '').toLowerCase();
+                return s === 'published' || s === 'approved';
+            });
+            if (articles.length === 0) {
+                renderLatestTop5FromList([]);
+                return;
+            }
+            if (/nwdebug=1/.test(location.search)) {
+                var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
+                console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
+            }
+            renderLatestTop5FromList(articles);
+            try {
+                renderSectionListsByCategory(articles);
+                renderTvSectionByCategory(articles);
+            } catch (secErr) {
+                if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] section/tv render', secErr);
+            }
+            if (/nwdebug=1/.test(location.search)) {
+                var ord = sortByLatest(articles);
+                console.info('[nw-main] latest top5 ids', ord.slice(0, 5).map(function (x) { return x && x.id; }));
+            }
+        })
+        .catch(function (err) {
+            var s = getNwLatestTop5Section();
+            if (s) {
+                if (nwLatestTop5Timer) {
+                    clearInterval(nwLatestTop5Timer);
+                    nwLatestTop5Timer = null;
+                }
+                setLatestTop5EmptyState(
+                    s,
+                    '기사 목록을 불러오지 못했습니다.',
+                    '네트워크 또는 서버 응답을 확인해 주세요.'
+                );
+            }
+            if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] public/list failed', pubUrl, err);
+        });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     nwLoadCategoryMap(function () {});
     // 옛 메인 HTML이 nw-office 로 연결된 경우에도 통합 스태프 SPA 로 이동
@@ -823,7 +923,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function (ads) {
             applyHeaderAds(ads);
             applySideStacks(ads);
-            applyFooterStrip(ads.footer);
+            // API 성공 시 푸터는 DB(ads.footer)만 사용 — 샘플 footerAds 와 병합하지 않음
+            applyFooterStrip(Array.isArray(ads.footer) ? ads.footer : []);
         })
         .catch(function () {
             applySideStacks({
@@ -835,60 +936,17 @@ document.addEventListener('DOMContentLoaded', function () {
             applyFooterStrip(footerAds);
         });
 
-    // 게시·송고 기사 → 메인 헤드라인·섹션·상단 롤링 (동일 API·동일 저장소)
-    (function () {
-        var pubUrl = ARTICLES_API + '/api/articles/public/list';
-        fetch(pubUrl, { cache: 'no-store' })
-            .then(function (res) {
-                if (/nwdebug=1/.test(location.search)) console.info('[nw-main] public/list', pubUrl, 'status', res.status);
-                return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status));
-            })
-            .then(function (articles) {
-                if (!Array.isArray(articles) || articles.length === 0) {
-                    renderLatestTop5FromList([]);
-                    return;
-                }
-                articles = articles.filter(function (a) {
-                    if (!a) return false;
-                    var s = String(a.status || '').toLowerCase();
-                    return s === 'published' || s === 'approved';
-                });
-                if (articles.length === 0) {
-                    renderLatestTop5FromList([]);
-                    return;
-                }
-                if (/nwdebug=1/.test(location.search)) {
-                    var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
-                    console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
-                }
-                renderLatestTop5FromList(articles);
-                try {
-                    renderSectionListsByCategory(articles);
-                    renderTvSectionByCategory(articles);
-                } catch (secErr) {
-                    if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] section/tv render', secErr);
-                }
-                if (/nwdebug=1/.test(location.search)) {
-                    var ord = sortByLatest(articles);
-                    console.info('[nw-main] latest top5 ids', ord.slice(0, 5).map(function (x) { return x && x.id; }));
-                }
-            })
-            .catch(function (err) {
-                var s = getNwLatestTop5Section();
-                if (s) {
-                    if (nwLatestTop5Timer) {
-                        clearInterval(nwLatestTop5Timer);
-                        nwLatestTop5Timer = null;
-                    }
-                    setLatestTop5EmptyState(
-                        s,
-                        '기사 목록을 불러오지 못했습니다.',
-                        '네트워크 또는 서버 응답을 확인해 주세요.'
-                    );
-                }
-                if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] public/list failed', pubUrl, err);
-            });
-    })();
+    nwFetchMainPublicArticleList();
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') nwThrottleFetchMainPublicList();
+    });
+    window.addEventListener('focus', nwThrottleFetchMainPublicList);
+    window.addEventListener('pageshow', function (ev) {
+        if (ev.persisted) nwThrottleFetchMainPublicList();
+    });
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'nw_main_articles_invalidate') nwThrottleFetchMainPublicList();
+    });
 
     // 모바일 메뉴 토글
     const menuBtn = document.querySelector('.menu-btn');
