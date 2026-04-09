@@ -63,12 +63,8 @@ async function readProxyRequestBody(req) {
 }
 
 async function runProxy(req, res, path) {
-  if (path === 'health') {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: true, source: 'vercel-api-health' }));
-    return;
-  }
+  // /api/health 는 반드시 백엔드(예: Render)로 전달한다.
+  // 이전에는 여기서 단축 응답만 보내 확장 헬스 필드가 운영에서 보이지 않았다.
 
   if (!BACKEND) {
     res.statusCode = 502;
@@ -90,7 +86,17 @@ async function runProxy(req, res, path) {
     headers['accept-encoding'] = 'identity';
     const opts = { method: req.method, headers, redirect: 'manual' };
     if (req.method !== 'GET' && req.method !== 'HEAD') {
+      if (path.startsWith('ads')) {
+        console.log('Proxy Body:', req.body);
+      }
       const rawBody = await readProxyRequestBody(req);
+      if (path.startsWith('ads')) {
+        const rawStr = rawBody == null ? rawBody : String(rawBody);
+        console.log(
+          'Proxy rawBody (forward to backend):',
+          rawStr == null ? rawStr : rawStr.length > 1200 ? rawStr.slice(0, 1200) + '…[len=' + rawStr.length + ']' : rawStr,
+        );
+      }
       if (rawBody !== undefined && rawBody !== null && rawBody !== '') {
         opts.body = rawBody;
       }
@@ -107,6 +113,10 @@ async function runProxy(req, res, path) {
               keys: preview && typeof preview === 'object' && !Array.isArray(preview) ? Object.keys(preview) : null,
             })
           );
+          if (req.method === 'PUT') {
+            // Vercel Logs 에서 확인: 백엔드에서 병합·정규화 전, 관리자가 보낸 PUT 본문
+            console.log('최종 저장 데이터(Vercel·프록시 PUT 원본):', preview);
+          }
         } catch {
           console.log(
             '[proxy] forward_body_non_json',
