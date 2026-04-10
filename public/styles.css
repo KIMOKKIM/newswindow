@@ -548,6 +548,8 @@ a:hover {
 
 .section-title a {
     color: var(--color-primary);
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .section-title a:hover {
@@ -562,10 +564,13 @@ a:hover {
 
 .section-subcats a {
     color: var(--color-muted);
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .section-subcats a:hover {
     color: var(--color-primary);
+    text-decoration: underline;
 }
 
 .section-list {
@@ -625,6 +630,16 @@ a:hover {
 
 .tv-section .section-title {
     color: var(--color-heading);
+}
+
+.tv-section .section-title a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.tv-section .section-title a:hover {
+    text-decoration: underline;
 }
 
 .tv-list {
@@ -799,6 +814,7 @@ a:hover {
 .footer-ad-wrap {
     overflow: hidden;
     width: 100%;
+    /* 뷰포트: 트랙이 밖으로 나가는 부분은 잘림 — 복제 세트는 초기에 화면 밖(오른쪽)에서 이어짐 */
 }
 .footer-ad-track {
     display: flex;
@@ -807,6 +823,7 @@ a:hover {
     white-space: nowrap;
     width: max-content;
 }
+/* 무한 롤링: 두 개의 .footer-ad-set(원본/복제)만 자식 — gap은 세트 내부에서만 */
 .footer-ad-track.footer-ad-track--marquee {
     gap: 0;
     justify-content: flex-start;
@@ -823,6 +840,7 @@ a:hover {
     gap: 12px;
     flex-shrink: 0;
 }
+/* 1건만 있을 때: 세트/복제 없음 */
 .footer-ad-track.footer-ad-track--static {
     animation: none;
     justify-content: center;
@@ -857,6 +875,7 @@ a:hover {
     max-height: var(--footer-roll-h);
     object-fit: contain;
 }
+/* 한 바퀴 = 정확히 원본 1세트 너비만큼 이동(JS에서 --footer-marquee-shift 픽셀 설정) */
 @keyframes footer-ad-marquee {
     0% { transform: translateX(0); }
     100% { transform: translateX(var(--footer-marquee-shift, -50%)); }

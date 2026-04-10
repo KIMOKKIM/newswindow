@@ -202,6 +202,25 @@ function normalizeAdHref(href) {
     return h;
 }
 
+/**
+ * 섹션 페이지 URL — 상단 메뉴·본문 섹션 제목·하위 분류 링크 공통
+ * (category 값은 shared/articleCategories.json 과 동일해야 함)
+ */
+function buildSectionHref(category) {
+    var c = String(category == null ? '' : category).trim();
+    if (!c) return 'section.html';
+    return 'section.html?category=' + encodeURIComponent(c);
+}
+
+/** index·전체기사·섹션 HTML의 a[data-nw-section] 에 href 주입 */
+function nwApplySectionNavHrefs() {
+    document.querySelectorAll('a[data-nw-section]').forEach(function (a) {
+        var raw = a.getAttribute('data-nw-section');
+        if (raw == null || String(raw).trim() === '') return;
+        a.setAttribute('href', buildSectionHref(raw));
+    });
+}
+
 /** 광고 JSON의 상대 업로드 경로를 실제 파일 호스트로 붙임 (로컬은 API_ORIGIN, 배포는 NW_PUBLIC_UPLOAD_ORIGIN) */
 function resolveAdImageSrc(src) {
     var v = String(src || '').trim();
@@ -1302,3 +1321,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+
+(function nwInitSectionNavHrefs() {
+    function apply() {
+        nwApplySectionNavHrefs();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', apply);
+    } else {
+        apply();
+    }
+})();
