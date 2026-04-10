@@ -207,9 +207,33 @@ function resolveAdImageSrc(src) {
     var v = String(src || '').trim();
     if (!v) return '';
     if (/^https?:\/\//i.test(v) || v.indexOf('data:') === 0) return v;
+    if (v.indexOf('//') === 0) return 'https:' + v;
     if (v.charAt(0) !== '/' || v.indexOf('/uploads/') !== 0) return v;
     var base = (NW_PUBLIC_UPLOAD_ORIGIN || API_ORIGIN || '').replace(/\/+$/, '');
     return base ? base + v : v;
+}
+
+/** 슬롯 객체에서 이미지 URL (src 또는 레거시 image) */
+function slotSrcFromRow(row) {
+    if (!row || typeof row !== 'object') return '';
+    var s = row.src != null ? String(row.src).trim() : '';
+    if (s) return s;
+    return row.image != null ? String(row.image).trim() : '';
+}
+
+/** 좌·우 세로 스택에 표시할 URL이 하나라도 있는지 (캐시에 ads 없을 때 보정용) */
+function hasSideAdData(ads) {
+    if (!ads || typeof ads !== 'object') return false;
+    function slotOk(row) {
+        return !!slotSrcFromRow(row);
+    }
+    var sl = ads.sideLeftStack;
+    var sr = ads.sideRightStack;
+    if (Array.isArray(sl) && sl.some(slotOk)) return true;
+    if (Array.isArray(sr) && sr.some(slotOk)) return true;
+    if (slotOk(ads.sideLeft)) return true;
+    if (slotOk(ads.sideRight)) return true;
+    return false;
 }
 
 /** 로컬 정적 서버가 /article.html?id=… → /article 로 바꾸며 쿼리가 사라지는 경우 대비 */
@@ -421,12 +445,19 @@ function normalizeSideLeftStack(ads) {
     var raw = ads && ads.sideLeftStack;
     var i;
     if (Array.isArray(raw)) {
-        for (i = 0; i < 4; i++) stack.push(raw[i] ? { src: raw[i].src || '', href: raw[i].href || '#' } : { src: '', href: '#' });
+        for (i = 0; i < 4; i++) {
+            var rowL = raw[i];
+            stack.push(
+                rowL
+                    ? { src: slotSrcFromRow(rowL), href: rowL.href || '#' }
+                    : { src: '', href: '#' }
+            );
+        }
     } else {
         for (i = 0; i < 4; i++) stack.push({ src: '', href: '#' });
     }
-    if (ads && ads.sideLeft && String(ads.sideLeft.src || '').trim() && !String(stack[0].src || '').trim()) {
-        stack[0] = { src: ads.sideLeft.src, href: ads.sideLeft.href || '#' };
+    if (ads && ads.sideLeft && String(slotSrcFromRow(ads.sideLeft) || '').trim() && !String(stack[0].src || '').trim()) {
+        stack[0] = { src: slotSrcFromRow(ads.sideLeft), href: ads.sideLeft.href || '#' };
     }
     return stack;
 }
@@ -436,12 +467,19 @@ function normalizeSideRightStack(ads) {
     var raw = ads && ads.sideRightStack;
     var i;
     if (Array.isArray(raw)) {
-        for (i = 0; i < 3; i++) stack.push(raw[i] ? { src: raw[i].src || '', href: raw[i].href || '#' } : { src: '', href: '#' });
+        for (i = 0; i < 3; i++) {
+            var rowR = raw[i];
+            stack.push(
+                rowR
+                    ? { src: slotSrcFromRow(rowR), href: rowR.href || '#' }
+                    : { src: '', href: '#' }
+            );
+        }
     } else {
         for (i = 0; i < 3; i++) stack.push({ src: '', href: '#' });
     }
-    if (ads && ads.sideRight && String(ads.sideRight.src || '').trim() && !String(stack[0].src || '').trim()) {
-        stack[0] = { src: ads.sideRight.src, href: ads.sideRight.href || '#' };
+    if (ads && ads.sideRight && String(slotSrcFromRow(ads.sideRight) || '').trim() && !String(stack[0].src || '').trim()) {
+        stack[0] = { src: slotSrcFromRow(ads.sideRight), href: ads.sideRight.href || '#' };
     }
     return stack;
 }
@@ -456,7 +494,8 @@ function setSideStackSlot(prefix, index, item) {
     if (a) a.href = normalizeAdHref(href || '#');
     if (!img || !card) return;
     if (src) {
-        img.loading = 'lazy';
+        /* lazy + [hidden]/display:none 이면 페치가 지연·생략되어 onload가 안 날 수 있음 — 사이드 슬롯은 즉시 로드 */
+        img.loading = 'eager';
         img.decoding = 'async';
         img.onerror = function () {
             img.hidden = true;
@@ -464,12 +503,14 @@ function setSideStackSlot(prefix, index, item) {
             if (ph) ph.style.display = '';
         };
         img.onload = function () {
+            img.removeAttribute('hidden');
             img.hidden = false;
             card.classList.add('has-ad');
             if (ph) ph.style.display = 'none';
         };
         img.src = resolveAdImageSrc(src);
         if (img.complete && img.naturalWidth > 0) {
+            img.removeAttribute('hidden');
             img.hidden = false;
             card.classList.add('has-ad');
             if (ph) ph.style.display = 'none';
@@ -937,6 +978,19 @@ function nwWriteHomeSessionCache(payload) {
     } catch (e) {}
 }
 
+function nwMergeAdsIntoHomeSessionCache(ads) {
+    if (!ads) return;
+    try {
+        var raw = sessionStorage.getItem(NW_HOME_SESSION_KEY);
+        if (!raw) return;
+        var c = JSON.parse(raw);
+        if (!c || typeof c !== 'object') return;
+        c.ads = ads;
+        c.at = Date.now();
+        sessionStorage.setItem(NW_HOME_SESSION_KEY, JSON.stringify(c));
+    } catch (e) {}
+}
+
 function nwRenderMostViewedRows(rows) {
     var el = document.getElementById('nwMostViewedList');
     if (!el) return;
@@ -1057,6 +1111,22 @@ function nwFetchMainLegacyHomeParallel() {
     });
 }
 
+/** 좌·우 사이드 등 광고만 갱신 (/api/home 실패·캐시에 ads 없음 등 보정) */
+function nwFetchAdsOnly() {
+    var opts = { cache: 'no-store', credentials: 'omit', headers: { 'Cache-Control': 'no-cache' } };
+    fetch(ADS_API + '/api/ads', opts)
+        .then(function (res) {
+            return res.ok ? res.json() : Promise.reject(new Error('ads'));
+        })
+        .then(function (ads) {
+            applyHeaderAds(ads);
+            applySideStacks(ads);
+            applyFooterStrip(Array.isArray(ads.footer) ? ads.footer : []);
+            nwMergeAdsIntoHomeSessionCache(ads);
+        })
+        .catch(function () {});
+}
+
 function nwFetchMainHomeBundle() {
     var homeUrl = ARTICLES_API + '/api/home';
     var cached = nwReadHomeSessionCache();
@@ -1066,6 +1136,9 @@ function nwFetchMainHomeBundle() {
             popularArticles: cached.popularArticles,
             ads: cached.ads,
         });
+        if (!hasSideAdData(cached.ads)) {
+            nwFetchAdsOnly();
+        }
     }
     fetch(homeUrl, {
         cache: 'no-store',
@@ -1079,11 +1152,16 @@ function nwFetchMainHomeBundle() {
         .then(function (payload) {
             nwWriteHomeSessionCache(payload);
             nwApplyMainFromHomePayload(payload);
+            if (!hasSideAdData(payload.ads)) {
+                nwFetchAdsOnly();
+            }
         })
         .catch(function (err) {
             if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] /api/home failed', err);
             if (!cached || !Array.isArray(cached.latestArticles)) {
                 nwFetchMainLegacyHomeParallel();
+            } else {
+                nwFetchAdsOnly();
             }
         });
 }
