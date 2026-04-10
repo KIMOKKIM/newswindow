@@ -75,12 +75,13 @@ articlesRouter.get('/public/list', async (req, res, next) => {
   }
 });
 
-// GET /api/articles/public/page — 전체기사 페이지 (페이지당 최대 20건, 최신순)
+// GET /api/articles/public/page — 전체기사 페이지 (최신순, ?q= 제목 부분일치)
 articlesRouter.get('/public/page', async (req, res, next) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
-    const data = await articlesDb.listPublishedPaginated(page, limit);
+    const q = req.query.q != null ? String(req.query.q) : '';
+    const data = await articlesDb.listPublishedPaginated(page, limit, q);
     if (debug()) console.log('[articles] GET /public/page', data.page, '/', data.totalPages, 'total', data.total);
     res.json(data);
   } catch (e) {

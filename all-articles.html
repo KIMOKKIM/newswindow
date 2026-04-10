@@ -141,6 +141,7 @@
             <div class="aa-primary">
                 <header class="aa-toolbar">
                     <h1 class="aa-heading">기사 <span class="aa-count-wrap">(<span id="aaTotal">0</span>건)</span></h1>
+                    <input type="search" class="aa-list-search" id="aaListSearch" placeholder="기사 제목 검색" autocomplete="off" aria-label="기사 제목 검색">
                     <div class="aa-view-toggle" role="group" aria-label="보기 형식">
                         <button type="button" class="aa-view-btn" id="aaViewCompact" title="간단 리스트" aria-pressed="false">
                             <span class="aa-view-icon aa-view-icon--compact" aria-hidden="true"></span>
@@ -157,10 +158,10 @@
                 <nav class="aa-pager" id="aaPager" aria-label="페이지 이동"></nav>
             </div>
             <aside class="aa-side">
-                <label class="aa-side-search-label" for="aaPopularFilter">제목 검색</label>
+                <label class="aa-side-search-label" for="aaPopularFilter">인기 기사 제목 검색</label>
                 <input type="search" class="aa-side-search" id="aaPopularFilter" placeholder="인기 기사 제목 검색" autocomplete="off">
                 <h2 class="aa-side-title">최근 많이 본 기사</h2>
-                <p class="aa-side-note">최근 3개월 게시 기준 · 조회수 순 10건</p>
+                <p class="aa-side-note">최근 30일 게시 기준 · 조회수 순 10건 (메인과 동일)</p>
                 <ol class="aa-popular-list" id="aaPopular"></ol>
             </aside>
         </div>

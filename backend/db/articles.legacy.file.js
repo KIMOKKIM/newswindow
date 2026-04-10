@@ -85,12 +85,16 @@ export const legacySyncArticlesDb = {
       }));
   },
 
-  listPublishedPaginated(page, pageSize) {
-    const size = Math.min(20, Math.max(1, Number(pageSize) || 20));
+  listPublishedPaginated(page, pageSize, titleQuery) {
+    const size = Math.min(50, Math.max(1, Number(pageSize) || 20));
     const p = Math.max(1, Number(page) || 1);
-    const all = [...articles]
+    let all = [...articles]
       .filter((a) => toApiStatus(a.status) === 'published')
       .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
+    const needle = titleQuery != null ? String(titleQuery).trim().toLowerCase() : '';
+    if (needle) {
+      all = all.filter((a) => String(a.title || '').toLowerCase().includes(needle));
+    }
     const total = all.length;
     const start = (p - 1) * size;
     const slice = all.slice(start, start + size);
@@ -100,7 +104,7 @@ export const legacySyncArticlesDb = {
       total,
       page: p,
       pageSize: size,
-      totalPages: Math.max(1, Math.ceil(total / size)),
+      totalPages: Math.max(1, Math.ceil(total / size) || 1),
     };
   },
 

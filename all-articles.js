@@ -1,7 +1,33 @@
 /**
- * 전체기사 페이지: 최신순 페이지네이션 + 보기 전환 + 우측 인기 기사
+ * 전체기사 페이지: 서버 페이지네이션(기본 5건) + 제목 검색 + 우측 인기 기사
  */
 (function () {
+  var NW_PRODUCTION_API_ORIGIN = 'https://newswindow-backend.onrender.com';
+
+  function nwIsProductionNewswindowHost(hostname) {
+    var hl = (hostname || '').trim().toLowerCase();
+    if (!hl) return false;
+    return hl === 'newswindow.kr' || hl.slice(-14) === '.newswindow.kr';
+  }
+
+  var NW_CONFIG_API_ORIGIN = (function () {
+    try {
+      if (typeof window === 'undefined' || window.NW_API_ORIGIN == null) return '';
+      return String(window.NW_API_ORIGIN).trim().replace(/\/+$/, '');
+    } catch (e) {
+      return '';
+    }
+  })();
+
+  var NW_PUBLIC_UPLOAD_ORIGIN = (function () {
+    try {
+      if (typeof window === 'undefined' || window.NW_PUBLIC_UPLOAD_ORIGIN == null) return '';
+      return String(window.NW_PUBLIC_UPLOAD_ORIGIN).trim().replace(/\/+$/, '');
+    } catch (e) {
+      return '';
+    }
+  })();
+
   var API = (function () {
     try {
       var h = String(location.hostname || '').trim().toLowerCase();
@@ -9,11 +35,12 @@
       if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return 'http://127.0.0.1:3000';
       if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h) || /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h))
         return 'http://127.0.0.1:3000';
+      if (nwIsProductionNewswindowHost(h)) return NW_PRODUCTION_API_ORIGIN;
     } catch (e) {}
-    return '';
+    return NW_CONFIG_API_ORIGIN || '';
   })();
 
-  var PAGE_SIZE = 20;
+  var PAGE_SIZE = 5;
   var GROUP = 5;
   var VIEW_KEY = 'nw_all_articles_view';
   var mount = document.getElementById('aaListMount');
@@ -21,10 +48,22 @@
   var totalEl = document.getElementById('aaTotal');
   var popularEl = document.getElementById('aaPopular');
   var filterInput = document.getElementById('aaPopularFilter');
+  var listSearchInput = document.getElementById('aaListSearch');
   var popularData = [];
 
   function articleUrl(id) {
     return 'article.html?id=' + encodeURIComponent(String(id));
+  }
+
+  function resolveThumb(src) {
+    var v = String(src || '').trim();
+    if (!v) return '';
+    if (/^https?:\/\//i.test(v) || v.indexOf('data:') === 0) return v;
+    if (v.charAt(0) === '/' && v.indexOf('/uploads/') === 0) {
+      var base = (NW_PUBLIC_UPLOAD_ORIGIN || API || '').replace(/\/+$/, '');
+      return base ? base + v : v;
+    }
+    return v;
   }
 
   function esc(s) {
@@ -147,7 +186,9 @@
   function renderCards(items) {
     var html = '<div class="aa-card-grid">';
     items.forEach(function (it) {
-      var thumb = it.thumb ? '<img src="' + esc(it.thumb) + '" alt="" loading="lazy">' : '';
+      var rawThumb = it.thumb || '';
+      var thumbUrl = resolveThumb(rawThumb);
+      var thumb = thumbUrl ? '<img src="' + esc(thumbUrl) + '" alt="" loading="lazy" decoding="async">' : '';
       html +=
         '<article class="aa-card">' +
         '<a href="' +
@@ -184,40 +225,67 @@
     else mount.innerHTML = renderList(items);
   }
 
-  function drawPager(page, totalPages) {
+  function buildPageHref(page, q) {
+    try {
+      var u = new URL('all-articles.html', window.location.href);
+      u.searchParams.set('page', String(page));
+      if (q && String(q).trim()) u.searchParams.set('q', String(q).trim());
+      else u.searchParams.delete('q');
+      return u.pathname.split('/').pop() + u.search;
+    } catch (e) {
+      var qs = 'page=' + encodeURIComponent(String(page));
+      if (q && String(q).trim()) qs += '&q=' + encodeURIComponent(String(q).trim());
+      return 'all-articles.html?' + qs;
+    }
+  }
+
+  function drawPager(page, totalPages, q) {
     if (!pagerEl) return;
     if (totalPages <= 1) {
       pagerEl.innerHTML = '';
       return;
     }
-    var qs = function (p) {
-      return 'all-articles.html?page=' + p;
-    };
     var html = '<div class="aa-pager-inner">';
-    if (page > 1) html += '<a class="aa-pager-btn" href="' + qs(page - 1) + '">이전</a>';
+    if (page > 1) html += '<a class="aa-pager-btn" href="' + esc(buildPageHref(page - 1, q)) + '">이전</a>';
     var start = Math.max(1, page - 2);
     var end = Math.min(totalPages, start + 4);
     if (end - start < 4) start = Math.max(1, end - 4);
-    for (var p = start; p <= end; p++) {
+    var p;
+    for (p = start; p <= end; p++) {
       if (p === page)
         html += '<span class="aa-pager-num is-current" aria-current="page">' + p + '</span>';
-      else html += '<a class="aa-pager-num" href="' + qs(p) + '">' + p + '</a>';
+      else html += '<a class="aa-pager-num" href="' + esc(buildPageHref(p, q)) + '">' + p + '</a>';
     }
-    if (page < totalPages) html += '<a class="aa-pager-btn" href="' + qs(page + 1) + '">다음</a>';
+    if (page < totalPages) html += '<a class="aa-pager-btn" href="' + esc(buildPageHref(page + 1, q)) + '">다음</a>';
     html += '</div>';
     pagerEl.innerHTML = html;
+  }
+
+  function normalizePagePayload(data) {
+    if (!data || typeof data !== 'object') return { items: [], total: 0, page: 1, totalPages: 1 };
+    var items = data.items;
+    if (!Array.isArray(items) && Array.isArray(data.articles)) items = data.articles;
+    if (!Array.isArray(items) && Array.isArray(data.latestArticles)) items = data.latestArticles;
+    if (!Array.isArray(items)) items = [];
+    return {
+      items: items,
+      total: data.total != null ? Number(data.total) : items.length,
+      page: data.page != null ? Number(data.page) : 1,
+      totalPages: data.totalPages != null ? Number(data.totalPages) : 1,
+    };
   }
 
   function renderPopular(list) {
     if (!popularEl) return;
     if (!list.length) {
-      popularEl.innerHTML = '<li class="aa-pop-empty">최근 3개월 내 게시된 기사가 없습니다.</li>';
+      popularEl.innerHTML = '<li class="aa-pop-empty">최근 많이 본 기사가 없습니다.</li>';
       return;
     }
     var q = filterInput ? String(filterInput.value || '').trim().toLowerCase() : '';
     var html = '';
     var rank = 0;
-    for (var i = 0; i < list.length; i++) {
+    var i;
+    for (i = 0; i < list.length; i++) {
       var it = list[i];
       if (q && String(it.title || '').toLowerCase().indexOf(q) === -1) continue;
       rank++;
@@ -239,29 +307,48 @@
     popularEl.innerHTML = html;
   }
 
-  function load() {
-    var params = new URLSearchParams(location.search);
-    var page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1);
-    setView(getView());
-
+  function fetchListPage(page, q, viewMode) {
+    var qStr = q != null ? String(q).trim() : '';
+    var url =
+      API +
+      '/api/articles/public/page?page=' +
+      encodeURIComponent(String(page)) +
+      '&limit=' +
+      encodeURIComponent(String(PAGE_SIZE)) +
+      (qStr ? '&q=' + encodeURIComponent(qStr) : '');
     mount.innerHTML = '<p class="aa-loading">불러오는 중…</p>';
-
-    fetch(API + '/api/articles/public/page?page=' + page + '&limit=' + PAGE_SIZE, { cache: 'no-store' })
+    return fetch(url, { cache: 'no-store', credentials: 'omit' })
       .then(function (r) {
-        return r.ok ? r.json() : Promise.reject();
+        if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status));
+        return r.json();
       })
       .then(function (data) {
-        if (totalEl) totalEl.textContent = String(data.total != null ? data.total : 0);
-        drawMain(data.items || [], getView());
-        drawPager(data.page || 1, data.totalPages || 1);
+        var pack = normalizePagePayload(data);
+        if (totalEl) totalEl.textContent = String(pack.total);
+        if (pack.total === 0) {
+          if (qStr) {
+            mount.innerHTML = '<p class="aa-empty">검색 결과가 없습니다.</p>';
+          } else {
+            mount.innerHTML = '<p class="aa-empty">등록된 기사가 없습니다.</p>';
+          }
+          drawPager(1, 1, qStr);
+          return;
+        }
+        drawMain(pack.items, viewMode);
+        drawPager(pack.page || 1, pack.totalPages || 1, qStr);
       })
       .catch(function () {
         if (mount) mount.innerHTML = '<p class="aa-error">기사 목록을 불러오지 못했습니다.</p>';
+        if (totalEl) totalEl.textContent = '0';
+        if (pagerEl) pagerEl.innerHTML = '';
       });
+  }
 
-    fetch(API + '/api/articles/public/popular?months=3&limit=10', { cache: 'no-store' })
+  function fetchPopular() {
+    fetch(API + '/api/articles/public/popular?days=30&limit=10', { cache: 'no-store', credentials: 'omit' })
       .then(function (r) {
-        return r.ok ? r.json() : Promise.reject();
+        if (!r.ok) return Promise.reject();
+        return r.json();
       })
       .then(function (rows) {
         popularData = Array.isArray(rows) ? rows : [];
@@ -270,6 +357,16 @@
       .catch(function () {
         if (popularEl) popularEl.innerHTML = '<li class="aa-pop-empty">순위를 불러오지 못했습니다.</li>';
       });
+  }
+
+  function load() {
+    var params = new URLSearchParams(location.search);
+    var page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1);
+    var q = params.get('q') != null ? String(params.get('q')) : '';
+    if (listSearchInput) listSearchInput.value = q;
+    setView(getView());
+    fetchListPage(page, q, getView());
+    fetchPopular();
   }
 
   function bindViewButtons() {
@@ -285,22 +382,50 @@
         setView(pair[1]);
         var params = new URLSearchParams(location.search);
         var page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1);
-        fetch(API + '/api/articles/public/page?page=' + page + '&limit=' + PAGE_SIZE, { cache: 'no-store' })
-          .then(function (r) {
-            return r.ok ? r.json() : Promise.reject();
-          })
-          .then(function (data) {
-            drawMain(data.items || [], pair[1]);
-          })
-          .catch(function () {});
+        var q = params.get('q') != null ? String(params.get('q')) : '';
+        fetchListPage(page, q, pair[1]).catch(function () {});
       });
     });
+  }
+
+  function applyListSearchFromInput() {
+    if (!listSearchInput) return;
+    var q = String(listSearchInput.value || '').trim();
+    var params = new URLSearchParams(location.search);
+    params.set('page', '1');
+    if (q) params.set('q', q);
+    else params.delete('q');
+    try {
+      history.replaceState({}, '', 'all-articles.html?' + params.toString());
+    } catch (e) {}
+    fetchListPage(1, q, getView());
+  }
+
+  var listSearchTimer = null;
+  function bindListSearch() {
+    if (!listSearchInput) return;
+    listSearchInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (listSearchTimer) clearTimeout(listSearchTimer);
+        applyListSearchFromInput();
+      }
+    });
+    listSearchInput.addEventListener(
+      'input',
+      function () {
+        if (listSearchTimer) clearTimeout(listSearchTimer);
+        listSearchTimer = setTimeout(applyListSearchFromInput, 450);
+      },
+      { passive: true }
+    );
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     document.documentElement.setAttribute('data-aa-view', getView());
     setView(getView());
     bindViewButtons();
+    bindListSearch();
     if (filterInput) {
       filterInput.addEventListener('input', function () {
         renderPopular(popularData);
