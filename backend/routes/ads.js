@@ -366,6 +366,20 @@ adsRouter.post('/upload', authMiddleware, async (req, res, next) => {
     }
     if (!buf.length) return res.status(400).json({ error: '잘못된 이미지 데이터입니다.' });
 
+    // GIF는 변환·리사이즈 없이 원본 유지 — MIME/확장자 오인 방지(순수 base64 등)
+    if (
+      buf.length >= 6 &&
+      buf[0] === 0x47 &&
+      buf[1] === 0x49 &&
+      buf[2] === 0x46 &&
+      buf[3] === 0x38 &&
+      (buf[4] === 0x37 || buf[4] === 0x39) &&
+      buf[5] === 0x61
+    ) {
+      ext = '.gif';
+      contentType = 'image/gif';
+    }
+
     if (useSupabasePersistence()) {
       const sb = assertSupabase();
       const bucket = getBannersBucket();

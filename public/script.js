@@ -213,6 +213,36 @@ function resolveAdImageSrc(src) {
     return base ? base + v : v;
 }
 
+/** 광고 배너 GIF 여부 — data URI·http(s) 경로의 확장자·MIME 기준 (애니 GIF는 최적화·async 디코딩 제외) */
+function nwAdUrlIsGif(src) {
+    var v = String(src || '').trim();
+    if (!v) return false;
+    if (v.indexOf('data:') === 0) return /^data:image\/gif[\/;]/i.test(v);
+    try {
+        var pathOnly = v.split('#')[0];
+        var q = pathOnly.indexOf('?');
+        if (q >= 0) pathOnly = pathOnly.slice(0, q);
+        return /\.gif$/i.test(pathOnly);
+    } catch (e) {
+        return /\.gif$/i.test(v);
+    }
+}
+
+function nwApplyAdImgEl(img, rawSrc) {
+    if (!img) return;
+    var resolved = resolveAdImageSrc(String(rawSrc || '').trim());
+    if (!resolved) return;
+    var isGif = nwAdUrlIsGif(rawSrc) || nwAdUrlIsGif(resolved);
+    img.loading = 'eager';
+    if (isGif) {
+        img.decoding = 'sync';
+        img.removeAttribute('fetchpriority');
+    } else {
+        img.decoding = 'async';
+    }
+    img.src = resolved;
+}
+
 /** 슬롯 객체에서 이미지 URL (src 또는 레거시 image) */
 function slotSrcFromRow(row) {
     if (!row || typeof row !== 'object') return '';
@@ -431,11 +461,11 @@ function applyHeaderAds(ads) {
     var rightImg = document.getElementById('headerAdRightImg');
     var rightLink = document.getElementById('headerAdRightLink');
     if (ads.headerLeft && leftImg && leftLink) {
-        if (ads.headerLeft.src) leftImg.src = resolveAdImageSrc(ads.headerLeft.src);
+        if (ads.headerLeft.src) nwApplyAdImgEl(leftImg, ads.headerLeft.src);
         leftLink.href = normalizeAdHref(ads.headerLeft.href || '#');
     }
     if (ads.headerRight && rightImg && rightLink) {
-        if (ads.headerRight.src) rightImg.src = resolveAdImageSrc(ads.headerRight.src);
+        if (ads.headerRight.src) nwApplyAdImgEl(rightImg, ads.headerRight.src);
         rightLink.href = normalizeAdHref(ads.headerRight.href || '#');
     }
 }
@@ -494,26 +524,36 @@ function setSideStackSlot(prefix, index, item) {
     if (a) a.href = normalizeAdHref(href || '#');
     if (!img || !card) return;
     if (src) {
+        var resolved = resolveAdImageSrc(src);
+        var isGif = nwAdUrlIsGif(src) || nwAdUrlIsGif(resolved);
         /* lazy + [hidden]/display:none 이면 페치가 지연·생략되어 onload가 안 날 수 있음 — 사이드 슬롯은 즉시 로드 */
         img.loading = 'eager';
-        img.decoding = 'async';
+        img.decoding = isGif ? 'sync' : 'async';
         img.onerror = function () {
             img.hidden = true;
             card.classList.remove('has-ad');
             if (ph) ph.style.display = '';
         };
+        function revealSlot() {
+            if (card.classList.contains('has-ad')) return;
+            img.removeAttribute('hidden');
+            img.hidden = false;
+            card.classList.add('has-ad');
+            if (ph) ph.style.display = 'none';
+            if (isGif) {
+                requestAnimationFrame(function () {
+                    var u = img.src;
+                    img.src = '';
+                    img.src = u;
+                });
+            }
+        }
         img.onload = function () {
-            img.removeAttribute('hidden');
-            img.hidden = false;
-            card.classList.add('has-ad');
-            if (ph) ph.style.display = 'none';
+            revealSlot();
         };
-        img.src = resolveAdImageSrc(src);
+        img.src = resolved;
         if (img.complete && img.naturalWidth > 0) {
-            img.removeAttribute('hidden');
-            img.hidden = false;
-            card.classList.add('has-ad');
-            if (ph) ph.style.display = 'none';
+            revealSlot();
         }
     } else {
         img.removeAttribute('src');
@@ -595,7 +635,14 @@ function applyFooterStrip(list) {
         a.rel = 'noopener noreferrer';
         var img = document.createElement('img');
         var srcRaw = ad.image && String(ad.image).indexOf('data:') !== 0 ? ad.image : '';
-        img.src = srcRaw ? resolveAdImageSrc(srcRaw) : footerAdPlaceholder(ad.alt);
+        if (srcRaw) {
+            var r = resolveAdImageSrc(String(srcRaw).trim());
+            img.loading = 'eager';
+            img.decoding = nwAdUrlIsGif(srcRaw) || nwAdUrlIsGif(r) ? 'sync' : 'async';
+            img.src = r;
+        } else {
+            img.src = footerAdPlaceholder(ad.alt);
+        }
         img.alt = ad.alt || '';
         img.onerror = function () { this.src = footerAdPlaceholder(ad.alt); };
         a.appendChild(img);
@@ -943,7 +990,7 @@ function renderLatestTop5FromList(articles) {
     }
 }
 
-/** 탭 복귀/승인 시 메인 번들 재요청 */
+/** Next.js 가 아님: 탭 복귀/승인 시 storage 로 메인 번들 재요청 */
 var NW_MAIN_LIST_LAST_FETCH_AT = 0;
 function nwThrottleFetchMainPublicList() {
     var now = Date.now();
@@ -1127,6 +1174,7 @@ function nwFetchAdsOnly() {
         .catch(function () {});
 }
 
+/** 메인: GET /api/home 한 번에 최신+인기+광고 (실패 시 병렬 레거시). 세션 캐시로 재방문 시 즉시 표시 후 재검증 */
 function nwFetchMainHomeBundle() {
     var homeUrl = ARTICLES_API + '/api/home';
     var cached = nwReadHomeSessionCache();
@@ -1176,6 +1224,7 @@ document.addEventListener('DOMContentLoaded', function () {
     bindPublicArticleLinkStorage();
     nwBindMainArticleDetail();
 
+    // 메인 데이터: /api/home (최신+인기+광고 1회) → 실패 시 레거시 병렬 요청
     nwFetchMainHomeBundle();
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') nwThrottleFetchMainPublicList();
