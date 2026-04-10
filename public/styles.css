@@ -1518,6 +1518,10 @@ body:has(#nwLatestTop5) .headline-section {
     animation: nw-latest-shimmer 1.2s ease-in-out infinite;
 }
 
+.nw-latest-top5--loading .nw-latest-hero__title {
+    animation: nw-latest-shimmer 1.2s ease-in-out infinite;
+}
+
 @keyframes nw-latest-shimmer {
     0%,
     100% {

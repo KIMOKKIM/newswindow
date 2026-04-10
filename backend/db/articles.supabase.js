@@ -17,11 +17,16 @@ import {
   dedupeWindowMs,
   popularWindowReferenceMs,
   comparePopularArticlesDesc,
+  mainFeedArticleCap,
 } from './articles.shared.js';
 
 function sb() {
   return assertSupabase();
 }
+
+/** 목록·메인 피드용 — 본문/다중 이미지 제외 (SELECT * 금지) */
+const PUBLISHED_LIST_SELECT =
+  'id,title,subtitle,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1';
 
 async function selectAll() {
   const { data, error } = await sb().from('articles').select('*');
@@ -47,13 +52,31 @@ export const articlesDb = {
     return count || 0;
   },
 
+  /** 메인 피드 상한(400) 검증용 — status=published 건수 */
+  async countPublished() {
+    const { count, error } = await sb()
+      .from('articles')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'published');
+    if (error) throw error;
+    return count || 0;
+  },
+
   async all() {
     const rows = await selectAll();
     return [...rows].sort((a, b) => b.id - a.id).map((a) => mapListFields(a));
   },
 
   async listPublishedForMain() {
-    const rows = await selectAll();
+    const cap = mainFeedArticleCap();
+    const { data, error } = await sb()
+      .from('articles')
+      .select(PUBLISHED_LIST_SELECT)
+      .eq('status', 'published')
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(cap);
+    if (error) throw error;
+    const rows = (data || []).map(rowToArticleRecord);
     return rows
       .filter((a) => isPublicFeedReadableStatus(a.status))
       .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
@@ -97,9 +120,31 @@ export const articlesDb = {
     const since = Number(sinceMs);
     const lim = Math.min(50, Math.max(1, Number(limit) || 10));
     if (!Number.isFinite(since)) return [];
-    const rows = await selectAll();
+    const sinceIso = new Date(since).toISOString();
+    const { data, error } = await sb()
+      .from('articles')
+      .select(PUBLISHED_LIST_SELECT)
+      .eq('status', 'published')
+      .or(`published_at.gte.${sinceIso},created_at.gte.${sinceIso}`);
+    if (error) {
+      const fallback = await sb()
+        .from('articles')
+        .select(PUBLISHED_LIST_SELECT)
+        .eq('status', 'published')
+        .gte('published_at', sinceIso);
+      if (fallback.error) throw fallback.error;
+      const rowsFb = (fallback.data || []).map(rowToArticleRecord);
+      return rowsFb
+        .filter((a) => {
+          const ref = popularWindowReferenceMs(a);
+          return ref != null && ref >= since;
+        })
+        .sort(comparePopularArticlesDesc)
+        .slice(0, lim)
+        .map((a) => mapPublishedListItem(a));
+    }
+    const rows = (data || []).map(rowToArticleRecord);
     return rows
-      .filter((a) => isPublicFeedReadableStatus(a.status))
       .filter((a) => {
         const ref = popularWindowReferenceMs(a);
         return ref != null && ref >= since;

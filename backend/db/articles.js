@@ -15,6 +15,7 @@ export {
 function wrapLegacy(L) {
   return {
     count: async () => L.count(),
+    countPublished: async () => L.countPublished(),
     all: async () => L.all(),
     listPublishedForMain: async () => L.listPublishedForMain(),
     listPublishedPaginated: async (...a) => L.listPublishedPaginated(...a),

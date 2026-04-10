@@ -14,6 +14,13 @@ export function dedupeWindowMs() {
   return 120000;
 }
 
+/** 메인 피드(공개 list)에서 한 번에 내려줄 최대 게시 건수 — 본문 제외 컬럼만 조회하더라도 상한을 둔다 */
+export function mainFeedArticleCap() {
+  const n = Number(process.env.NW_MAIN_FEED_MAX_ARTICLES);
+  if (Number.isFinite(n) && n >= 20 && n <= 2000) return Math.floor(n);
+  return 400;
+}
+
 export function nowStr() {
   return new Date().toISOString().replace('T', ' ').slice(0, 19);
 }

@@ -159,6 +159,11 @@ async function loadAdsSupabase() {
   return normalizeAdsResponse({ ...getDefaultAds(), ...cfg });
 }
 
+/** 메인 통합 API 등에서 `/api/ads` 와 동일 JSON 재사용 */
+export async function loadPublicAdsConfig() {
+  return loadAdsSupabase();
+}
+
 /** JSONB 저장용 순수 객체(plain data). undefined 제거, 직렬화 검증 */
 function cloneConfigForStore(payload) {
   return JSON.parse(JSON.stringify(payload));

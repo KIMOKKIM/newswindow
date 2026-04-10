@@ -456,6 +456,8 @@ function setSideStackSlot(prefix, index, item) {
     if (a) a.href = normalizeAdHref(href || '#');
     if (!img || !card) return;
     if (src) {
+        img.loading = 'lazy';
+        img.decoding = 'async';
         img.onerror = function () {
             img.hidden = true;
             card.classList.remove('has-ad');
@@ -900,57 +902,136 @@ function renderLatestTop5FromList(articles) {
     }
 }
 
-/** Next.js 가 아님: revalidatePath 불가. no-store + 탭 복귀/승인 시 storage 로 최신 public/list 재요청 */
+/** Next.js 가 아님: 탭 복귀/승인 시 storage 로 메인 번들 재요청 */
 var NW_MAIN_LIST_LAST_FETCH_AT = 0;
 function nwThrottleFetchMainPublicList() {
     var now = Date.now();
     if (now - NW_MAIN_LIST_LAST_FETCH_AT < 1200) return;
     NW_MAIN_LIST_LAST_FETCH_AT = now;
-    nwFetchMainPublicArticleList();
+    nwFetchMainHomeBundle();
 }
 
-function nwFetchMainPublicArticleList() {
-    var pubUrl = ARTICLES_API + '/api/articles/public/list';
-    fetch(pubUrl, {
-        cache: 'no-store',
-        credentials: 'omit',
-        headers: { 'Cache-Control': 'no-cache' },
-    })
-        .then(function (res) {
-            if (/nwdebug=1/.test(location.search)) console.info('[nw-main] public/list', pubUrl, 'status', res.status);
-            return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status));
-        })
-        .then(function (articles) {
-            if (!Array.isArray(articles) || articles.length === 0) {
-                renderLatestTop5FromList([]);
-                return;
-            }
-            articles = articles.filter(function (a) {
-                if (!a) return false;
-                var s = String(a.status || '').toLowerCase();
-                return s === 'published' || s === 'approved';
+var NW_HOME_SESSION_KEY = 'nw_home_bundle_v1';
+
+function nwReadHomeSessionCache() {
+    try {
+        var raw = sessionStorage.getItem(NW_HOME_SESSION_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function nwWriteHomeSessionCache(payload) {
+    try {
+        sessionStorage.setItem(
+            NW_HOME_SESSION_KEY,
+            JSON.stringify({
+                at: Date.now(),
+                latestArticles: payload.latestArticles,
+                popularArticles: payload.popularArticles,
+                ads: payload.ads,
+            }),
+        );
+    } catch (e) {}
+}
+
+function nwRenderMostViewedRows(rows) {
+    var el = document.getElementById('nwMostViewedList');
+    if (!el) return;
+    if (!Array.isArray(rows) || rows.length === 0) {
+        el.innerHTML = '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
+        return;
+    }
+    var html = '';
+    var i;
+    for (i = 0; i < rows.length; i++) {
+        var a = rows[i];
+        if (!a || a.id == null) continue;
+        var t = cleanBrokenKoreanText(a.title, '제목 준비중');
+        html += '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + t + '</a></li>';
+    }
+    el.innerHTML =
+        html || '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
+}
+
+function nwApplyMainArticlesArray(articles) {
+    if (!Array.isArray(articles) || articles.length === 0) {
+        renderLatestTop5FromList([]);
+        return;
+    }
+    articles = articles.filter(function (a) {
+        if (!a) return false;
+        var s = String(a.status || '').toLowerCase();
+        return s === 'published' || s === 'approved';
+    });
+    if (articles.length === 0) {
+        renderLatestTop5FromList([]);
+        return;
+    }
+    if (/nwdebug=1/.test(location.search)) {
+        var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
+        console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
+    }
+    renderLatestTop5FromList(articles);
+    requestAnimationFrame(function () {
+        try {
+            renderSectionListsByCategory(articles);
+            renderTvSectionByCategory(articles);
+        } catch (secErr) {
+            if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] section/tv render', secErr);
+        }
+    });
+    if (/nwdebug=1/.test(location.search)) {
+        var ord = sortByLatest(articles);
+        console.info('[nw-main] latest top5 ids', ord.slice(0, 5).map(function (x) { return x && x.id; }));
+    }
+}
+
+function nwApplyMainFromHomePayload(payload) {
+    if (!payload) return;
+    if (payload.ads) {
+        applyHeaderAds(payload.ads);
+        applySideStacks(payload.ads);
+        applyFooterStrip(Array.isArray(payload.ads.footer) ? payload.ads.footer : []);
+    }
+    nwApplyMainArticlesArray(payload.latestArticles || []);
+    nwRenderMostViewedRows(payload.popularArticles);
+}
+
+function nwFetchMainLegacyHomeParallel() {
+    var listUrl = ARTICLES_API + '/api/articles/public/list';
+    var popUrl = ARTICLES_API + '/api/articles/public/popular?days=30&limit=10';
+    var opts = { cache: 'no-store', credentials: 'omit', headers: { 'Cache-Control': 'no-cache' } };
+    Promise.allSettled([
+        fetch(ADS_API + '/api/ads', opts).then(function (res) {
+            return res.ok ? res.json() : Promise.reject(new Error('ads'));
+        }),
+        fetch(listUrl, opts).then(function (res) {
+            return res.ok ? res.json() : Promise.reject(new Error('list'));
+        }),
+        fetch(popUrl, opts).then(function (res) {
+            return res.ok ? res.json() : Promise.reject(new Error('popular'));
+        }),
+    ]).then(function (results) {
+        if (results[0].status === 'fulfilled') {
+            var ads = results[0].value;
+            applyHeaderAds(ads);
+            applySideStacks(ads);
+            applyFooterStrip(Array.isArray(ads.footer) ? ads.footer : []);
+        } else {
+            applySideStacks({
+                sideLeft: SIDE_ADS.left,
+                sideRight: SIDE_ADS.right,
+                sideLeftStack: [],
+                sideRightStack: [],
             });
-            if (articles.length === 0) {
-                renderLatestTop5FromList([]);
-                return;
-            }
-            if (/nwdebug=1/.test(location.search)) {
-                var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
-                console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
-            }
-            renderLatestTop5FromList(articles);
-            try {
-                renderSectionListsByCategory(articles);
-                renderTvSectionByCategory(articles);
-            } catch (secErr) {
-                if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] section/tv render', secErr);
-            }
-            if (/nwdebug=1/.test(location.search)) {
-                var ord = sortByLatest(articles);
-                console.info('[nw-main] latest top5 ids', ord.slice(0, 5).map(function (x) { return x && x.id; }));
-            }
-        })
-        .catch(function (err) {
+            applyFooterStrip(footerAds);
+        }
+        if (results[1].status === 'fulfilled') {
+            nwApplyMainArticlesArray(results[1].value);
+        } else {
             var s = getNwLatestTop5Section();
             if (s) {
                 if (nwLatestTop5Timer) {
@@ -963,46 +1044,48 @@ function nwFetchMainPublicArticleList() {
                     '네트워크 또는 서버 응답을 확인해 주세요.'
                 );
             }
-            if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] public/list failed', pubUrl, err);
-        });
+        }
+        if (results[2].status === 'fulfilled') {
+            nwRenderMostViewedRows(results[2].value);
+        } else {
+            var mel = document.getElementById('nwMostViewedList');
+            if (mel) {
+                mel.innerHTML =
+                    '<li class="nw-most-viewed-empty">많이 본 기사를 불러오지 못했습니다.</li>';
+            }
+        }
+    });
 }
 
-/** 메인 사이드바 — 최근 30일·공개 피드·조회수 순 상위 10건 */
-function nwFetchMainMostViewed() {
-    var el = document.getElementById('nwMostViewedList');
-    if (!el) return;
-    var url = ARTICLES_API + '/api/articles/public/popular?days=30&limit=10';
-    fetch(url, {
+/** 메인: GET /api/home 한 번에 최신+인기+광고 (실패 시 병렬 레거시). 세션 캐시로 재방문 시 즉시 표시 후 재검증 */
+function nwFetchMainHomeBundle() {
+    var homeUrl = ARTICLES_API + '/api/home';
+    var cached = nwReadHomeSessionCache();
+    if (cached && Array.isArray(cached.latestArticles)) {
+        nwApplyMainFromHomePayload({
+            latestArticles: cached.latestArticles,
+            popularArticles: cached.popularArticles,
+            ads: cached.ads,
+        });
+    }
+    fetch(homeUrl, {
         cache: 'no-store',
         credentials: 'omit',
         headers: { 'Cache-Control': 'no-cache' },
     })
         .then(function (res) {
-            if (/nwdebug=1/.test(location.search)) console.info('[nw-main] popular', url, 'status', res.status);
+            if (/nwdebug=1/.test(location.search)) console.info('[nw-main] /api/home', homeUrl, 'status', res.status);
             return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status));
         })
-        .then(function (rows) {
-            if (!Array.isArray(rows) || rows.length === 0) {
-                el.innerHTML =
-                    '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
-                return;
-            }
-            var html = '';
-            var i;
-            for (i = 0; i < rows.length; i++) {
-                var a = rows[i];
-                if (!a || a.id == null) continue;
-                var t = cleanBrokenKoreanText(a.title, '제목 준비중');
-                html += '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + t + '</a></li>';
-            }
-            el.innerHTML =
-                html ||
-                '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
+        .then(function (payload) {
+            nwWriteHomeSessionCache(payload);
+            nwApplyMainFromHomePayload(payload);
         })
         .catch(function (err) {
-            el.innerHTML =
-                '<li class="nw-most-viewed-empty">많이 본 기사를 불러오지 못했습니다.</li>';
-            if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] popular failed', url, err);
+            if (/nwdebug=1/.test(location.search)) console.warn('[nw-main] /api/home failed', err);
+            if (!cached || !Array.isArray(cached.latestArticles)) {
+                nwFetchMainLegacyHomeParallel();
+            }
         });
 }
 
@@ -1016,28 +1099,8 @@ document.addEventListener('DOMContentLoaded', function () {
     bindPublicArticleLinkStorage();
     nwBindMainArticleDetail();
 
-    // 광고 설정 API에서 불러와 적용 (실패 시 기본값 사용) — CDN/브라우저 캐시로 구버전 JSON이 남는 것 방지
-    fetch(ADS_API + '/api/ads', { cache: 'no-store' })
-        .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
-        .then(function (ads) {
-            applyHeaderAds(ads);
-            applySideStacks(ads);
-            // API 성공 시 푸터는 DB(ads.footer)만 사용 — 샘플 footerAds 와 병합하지 않음
-            applyFooterStrip(Array.isArray(ads.footer) ? ads.footer : []);
-        })
-        .catch(function () {
-            applySideStacks({
-                sideLeft: SIDE_ADS.left,
-                sideRight: SIDE_ADS.right,
-                sideLeftStack: [],
-                sideRightStack: []
-            });
-            applyFooterStrip(footerAds);
-        });
-
-    // 게시 기사(public/list) — 캐시 회피 후 동일 함수로 초기 로드·재동기화
-    nwFetchMainPublicArticleList();
-    nwFetchMainMostViewed();
+    // 메인 데이터: /api/home (최신+인기+광고 1회) → 실패 시 레거시 병렬 요청
+    nwFetchMainHomeBundle();
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') nwThrottleFetchMainPublicList();
     });

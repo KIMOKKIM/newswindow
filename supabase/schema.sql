@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS public.articles (
 
 CREATE INDEX IF NOT EXISTS idx_articles_status ON public.articles (status);
 CREATE INDEX IF NOT EXISTS idx_articles_author_id ON public.articles (author_id);
+-- 메인 피드: published 최신순·인기 구간 필터 (선택 적용, 운영 DB에서 ANALYZE 후 판단)
+CREATE INDEX IF NOT EXISTS idx_articles_published_at_desc ON public.articles (published_at DESC NULLS LAST);
 
 -- ━━━ 광고 레이아웃 JSON (기존 normalizeAdsResponse 구조 그대로 저장) ━━━
 CREATE TABLE IF NOT EXISTS public.ad_site_config (

@@ -18,6 +18,7 @@ import {
   dedupeWindowMs,
   popularWindowReferenceMs,
   comparePopularArticlesDesc,
+  mainFeedArticleCap,
 } from './articles.shared.js';
 
 const articlesPath = getArticlesJsonPath();
@@ -54,14 +55,20 @@ export const legacySyncArticlesDb = {
     return articles.length;
   },
 
+  countPublished() {
+    return articles.filter((a) => toApiStatus(a.status) === 'published').length;
+  },
+
   all() {
     return [...articles].reverse().map((a) => mapListFields(a));
   },
 
   listPublishedForMain() {
+    const cap = mainFeedArticleCap();
     return [...articles]
       .filter((a) => isPublicFeedReadableStatus(a.status))
       .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
+      .slice(0, cap)
       .map((a) => ({
         id: a.id,
         title: a.title || '',

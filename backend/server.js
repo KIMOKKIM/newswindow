@@ -9,6 +9,7 @@ import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { articlesRouter } from './routes/articles.js';
 import { adsRouter } from './routes/ads.js';
+import { homeRouter } from './routes/home.js';
 import { healthRouter, HEALTH_ROUTE_VERSION } from './routes/health.js';
 import { getUploadsRoot } from './config/dataPaths.js';
 import { logPersistenceOnStartup, exitIfRenderMissingJsonPaths } from './lib/persistenceDiagnostics.js';
@@ -78,6 +79,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/articles', articlesRouter);
 app.use('/api/ads', adsRouter);
+app.use('/api/home', homeRouter);
 
 app.use((err, req, res, next) => {
   console.error('[api]', err);
