@@ -20,6 +20,10 @@ import {
   comparePopularArticlesDesc,
   mainFeedArticleCap,
 } from './articles.shared.js';
+import {
+  articleMatchesSectionCategory,
+  isKnownSectionCategoryParam,
+} from '../lib/sectionCategoryFilter.js';
 
 const articlesPath = getArticlesJsonPath();
 ensureDirForFile(articlesPath);
@@ -85,12 +89,19 @@ export const legacySyncArticlesDb = {
       }));
   },
 
-  listPublishedPaginated(page, pageSize, titleQuery) {
+  listPublishedPaginated(page, pageSize, titleQuery, sectionCategory) {
     const size = Math.min(50, Math.max(1, Number(pageSize) || 20));
     const p = Math.max(1, Number(page) || 1);
+    const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
+    if (catRaw && !isKnownSectionCategoryParam(catRaw)) {
+      return { items: [], total: 0, page: p, pageSize: size, totalPages: 1 };
+    }
     let all = [...articles]
       .filter((a) => toApiStatus(a.status) === 'published')
       .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
+    if (catRaw) {
+      all = all.filter((a) => articleMatchesSectionCategory(a.category, catRaw));
+    }
     const needle = titleQuery != null ? String(titleQuery).trim().toLowerCase() : '';
     if (needle) {
       all = all.filter((a) => String(a.title || '').toLowerCase().includes(needle));
@@ -108,12 +119,15 @@ export const legacySyncArticlesDb = {
     };
   },
 
-  listPublishedPopularSince(sinceMs, limit) {
+  listPublishedPopularSince(sinceMs, limit, sectionCategory) {
     const since = Number(sinceMs);
     const lim = Math.min(50, Math.max(1, Number(limit) || 10));
     if (!Number.isFinite(since)) return [];
+    const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
+    if (catRaw && !isKnownSectionCategoryParam(catRaw)) return [];
     return [...articles]
       .filter((a) => isPublicFeedReadableStatus(a.status))
+      .filter((a) => !catRaw || articleMatchesSectionCategory(a.category, catRaw))
       .filter((a) => {
         const ref = popularWindowReferenceMs(a);
         return ref != null && ref >= since;
@@ -123,10 +137,10 @@ export const legacySyncArticlesDb = {
       .map((a) => mapPublishedListItem(a));
   },
 
-  listPublishedPopularByMonths(months, limit) {
+  listPublishedPopularByMonths(months, limit, sectionCategory) {
     const m = Math.max(1, Math.min(24, Number(months) || 3));
     const sinceMs = Date.now() - m * 30 * 24 * 60 * 60 * 1000;
-    return legacySyncArticlesDb.listPublishedPopularSince(sinceMs, limit);
+    return legacySyncArticlesDb.listPublishedPopularSince(sinceMs, limit, sectionCategory);
   },
 
   findByAuthor(authorId, reporterDisplayName) {

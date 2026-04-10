@@ -1,5 +1,6 @@
 /**
- * 전체기사 페이지: 서버 페이지네이션(기본 5건) + 제목 검색 + 우측 인기 기사
+ * 전체기사(all-articles.html) + 섹션(section.html) 공통: 페이지네이션 5건, 검색, 인기
+ * 섹션: ?category= 값은 shared/articleCategories.json 과 동일(대메뉴·하위 value)
  */
 (function () {
   var NW_PRODUCTION_API_ORIGIN = 'https://newswindow-backend.onrender.com';
@@ -40,9 +41,20 @@
     return NW_CONFIG_API_ORIGIN || '';
   })();
 
+  var PAGE_HTML = (function () {
+    try {
+      var p = String(location.pathname || '');
+      if (/section\.html$/i.test(p) || /\/section\.html$/i.test(p)) return 'section.html';
+    } catch (e) {}
+    return 'all-articles.html';
+  })();
+
+  var SECTION_MODE = PAGE_HTML === 'section.html';
+  var SECTION_CATEGORY = null;
+
   var PAGE_SIZE = 5;
   var GROUP = 5;
-  var VIEW_KEY = 'nw_all_articles_view';
+  var VIEW_KEY = SECTION_MODE ? 'nw_section_articles_view' : 'nw_all_articles_view';
   var mount = document.getElementById('aaListMount');
   var pagerEl = document.getElementById('aaPager');
   var totalEl = document.getElementById('aaTotal');
@@ -225,17 +237,21 @@
     else mount.innerHTML = renderList(items);
   }
 
-  function buildPageHref(page, q) {
+  function buildPageHref(page, q, cat) {
+    var c = cat != null ? String(cat).trim() : SECTION_CATEGORY;
     try {
-      var u = new URL('all-articles.html', window.location.href);
+      var u = new URL(PAGE_HTML, window.location.href);
       u.searchParams.set('page', String(page));
       if (q && String(q).trim()) u.searchParams.set('q', String(q).trim());
       else u.searchParams.delete('q');
+      if (SECTION_MODE && c) u.searchParams.set('category', c);
+      else u.searchParams.delete('category');
       return u.pathname.split('/').pop() + u.search;
     } catch (e) {
       var qs = 'page=' + encodeURIComponent(String(page));
+      if (SECTION_MODE && c) qs += '&category=' + encodeURIComponent(c);
       if (q && String(q).trim()) qs += '&q=' + encodeURIComponent(String(q).trim());
-      return 'all-articles.html?' + qs;
+      return PAGE_HTML + '?' + qs;
     }
   }
 
@@ -315,8 +331,9 @@
       encodeURIComponent(String(page)) +
       '&limit=' +
       encodeURIComponent(String(PAGE_SIZE)) +
-      (qStr ? '&q=' + encodeURIComponent(qStr) : '');
-    mount.innerHTML = '<p class="aa-loading">불러오는 중…</p>';
+      (qStr ? '&q=' + encodeURIComponent(qStr) : '') +
+      (SECTION_MODE && SECTION_CATEGORY ? '&category=' + encodeURIComponent(SECTION_CATEGORY) : '');
+    if (mount) mount.innerHTML = '<p class="aa-loading">불러오는 중…</p>';
     return fetch(url, { cache: 'no-store', credentials: 'omit' })
       .then(function (r) {
         if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status));
@@ -327,9 +344,9 @@
         if (totalEl) totalEl.textContent = String(pack.total);
         if (pack.total === 0) {
           if (qStr) {
-            mount.innerHTML = '<p class="aa-empty">검색 결과가 없습니다.</p>';
+            if (mount) mount.innerHTML = '<p class="aa-empty">검색 결과가 없습니다.</p>';
           } else {
-            mount.innerHTML = '<p class="aa-empty">등록된 기사가 없습니다.</p>';
+            if (mount) mount.innerHTML = '<p class="aa-empty">등록된 기사가 없습니다.</p>';
           }
           drawPager(1, 1, qStr);
           return;
@@ -345,7 +362,11 @@
   }
 
   function fetchPopular() {
-    fetch(API + '/api/articles/public/popular?days=30&limit=10', { cache: 'no-store', credentials: 'omit' })
+    var popUrl =
+      API +
+      '/api/articles/public/popular?days=30&limit=10' +
+      (SECTION_MODE && SECTION_CATEGORY ? '&category=' + encodeURIComponent(SECTION_CATEGORY) : '');
+    fetch(popUrl, { cache: 'no-store', credentials: 'omit' })
       .then(function (r) {
         if (!r.ok) return Promise.reject();
         return r.json();
@@ -359,14 +380,98 @@
       });
   }
 
+  function isValidCategoryInSpec(cat, spec) {
+    if (!cat || !spec) return false;
+    var i;
+    var j;
+    var g;
+    for (i = 0; i < (spec.groups || []).length; i++) {
+      g = spec.groups[i];
+      if (g.title && String(g.title).trim() === cat) return true;
+      for (j = 0; j < (g.items || []).length; j++) {
+        if (g.items[j].value && String(g.items[j].value).trim() === cat) return true;
+      }
+    }
+    for (i = 0; i < (spec.topLevel || []).length; i++) {
+      if (spec.topLevel[i].value && String(spec.topLevel[i].value).trim() === cat) return true;
+    }
+    return false;
+  }
+
+  function updateSectionTitles(displayLabel) {
+    var st = document.getElementById('aaSectionTitle');
+    if (st) st.textContent = displayLabel;
+    var pt = document.getElementById('aaPopularSideTitle');
+    if (pt) pt.textContent = displayLabel + ' 많이 본 기사';
+    document.title = displayLabel + ' 기사 - 뉴스의 창';
+  }
+
+  function resolveDisplayLabel(cat, spec) {
+    if (!cat || !spec) return cat || '';
+    var i;
+    var j;
+    var g;
+    for (i = 0; i < (spec.groups || []).length; i++) {
+      g = spec.groups[i];
+      if (g.title && String(g.title).trim() === cat) return g.title;
+      for (j = 0; j < (g.items || []).length; j++) {
+        if (g.items[j].value && String(g.items[j].value).trim() === cat)
+          return g.items[j].label || g.items[j].value;
+      }
+    }
+    for (i = 0; i < (spec.topLevel || []).length; i++) {
+      if (spec.topLevel[i].value && String(spec.topLevel[i].value).trim() === cat)
+        return spec.topLevel[i].label || spec.topLevel[i].value;
+    }
+    return cat;
+  }
+
   function load() {
     var params = new URLSearchParams(location.search);
     var page = Math.max(1, parseInt(params.get('page') || '1', 10) || 1);
     var q = params.get('q') != null ? String(params.get('q')) : '';
     if (listSearchInput) listSearchInput.value = q;
     setView(getView());
-    fetchListPage(page, q, getView());
-    fetchPopular();
+
+    if (!SECTION_MODE) {
+      SECTION_CATEGORY = null;
+      fetchListPage(page, q, getView());
+      fetchPopular();
+      return;
+    }
+
+    var rawCat = params.get('category');
+    if (rawCat == null || String(rawCat).trim() === '') {
+      if (mount)
+        mount.innerHTML =
+          '<p class="aa-error">유효하지 않은 섹션입니다. <a href="all-articles.html">전체기사</a>로 이동하세요.</p>';
+      if (totalEl) totalEl.textContent = '0';
+      return;
+    }
+    SECTION_CATEGORY = String(rawCat).trim();
+
+    fetch('shared/articleCategories.json', { cache: 'force-cache' })
+      .then(function (r) {
+        return r.ok ? r.json() : Promise.reject();
+      })
+      .then(function (spec) {
+        if (!isValidCategoryInSpec(SECTION_CATEGORY, spec)) {
+          if (mount)
+            mount.innerHTML =
+              '<p class="aa-error">유효하지 않은 섹션입니다. <a href="all-articles.html">전체기사</a>로 이동하세요.</p>';
+          if (totalEl) totalEl.textContent = '0';
+          return;
+        }
+        var label = resolveDisplayLabel(SECTION_CATEGORY, spec);
+        updateSectionTitles(label);
+        fetchListPage(page, q, getView());
+        fetchPopular();
+      })
+      .catch(function () {
+        updateSectionTitles(SECTION_CATEGORY);
+        fetchListPage(page, q, getView());
+        fetchPopular();
+      });
   }
 
   function bindViewButtons() {
@@ -395,8 +500,9 @@
     params.set('page', '1');
     if (q) params.set('q', q);
     else params.delete('q');
+    if (SECTION_MODE && SECTION_CATEGORY) params.set('category', SECTION_CATEGORY);
     try {
-      history.replaceState({}, '', 'all-articles.html?' + params.toString());
+      history.replaceState({}, '', PAGE_HTML + '?' + params.toString());
     } catch (e) {}
     fetchListPage(1, q, getView());
   }

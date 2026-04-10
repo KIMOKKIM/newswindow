@@ -18,8 +18,8 @@ function wrapLegacy(L) {
     countPublished: async () => L.countPublished(),
     all: async () => L.all(),
     listPublishedForMain: async () => L.listPublishedForMain(),
-    listPublishedPaginated: async (page, pageSize, titleQuery) =>
-      L.listPublishedPaginated(page, pageSize, titleQuery),
+    listPublishedPaginated: async (page, pageSize, titleQuery, sectionCategory) =>
+      L.listPublishedPaginated(page, pageSize, titleQuery, sectionCategory),
     listPublishedPopularByMonths: async (...a) => L.listPublishedPopularByMonths(...a),
     listPublishedPopularSince: async (...a) => L.listPublishedPopularSince(...a),
     findByAuthor: async (...a) => L.findByAuthor(...a),

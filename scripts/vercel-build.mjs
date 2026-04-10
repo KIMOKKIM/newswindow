@@ -19,7 +19,8 @@ const MAIN_SITE_FILES = [
   'script.js',
   'article.html',
   'all-articles.html',
-  'all-articles.js',
+  'section.html',
+  'article-list-shared.js',
   'info.html',
   'signup.html',
   'login.html',
@@ -57,54 +58,38 @@ function copyMainSiteIntoPublic() {
 }
 
 /**
- * 메인 index.html: 업로드/기사 API가 Vercel과 다른 호스트(Render 등)일 때 동일 origin 주입.
+ * index / article / 전체기사 / 섹션: 업로드·기사 API가 정적 호스트와 다를 때 origin 주입.
  * → window.NW_PUBLIC_UPLOAD_ORIGIN, window.NW_API_ORIGIN
  */
 function injectMainSiteUploadOrigin() {
-  const p = join(publicDir, 'index.html');
-  if (!existsSync(p)) return;
-  let html = readFileSync(p, 'utf8');
   const origin = String(process.env.PUBLIC_UPLOAD_ORIGIN || process.env.BACKEND_PUBLIC_URL || '')
     .trim()
     .replace(/\/+$/, '');
-  html = html.replace(
-    /<script>\(function\(\)\{var u=[^<]*NW_API_ORIGIN=u[^<]*\}\)\(\);<\/script>\s*/gi,
-    ''
-  );
-  html = html.replace(/<script>window\.NW_PUBLIC_UPLOAD_ORIGIN=[\s\S]*?<\/script>\s*/gi, '');
-  if (origin) {
-    const snippet =
-      '<script>(function(){var u=' +
-      JSON.stringify(origin) +
-      ';window.NW_PUBLIC_UPLOAD_ORIGIN=u;window.NW_API_ORIGIN=u;})();</script>';
-    if (/<\/head>/i.test(html)) {
-      html = html.replace(/<\/head>/i, snippet + '\n</head>');
-    } else {
-      html = snippet + '\n' + html;
-    }
-  }
-  writeFileSync(p, html, 'utf8');
+  const snippet =
+    '<script>(function(){var u=' +
+    JSON.stringify(origin) +
+    ';window.NW_PUBLIC_UPLOAD_ORIGIN=u;window.NW_API_ORIGIN=u;})();</script>';
 
-  const articlePath = join(publicDir, 'article.html');
-  if (existsSync(articlePath)) {
-    let ah = readFileSync(articlePath, 'utf8');
-    ah = ah.replace(
-      /<script>\(function\(\)\{var u=[^<]*NW_API_ORIGIN=u[^<]*\}\)\(\);<\/script>\s*/gi,
-      ''
-    );
-    ah = ah.replace(/<script>window\.NW_PUBLIC_UPLOAD_ORIGIN=[\s\S]*?<\/script>\s*/gi, '');
-    if (origin) {
-      const snippet =
-        '<script>(function(){var u=' +
-        JSON.stringify(origin) +
-        ';window.NW_PUBLIC_UPLOAD_ORIGIN=u;window.NW_API_ORIGIN=u;})();</script>';
-      if (/<\/head>/i.test(ah)) {
-        ah = ah.replace(/<\/head>/i, snippet + '\n</head>');
-      } else {
-        ah = snippet + '\n' + ah;
-      }
+  const stripPrev = (html) =>
+    html
+      .replace(/<script>\(function\(\)\{var u=[^<]*NW_API_ORIGIN=u[^<]*\}\)\(\);<\/script>\s*/gi, '')
+      .replace(/<script>window\.NW_PUBLIC_UPLOAD_ORIGIN=[\s\S]*?<\/script>\s*/gi, '');
+
+  const injectIntoHead = (html) => {
+    if (!origin) return stripPrev(html);
+    let h = stripPrev(html);
+    if (/<\/head>/i.test(h)) {
+      h = h.replace(/<\/head>/i, snippet + '\n</head>');
+    } else {
+      h = snippet + '\n' + h;
     }
-    writeFileSync(articlePath, ah, 'utf8');
+    return h;
+  };
+
+  for (const name of ['index.html', 'article.html', 'section.html', 'all-articles.html']) {
+    const p = join(publicDir, name);
+    if (!existsSync(p)) continue;
+    writeFileSync(p, injectIntoHead(readFileSync(p, 'utf8')), 'utf8');
   }
 
   if (origin) console.log('vercel-build: injected NW_PUBLIC_UPLOAD_ORIGIN + NW_API_ORIGIN.');

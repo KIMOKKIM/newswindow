@@ -19,6 +19,10 @@ import {
   comparePopularArticlesDesc,
   mainFeedArticleCap,
 } from './articles.shared.js';
+import {
+  articleMatchesSectionCategory,
+  isKnownSectionCategoryParam,
+} from '../lib/sectionCategoryFilter.js';
 
 function sb() {
   return assertSupabase();
@@ -96,13 +100,20 @@ export const articlesDb = {
       }));
   },
 
-  async listPublishedPaginated(page, pageSize, titleQuery) {
+  async listPublishedPaginated(page, pageSize, titleQuery, sectionCategory) {
     const size = Math.min(50, Math.max(1, Number(pageSize) || 20));
     const p = Math.max(1, Number(page) || 1);
+    const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
+    if (catRaw && !isKnownSectionCategoryParam(catRaw)) {
+      return { items: [], total: 0, page: p, pageSize: size, totalPages: 1 };
+    }
     const rows = await selectAll();
     let all = rows
       .filter((a) => toApiStatus(a.status) === 'published')
       .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
+    if (catRaw) {
+      all = all.filter((a) => articleMatchesSectionCategory(a.category, catRaw));
+    }
     const needle = titleQuery != null ? String(titleQuery).trim().toLowerCase() : '';
     if (needle) {
       all = all.filter((a) => String(a.title || '').toLowerCase().includes(needle));
@@ -120,10 +131,12 @@ export const articlesDb = {
     };
   },
 
-  async listPublishedPopularSince(sinceMs, limit) {
+  async listPublishedPopularSince(sinceMs, limit, sectionCategory) {
     const since = Number(sinceMs);
     const lim = Math.min(50, Math.max(1, Number(limit) || 10));
     if (!Number.isFinite(since)) return [];
+    const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
+    if (catRaw && !isKnownSectionCategoryParam(catRaw)) return [];
     const sinceIso = new Date(since).toISOString();
     const { data, error } = await sb()
       .from('articles')
@@ -139,6 +152,7 @@ export const articlesDb = {
       if (fallback.error) throw fallback.error;
       const rowsFb = (fallback.data || []).map(rowToArticleRecord);
       return rowsFb
+        .filter((a) => !catRaw || articleMatchesSectionCategory(a.category, catRaw))
         .filter((a) => {
           const ref = popularWindowReferenceMs(a);
           return ref != null && ref >= since;
@@ -149,6 +163,7 @@ export const articlesDb = {
     }
     const rows = (data || []).map(rowToArticleRecord);
     return rows
+      .filter((a) => !catRaw || articleMatchesSectionCategory(a.category, catRaw))
       .filter((a) => {
         const ref = popularWindowReferenceMs(a);
         return ref != null && ref >= since;
@@ -158,10 +173,10 @@ export const articlesDb = {
       .map((a) => mapPublishedListItem(a));
   },
 
-  async listPublishedPopularByMonths(months, limit) {
+  async listPublishedPopularByMonths(months, limit, sectionCategory) {
     const m = Math.max(1, Math.min(24, Number(months) || 3));
     const sinceMs = Date.now() - m * 30 * 24 * 60 * 60 * 1000;
-    return this.listPublishedPopularSince(sinceMs, limit);
+    return this.listPublishedPopularSince(sinceMs, limit, sectionCategory);
   },
 
   async findByAuthor(authorId, reporterDisplayName) {

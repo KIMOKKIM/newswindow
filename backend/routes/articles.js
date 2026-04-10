@@ -75,13 +75,14 @@ articlesRouter.get('/public/list', async (req, res, next) => {
   }
 });
 
-// GET /api/articles/public/page — 전체기사 페이지 (최신순, ?q= 제목 부분일치)
+// GET /api/articles/public/page — 전체기사·섹션 (최신순, ?q= 제목, ?category= 섹션·하위분류)
 articlesRouter.get('/public/page', async (req, res, next) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
     const q = req.query.q != null ? String(req.query.q) : '';
-    const data = await articlesDb.listPublishedPaginated(page, limit, q);
+    const category = req.query.category != null ? String(req.query.category) : '';
+    const data = await articlesDb.listPublishedPaginated(page, limit, q, category);
     if (debug()) console.log('[articles] GET /public/page', data.page, '/', data.totalPages, 'total', data.total);
     res.json(data);
   } catch (e) {
@@ -89,22 +90,23 @@ articlesRouter.get('/public/page', async (req, res, next) => {
   }
 });
 
-// GET /api/articles/public/popular — 조회수 순 (days=30: 최근 30일, months: 생략 시 기본 3개월·전체기사 페이지용)
+// GET /api/articles/public/popular — 조회수 순 (?category= 섹션 시 해당 분류만)
 articlesRouter.get('/public/popular', async (req, res, next) => {
   try {
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const category = req.query.category != null ? String(req.query.category) : '';
     const daysQ = req.query.days;
     const hasDays = daysQ != null && String(daysQ).trim() !== '';
     let rows;
     if (hasDays) {
       const days = Math.max(1, Math.min(366, Number(daysQ) || 30));
       const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
-      rows = await articlesDb.listPublishedPopularSince(sinceMs, limit);
+      rows = await articlesDb.listPublishedPopularSince(sinceMs, limit, category);
       res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
       if (debug()) console.log('[articles] GET /public/popular days=', days, 'count=', rows.length);
     } else {
       const months = Number(req.query.months) || 3;
-      rows = await articlesDb.listPublishedPopularByMonths(months, limit);
+      rows = await articlesDb.listPublishedPopularByMonths(months, limit, category);
       res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
       if (debug()) console.log('[articles] GET /public/popular months=', months, 'count=', rows.length);
     }

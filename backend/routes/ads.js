@@ -96,20 +96,28 @@ function normalizeAdsResponse(data) {
   const base = { ...getDefaultAds(), ...data };
   const L = Array.isArray(base.sideLeftStack) ? base.sideLeftStack.slice(0, 4) : [];
   while (L.length < 4) L.push({ src: '', href: '#' });
-  if (base.sideLeft && String(base.sideLeft.src || '').trim() && !String(L[0].src || '').trim()) {
-    L[0] = { src: base.sideLeft.src, href: base.sideLeft.href || '#' };
+  if (
+    base.sideLeft &&
+    String(base.sideLeft.src || base.sideLeft.image || '').trim() &&
+    !String((L[0] && (L[0].src || L[0].image)) || '').trim()
+  ) {
+    L[0] = { src: base.sideLeft.src || base.sideLeft.image || '', href: base.sideLeft.href || '#' };
   }
   base.sideLeftStack = L.map((x) => ({
-    src: x.src || '',
+    src: (x && (x.src || x.image)) || '',
     href: normalizeAdHref(x.href || '#'),
   }));
   const R = Array.isArray(base.sideRightStack) ? base.sideRightStack.slice(0, 3) : [];
   while (R.length < 3) R.push({ src: '', href: '#' });
-  if (base.sideRight && String(base.sideRight.src || '').trim() && !String(R[0].src || '').trim()) {
-    R[0] = { src: base.sideRight.src, href: base.sideRight.href || '#' };
+  if (
+    base.sideRight &&
+    String(base.sideRight.src || base.sideRight.image || '').trim() &&
+    !String((R[0] && (R[0].src || R[0].image)) || '').trim()
+  ) {
+    R[0] = { src: base.sideRight.src || base.sideRight.image || '', href: base.sideRight.href || '#' };
   }
   base.sideRightStack = R.map((x) => ({
-    src: x.src || '',
+    src: (x && (x.src || x.image)) || '',
     href: normalizeAdHref(x.href || '#'),
   }));
   base.headerLeft = {
@@ -124,12 +132,12 @@ function normalizeAdsResponse(data) {
   };
   base.sideLeft = {
     ...base.sideLeft,
-    src: base.sideLeft.src || '',
+    src: base.sideLeft.src || base.sideLeft.image || '',
     href: normalizeAdHref(base.sideLeft.href),
   };
   base.sideRight = {
     ...base.sideRight,
-    src: base.sideRight.src || '',
+    src: base.sideRight.src || base.sideRight.image || '',
     href: normalizeAdHref(base.sideRight.href),
   };
   if (Array.isArray(base.footer)) {

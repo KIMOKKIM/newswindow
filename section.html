@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>전체기사 - 뉴스의 창</title>
+    <title>섹션 기사 - 뉴스의 창</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- 최상위: 좌 사이드광고 | 중앙 콘텐츠 | 우 사이드광고 -->
     <div class="page-wrapper">
-        <!-- 좌측 세로 광고 스택 4칸 (데스크톱만, sticky) — 포털형 레이아웃 -->
         <aside class="side-ad side-ad-left" aria-label="좌측 광고">
             <div class="side-ad-stack">
                 <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 1</span></a></div>
@@ -22,16 +20,14 @@
             </div>
         </aside>
 
-        <!-- 중앙: 기존 헤더·메뉴·메인·푸터 (max-width 유지) -->
         <div class="page-center">
-    <!-- 상단 헤더바: 업데이트 시간 + 글로벌 링크 -->
     <div class="top-header-bar">
         <div class="container top-header-inner">
             <span class="top-header-date" id="topHeaderDate">UPDATED: 2026-02-27 10:01 (금)</span>
             <nav class="top-header-links">
                 <a href="index.html">HOME</a>
                 <span class="top-header-sep">|</span>
-                <a href="all-articles.html" class="top-header-link--active" aria-current="page">전체기사</a>
+                <a href="all-articles.html">전체기사</a>
                 <span class="top-header-sep">|</span>
                 <a href="login.html">로그인</a>
                 <span class="top-header-sep">|</span>
@@ -40,25 +36,20 @@
         </div>
     </div>
 
-    <!-- 헤더: 좌측 광고 | 로고(뉴스의 창) | 우측 광고 -->
     <div class="logo-section">
         <div class="container logo-section-inner">
-            <!-- 좌측 광고 -->
             <a id="headerAdLeftLink" href="https://www.nonghyup.com/main/psniMain.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-left" title="NH농협 - 아침밥이 보약!">
                 <img id="headerAdLeftImg" src="./images/nonghyup-banner.png" alt="NH농협 아침밥이 보약! 아침부터 활약!" class="partner-banner-img" width="250" height="101">
             </a>
-            <!-- 중앙 로고 -->
             <a href="index.html" class="logo-block">
                 <img src="./images/logo-header-tight.png" alt="뉴스의 창 - 정론 · 직필 · 신속 KOREA PRESS" class="logo-img">
             </a>
-            <!-- 우측 광고 -->
             <a id="headerAdRightLink" href="https://council.chungbuk.kr/kr/main.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-right" title="충청북도의회 - 함께하는 충청북도의회">
                 <img id="headerAdRightImg" src="./images/chungbuk-council-banner.png" alt="충청북도의회 - 165만 도민의 오늘을 담고 내일을 만들어 가겠습니다" class="partner-banner-img" width="250" height="101">
             </a>
         </div>
     </div>
 
-    <!-- 네비게이션 바 -->
     <header class="header nav-bar">
         <div class="container header-inner">
             <button class="menu-btn nav-menu-btn" aria-label="메뉴 열기" aria-expanded="false">
@@ -135,13 +126,12 @@
         </div>
     </header>
 
-    <!-- 전체기사 -->
     <main class="main container all-articles-page">
         <div class="aa-layout">
             <div class="aa-primary">
                 <header class="aa-toolbar">
-                    <h1 class="aa-heading">기사 <span class="aa-count-wrap">(<span id="aaTotal">0</span>건)</span></h1>
-                    <input type="search" class="aa-list-search" id="aaListSearch" placeholder="기사 제목 검색" autocomplete="off" aria-label="기사 제목 검색">
+                    <h1 class="aa-heading"><span id="aaSectionTitle">섹션</span> 기사 <span class="aa-count-wrap">(<span id="aaTotal">0</span>건)</span></h1>
+                    <input type="search" class="aa-list-search" id="aaListSearch" placeholder="이 섹션에서 제목 검색" autocomplete="off" aria-label="섹션 기사 제목 검색">
                     <div class="aa-view-toggle" role="group" aria-label="보기 형식">
                         <button type="button" class="aa-view-btn" id="aaViewCompact" title="간단 리스트" aria-pressed="false">
                             <span class="aa-view-icon aa-view-icon--compact" aria-hidden="true"></span>
@@ -160,21 +150,19 @@
             <aside class="aa-side">
                 <label class="aa-side-search-label" for="aaPopularFilter">인기 기사 제목 검색</label>
                 <input type="search" class="aa-side-search" id="aaPopularFilter" placeholder="인기 기사 제목 검색" autocomplete="off">
-                <h2 class="aa-side-title">최근 많이 본 기사</h2>
-                <p class="aa-side-note">최근 30일 게시 기준 · 조회수 순 10건 (메인과 동일)</p>
+                <h2 class="aa-side-title" id="aaPopularSideTitle">많이 본 기사</h2>
+                <p class="aa-side-note">최근 30일 기준 · 조회수 순 10건</p>
                 <ol class="aa-popular-list" id="aaPopular"></ol>
             </aside>
         </div>
     </main>
 
-    <!-- 푸터 바로 위: 스폰서/광고 롤링 배너 (무한 좌측 흐름, hover 시 일시정지) -->
     <section class="footer-ad-section" aria-label="스폰서 배너">
         <div class="footer-ad-wrap">
             <div class="footer-ad-track" id="footerAdTrack"></div>
         </div>
     </section>
 
-    <!-- 푸터 -->
     <footer class="footer">
         <div class="footer-links">
             <div class="container" style="display:flex;gap:18px;flex-wrap:wrap;">
@@ -209,9 +197,7 @@
     </footer>
 
         </div>
-        <!-- /.page-center -->
 
-        <!-- 우측 세로 광고 스택 3칸 (상단 스카이스크래퍼형) -->
         <aside class="side-ad side-ad-right" aria-label="우측 광고">
             <div class="side-ad-stack">
                 <div class="side-ad-card side-ad-card--sky"><a href="#" id="sideAdR_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="400" decoding="async" hidden><span class="side-ad-ph">스카이 배너</span></a></div>
@@ -220,7 +206,6 @@
             </div>
         </aside>
     </div>
-    <!-- /.page-wrapper -->
 
     <script src="script.js"></script>
     <script src="article-list-shared.js"></script>
