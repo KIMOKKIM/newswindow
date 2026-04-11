@@ -92,10 +92,11 @@ var ARTICLES_API = (function () {
 
 /** shared/articleCategories.json과 동일 매핑 — admin articleMetaFormat.js 와 동기 */
 var NW_CATEGORY_VALUE_TO_LABEL = null;
+var NW_CATEGORY_SPEC = null;
 
 function nwLoadCategoryMap(done) {
-    if (NW_CATEGORY_VALUE_TO_LABEL !== null) {
-        done();
+    if (NW_CATEGORY_SPEC !== null) {
+        if (typeof done === 'function') done();
         return;
     }
     var url;
@@ -109,6 +110,7 @@ function nwLoadCategoryMap(done) {
             return res.ok ? res.json() : Promise.reject();
         })
         .then(function (data) {
+            NW_CATEGORY_SPEC = data;
             var m = {};
             var gr = data.groups || [];
             var i;
@@ -124,12 +126,216 @@ function nwLoadCategoryMap(done) {
                 m[top[i].value] = top[i].label;
             }
             NW_CATEGORY_VALUE_TO_LABEL = m;
-            done();
+            if (typeof done === 'function') done();
         })
         .catch(function () {
+            NW_CATEGORY_SPEC = { groups: [], topLevel: [] };
             NW_CATEGORY_VALUE_TO_LABEL = {};
-            done();
+            if (typeof done === 'function') done();
         });
+}
+
+function nwEscAttr(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+}
+
+function nwAfterCategoryMapReady() {
+    nwRenderSiteNav();
+}
+
+function nwRenderSiteNav() {
+    var root = document.getElementById('nwNavListRoot');
+    var grid = document.getElementById('nwNavMegaGrid');
+    if (!root || !grid || !NW_CATEGORY_SPEC) return;
+
+    var groups = NW_CATEGORY_SPEC.groups || [];
+    var top = NW_CATEGORY_SPEC.topLevel || [];
+    var cols = [];
+    var colIdx = 0;
+    var gi;
+    for (gi = 0; gi < groups.length; gi++) {
+        var g = groups[gi];
+        var majorG = String(g.title || '').trim();
+        cols.push({ major: majorG, label: majorG, items: g.items || [], col: colIdx++ });
+    }
+    for (gi = 0; gi < top.length; gi++) {
+        var t = top[gi];
+        var mv = String(t.value || '').trim();
+        cols.push({ major: mv, label: String(t.label || mv).trim(), items: [], col: colIdx++, topOnly: true });
+    }
+
+    var topHtml = '';
+    var megaHtml = '';
+    var ci;
+    for (ci = 0; ci < cols.length; ci++) {
+        var c = cols[ci];
+        var hl = c.topOnly && c.major.indexOf('&') !== -1 ? 'nav-highlight' : '';
+        var hasKids = c.items && c.items.length > 0;
+        topHtml += '<li class="nav-top-item' + (hasKids ? ' nav-has-dropdown' : '') + '" data-mega-col="' + c.col + '">';
+        topHtml +=
+            '<a href="' +
+            buildSectionHref(c.major) +
+            '" data-nw-section="' +
+            nwEscAttr(c.major) +
+            '"' +
+            (hl ? ' class="' + hl + '"' : '') +
+            '>' +
+            nwEscAttr(c.label) +
+            '</a>';
+        if (hasKids) {
+            topHtml += '<ul class="nav-dropdown">';
+            var ij;
+            for (ij = 0; ij < c.items.length; ij++) {
+                var it = c.items[ij];
+                topHtml +=
+                    '<li><a href="' +
+                    buildSectionHref(it.value) +
+                    '" data-nw-section="' +
+                    nwEscAttr(it.value) +
+                    '">' +
+                    nwEscAttr(it.label) +
+                    '</a></li>';
+            }
+            topHtml += '</ul>';
+        }
+        topHtml += '</li>';
+
+        megaHtml += '<div class="nav-mega-col" data-mega-col="' + c.col + '">';
+        megaHtml +=
+            '<h3 class="nav-mega-heading"><a href="' +
+            buildSectionHref(c.major) +
+            '" data-nw-section="' +
+            nwEscAttr(c.major) +
+            '"' +
+            (hl ? ' class="' + hl + '"' : '') +
+            '>' +
+            nwEscAttr(c.label) +
+            '</a></h3>';
+        if (hasKids) {
+            megaHtml += '<ul class="nav-mega-subs">';
+            for (ij = 0; ij < c.items.length; ij++) {
+                it = c.items[ij];
+                megaHtml +=
+                    '<li><a href="' +
+                    buildSectionHref(it.value) +
+                    '" data-nw-section="' +
+                    nwEscAttr(it.value) +
+                    '">' +
+                    nwEscAttr(it.label) +
+                    '</a></li>';
+            }
+            megaHtml += '</ul>';
+        }
+        megaHtml += '</div>';
+    }
+
+    root.innerHTML = topHtml;
+    grid.innerHTML = megaHtml;
+    nwApplySectionNavHrefs();
+    nwBindMegaMenuIfNeeded();
+}
+
+function nwBindMegaMenuIfNeeded() {
+    if (window.__nwMegaMenuBound) return;
+    var host = document.querySelector('.nav-mega-host');
+    var panel = document.getElementById('nwNavMegaPanel');
+    if (!host || !panel) return;
+    window.__nwMegaMenuBound = true;
+
+    var mq = window.matchMedia('(min-width: 769px)');
+    var closeTimer = null;
+
+    function clearClose() {
+        if (closeTimer) {
+            clearTimeout(closeTimer);
+            closeTimer = null;
+        }
+    }
+
+    function clearMegaActive() {
+        host.querySelectorAll('.is-mega-active').forEach(function (el) {
+            el.classList.remove('is-mega-active');
+        });
+    }
+
+    function setOpen(open) {
+        if (!mq.matches) {
+            panel.classList.remove('nav-mega-panel--open');
+            panel.setAttribute('aria-hidden', 'true');
+            clearMegaActive();
+            return;
+        }
+        if (open) {
+            panel.classList.add('nav-mega-panel--open');
+            panel.setAttribute('aria-hidden', 'false');
+        } else {
+            panel.classList.remove('nav-mega-panel--open');
+            panel.setAttribute('aria-hidden', 'true');
+            clearMegaActive();
+        }
+    }
+
+    function scheduleClose() {
+        clearClose();
+        closeTimer = setTimeout(function () {
+            closeTimer = null;
+            setOpen(false);
+        }, 120);
+    }
+
+    host.addEventListener('mouseenter', function () {
+        if (!mq.matches) return;
+        clearClose();
+        clearMegaActive();
+        setOpen(true);
+    });
+    host.addEventListener('mouseleave', function () {
+        if (!mq.matches) return;
+        scheduleClose();
+    });
+
+    host.addEventListener('focusin', function () {
+        if (!mq.matches) return;
+        clearClose();
+        setOpen(true);
+    });
+    host.addEventListener('focusout', function (e) {
+        if (!mq.matches) return;
+        var rt = e.relatedTarget;
+        if (rt && host.contains(rt)) return;
+        scheduleClose();
+    });
+
+    host.addEventListener('pointerover', function (e) {
+        if (!mq.matches || !panel.classList.contains('nav-mega-panel--open')) return;
+        var hit = e.target && e.target.closest ? e.target.closest('[data-mega-col]') : null;
+        if (!hit || !host.contains(hit)) return;
+        var idx = hit.getAttribute('data-mega-col');
+        if (idx == null) return;
+        host.querySelectorAll('[data-mega-col]').forEach(function (el) {
+            if (el.getAttribute('data-mega-col') === idx) el.classList.add('is-mega-active');
+            else el.classList.remove('is-mega-active');
+        });
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || !mq.matches) return;
+        if (!panel.classList.contains('nav-mega-panel--open')) return;
+        clearClose();
+        setOpen(false);
+    });
+
+    function onMqChange() {
+        if (!mq.matches) setOpen(false);
+    }
+    if (typeof mq.addEventListener === 'function') {
+        mq.addEventListener('change', onMqChange);
+    } else if (typeof mq.addListener === 'function') {
+        mq.addListener(onMqChange);
+    }
 }
 
 function nwCategoryLabelForValue(value) {
@@ -1234,7 +1440,7 @@ function nwFetchMainHomeBundle() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    nwLoadCategoryMap(function () {});
+    nwLoadCategoryMap(nwAfterCategoryMapReady);
     // 옛 메인 HTML이 nw-office 로 연결된 경우에도 통합 스태프 SPA 로 이동
     document.querySelectorAll('a[href*="nw-office/index"]').forEach(function (a) {
         a.setAttribute('href', '/admin');
@@ -1268,13 +1474,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 모바일 하위 메뉴 토글
-    document.querySelectorAll('.nav-has-dropdown > a').forEach(function (link) {
-        link.addEventListener('click', function (e) {
-            if (window.innerWidth <= 768) {
-                e.preventDefault();
-                this.parentElement.classList.toggle('is-expanded');
-            }
-        });
+    document.addEventListener('click', function (e) {
+        if (window.innerWidth > 768) return;
+        var a = e.target.closest('.nav-bar .nav-has-dropdown > a');
+        if (!a) return;
+        e.preventDefault();
+        var li = a.parentElement;
+        if (li && li.classList.contains('nav-has-dropdown')) {
+            li.classList.toggle('is-expanded');
+        }
     });
 
     // 검색 버튼 클릭 (폼 제출은 기본 동작, 필요시 확장)

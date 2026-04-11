@@ -60,78 +60,25 @@
 
     <!-- 네비게이션 바 -->
     <header class="header nav-bar">
+        <div class="nav-mega-host">
         <div class="container header-inner">
             <button class="menu-btn nav-menu-btn" aria-label="메뉴 열기" aria-expanded="false">
                 <span></span><span></span><span></span>
             </button>
             <nav class="nav" aria-label="주 메뉴">
-                <ul class="nav-list">
-                    <li class="nav-has-dropdown">
-                        <a href="#" data-nw-section="정치">정치</a>
-                        <ul class="nav-dropdown">
-                            <li><a href="#" data-nw-section="정치-최신뉴스">최신기사</a></li>
-                            <li><a href="#" data-nw-section="정치-지방자치">지방자치</a></li>
-                            <li><a href="#" data-nw-section="정치-외교">외교</a></li>
-                            <li><a href="#" data-nw-section="정치-북한">북한</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-has-dropdown">
-                        <a href="#" data-nw-section="경제">경제</a>
-                        <ul class="nav-dropdown">
-                            <li><a href="#" data-nw-section="경제-금융">금융</a></li>
-                            <li><a href="#" data-nw-section="경제-부동산">부동산</a></li>
-                            <li><a href="#" data-nw-section="경제-AI/IT">AI/IT</a></li>
-                            <li><a href="#" data-nw-section="경제-자동차">자동차</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-has-dropdown">
-                        <a href="#" data-nw-section="사회">사회</a>
-                        <ul class="nav-dropdown">
-                            <li><a href="#" data-nw-section="사회-시사">시사</a></li>
-                            <li><a href="#" data-nw-section="사회-건강/의료">건강/의료</a></li>
-                            <li><a href="#" data-nw-section="사회-교육">교육</a></li>
-                            <li><a href="#" data-nw-section="사회-리조트&테마">리조트&테마</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-has-dropdown">
-                        <a href="#" data-nw-section="문화">문화</a>
-                        <ul class="nav-dropdown">
-                            <li><a href="#" data-nw-section="문화-대중음악">대중음악</a></li>
-                            <li><a href="#" data-nw-section="문화-행사&공연">행사&공연</a></li>
-                            <li><a href="#" data-nw-section="문화-갤러리">갤러리</a></li>
-                            <li><a href="#" data-nw-section="문화-문학">문학</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-has-dropdown">
-                        <a href="#" data-nw-section="전국">전국</a>
-                        <ul class="nav-dropdown">
-                            <li><a href="#" data-nw-section="전국-서울">서울</a></li>
-                            <li><a href="#" data-nw-section="전국-경기">경기</a></li>
-                            <li><a href="#" data-nw-section="전국-강원">강원</a></li>
-                            <li><a href="#" data-nw-section="전국-충청">충청</a></li>
-                            <li><a href="#" data-nw-section="전국-영남">영남</a></li>
-                            <li><a href="#" data-nw-section="전국-호남">호남</a></li>
-                            <li><a href="#" data-nw-section="전국-제주">제주</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-has-dropdown">
-                        <a href="#" data-nw-section="이슈">이슈</a>
-                        <ul class="nav-dropdown">
-                            <li><a href="#" data-nw-section="이슈-연예&스포츠">연예&스포츠</a></li>
-                            <li><a href="#" data-nw-section="이슈-뷰티">뷰티</a></li>
-                            <li><a href="#" data-nw-section="이슈-여행&음식">여행&음식</a></li>
-                        </ul>
-                    </li>
-                    <li><a href="#" data-nw-section="국제">국제</a></li>
-                    <li><a href="#" data-nw-section="칼럼">칼럼</a></li>
-                    <li><a href="#" data-nw-section="포토뉴스&영상" class="nav-highlight">포토뉴스&영상</a></li>
-                </ul>
+                <ul class="nav-list" id="nwNavListRoot"></ul>
             </nav>
             <div class="header-actions">
                 <button type="button" class="search-icon-btn" aria-label="기사 검색">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 </button>
             </div>
+        </div>
+        <div class="nav-mega-panel" id="nwNavMegaPanel" role="region" aria-label="전체 카테고리" aria-hidden="true">
+            <div class="container nav-mega-inner">
+                <div id="nwNavMegaGrid" class="nav-mega-grid"></div>
+            </div>
+        </div>
         </div>
     </header>
 
@@ -199,8 +146,8 @@
             <div class="content-main">
                 <!-- 정치 -->
                 <section class="news-section">
-                    <h3 class="section-title"><a href="#" data-nw-section="정치">정치</a></h3>
-                    <p class="section-subcats"><a href="#" data-nw-section="정치-최신뉴스">최신기사</a> · <a href="#" data-nw-section="정치-지방자치">지방자치</a> · <a href="#" data-nw-section="정치-외교">외교</a> · <a href="#" data-nw-section="정치-북한">북한</a></p>
+                    <h3 class="section-title"><a href="section.html?category=%EC%A0%95%EC%B9%98" data-nw-section="정치">정치</a></h3>
+                    <p class="section-subcats"><a href="section.html?category=%EC%A0%95%EC%B9%98-%EC%B5%9C%EC%8B%A0%EB%89%B4%EC%8A%A4" data-nw-section="정치-최신뉴스">최신기사</a> · <a href="section.html?category=%EC%A0%95%EC%B9%98-%EC%A7%80%EB%B0%A9%EC%9E%90%EC%B9%98" data-nw-section="정치-지방자치">지방자치</a> · <a href="section.html?category=%EC%A0%95%EC%B9%98-%EC%99%B8%EA%B5%90" data-nw-section="정치-외교">외교</a> · <a href="section.html?category=%EC%A0%95%EC%B9%98-%EB%B6%81%ED%95%9C" data-nw-section="정치-북한">북한</a></p>
                     <ul class="section-list">
                         <li><a href="#">강석주 시의원, 한의약 난임치료 성과공유 및 발전방향 토론회 참석</a></li>
                         <li><a href="#">장태용 서울특별시의회 행정자치위원장, '서울미래인재재단'출범 이끌며 인재지원 판 바꿨다</a><span class="date">2026-02-13</span></li>
@@ -211,8 +158,8 @@
 
                 <!-- 경제 -->
                 <section class="news-section">
-                    <h3 class="section-title"><a href="#" data-nw-section="경제">경제</a></h3>
-                    <p class="section-subcats"><a href="#" data-nw-section="경제-금융">금융</a> · <a href="#" data-nw-section="경제-부동산">부동산</a> · <a href="#" data-nw-section="경제-AI/IT">AI/IT</a> · <a href="#" data-nw-section="경제-자동차">자동차</a></p>
+                    <h3 class="section-title"><a href="section.html?category=%EA%B2%BD%EC%A0%9C" data-nw-section="경제">경제</a></h3>
+                    <p class="section-subcats"><a href="section.html?category=%EA%B2%BD%EC%A0%9C-%EA%B8%88%EC%9C%B5" data-nw-section="경제-금융">금융</a> · <a href="section.html?category=%EA%B2%BD%EC%A0%9C-%EB%B6%80%EB%8F%99%EC%82%B0" data-nw-section="경제-부동산">부동산</a> · <a href="section.html?category=%EA%B2%BD%EC%A0%9C-AI%2FIT" data-nw-section="경제-AI/IT">AI/IT</a> · <a href="section.html?category=%EA%B2%BD%EC%A0%9C-%EC%9E%90%EB%8F%99%EC%B0%A8" data-nw-section="경제-자동차">자동차</a></p>
                     <ul class="section-list">
                         <li><a href="#">2025년 벤처투자 역대 두 번째 실적 유니콘기업 27개사 등 제3벤처붐 본격 시작</a></li>
                         <li><a href="#">제1차 '한미 전략적 투자 MOU 이행위원회' 개최</a><span class="date">2026-02-13</span></li>
@@ -223,8 +170,8 @@
 
                 <!-- 사회 -->
                 <section class="news-section">
-                    <h3 class="section-title"><a href="#" data-nw-section="사회">사회</a></h3>
-                    <p class="section-subcats"><a href="#" data-nw-section="사회-시사">시사</a> · <a href="#" data-nw-section="사회-건강/의료">건강/의료</a> · <a href="#" data-nw-section="사회-교육">교육</a> · <a href="#" data-nw-section="사회-리조트&테마">리조트&테마</a></p>
+                    <h3 class="section-title"><a href="section.html?category=%EC%82%AC%ED%9A%8C" data-nw-section="사회">사회</a></h3>
+                    <p class="section-subcats"><a href="section.html?category=%EC%82%AC%ED%9A%8C-%EC%8B%9C%EC%82%AC" data-nw-section="사회-시사">시사</a> · <a href="section.html?category=%EC%82%AC%ED%9A%8C-%EA%B1%B4%EA%B0%95%2F%EC%9D%98%EB%A3%8C" data-nw-section="사회-건강/의료">건강/의료</a> · <a href="section.html?category=%EC%82%AC%ED%9A%8C-%EA%B5%90%EC%9C%A1" data-nw-section="사회-교육">교육</a> · <a href="section.html?category=%EC%82%AC%ED%9A%8C-%EB%A6%AC%EC%A1%B0%ED%8A%B8%26%ED%85%8C%EB%A7%88" data-nw-section="사회-리조트&테마">리조트&테마</a></p>
                     <ul class="section-list">
                         <li><a href="#">2026년 마약류 관리 더 안전해집니다</a></li>
                         <li><a href="#">공직자의 민간에 대한 '부모찬스' 채용 등 부정청탁 금지</a><span class="date">2026-02-13</span></li>
@@ -235,8 +182,8 @@
 
                 <!-- 문화 -->
                 <section class="news-section">
-                    <h3 class="section-title"><a href="#" data-nw-section="문화">문화</a></h3>
-                    <p class="section-subcats"><a href="#" data-nw-section="문화-대중음악">대중음악</a> · <a href="#" data-nw-section="문화-행사&공연">행사&공연</a> · <a href="#" data-nw-section="문화-갤러리">갤러리</a> · <a href="#" data-nw-section="문화-문학">문학</a></p>
+                    <h3 class="section-title"><a href="section.html?category=%EB%AC%B8%ED%99%94" data-nw-section="문화">문화</a></h3>
+                    <p class="section-subcats"><a href="section.html?category=%EB%AC%B8%ED%99%94-%EB%8C%80%EC%A4%91%EC%9D%8C%EC%95%85" data-nw-section="문화-대중음악">대중음악</a> · <a href="section.html?category=%EB%AC%B8%ED%99%94-%ED%96%89%EC%82%AC%26%EA%B3%B5%EC%97%B0" data-nw-section="문화-행사&공연">행사&공연</a> · <a href="section.html?category=%EB%AC%B8%ED%99%94-%EA%B0%A4%EB%9F%AC%EB%A6%AC" data-nw-section="문화-갤러리">갤러리</a> · <a href="section.html?category=%EB%AC%B8%ED%99%94-%EB%AC%B8%ED%95%99" data-nw-section="문화-문학">문학</a></p>
                     <ul class="section-list">
                         <li><a href="#">넥슨 '아크 레이더스', 글로벌 시상식 'D.I.C.E 어워드'서 '올해의 온라인 게임' 부문 수상</a></li>
                         <li><a href="#">넥슨, '메이플스토리M' 신규 캐릭터 '일리움' 및 신규 보스 '칼로스' 업데이트</a><span class="date">2026-02-13</span></li>
@@ -247,8 +194,8 @@
 
                 <!-- 전국 -->
                 <section class="news-section">
-                    <h3 class="section-title"><a href="#" data-nw-section="전국">전국</a></h3>
-                    <p class="section-subcats"><a href="#" data-nw-section="전국-서울">서울</a> · <a href="#" data-nw-section="전국-경기">경기</a> · <a href="#" data-nw-section="전국-강원">강원</a> · <a href="#" data-nw-section="전국-충청">충청</a> · <a href="#" data-nw-section="전국-영남">영남</a> · <a href="#" data-nw-section="전국-호남">호남</a> · <a href="#" data-nw-section="전국-제주">제주</a></p>
+                    <h3 class="section-title"><a href="section.html?category=%EC%A0%84%EA%B5%AD" data-nw-section="전국">전국</a></h3>
+                    <p class="section-subcats"><a href="section.html?category=%EC%A0%84%EA%B5%AD-%EC%84%9C%EC%9A%B8" data-nw-section="전국-서울">서울</a> · <a href="section.html?category=%EC%A0%84%EA%B5%AD-%EA%B2%BD%EA%B8%B0" data-nw-section="전국-경기">경기</a> · <a href="section.html?category=%EC%A0%84%EA%B5%AD-%EA%B0%95%EC%9B%90" data-nw-section="전국-강원">강원</a> · <a href="section.html?category=%EC%A0%84%EA%B5%AD-%EC%B6%A9%EC%B2%AD" data-nw-section="전국-충청">충청</a> · <a href="section.html?category=%EC%A0%84%EA%B5%AD-%EC%98%81%EB%82%A8" data-nw-section="전국-영남">영남</a> · <a href="section.html?category=%EC%A0%84%EA%B5%AD-%ED%98%B8%EB%82%A8" data-nw-section="전국-호남">호남</a> · <a href="section.html?category=%EC%A0%84%EA%B5%AD-%EC%A0%9C%EC%A3%BC" data-nw-section="전국-제주">제주</a></p>
                     <ul class="section-list">
                         <li><a href="#">동두천시의회, 2026년 설 명절맞이 사회복지시설 격려 방문</a></li>
                         <li><a href="#">상주시, '친환경농업지원 심화교육' 교육 개최</a><span class="date">2026-02-13</span></li>
@@ -259,8 +206,8 @@
 
                 <!-- 이슈 -->
                 <section class="news-section">
-                    <h3 class="section-title"><a href="#" data-nw-section="이슈">이슈</a></h3>
-                    <p class="section-subcats"><a href="#" data-nw-section="이슈-연예&스포츠">연예&스포츠</a> · <a href="#" data-nw-section="이슈-뷰티">뷰티</a> · <a href="#" data-nw-section="이슈-여행&음식">여행&음식</a></p>
+                    <h3 class="section-title"><a href="section.html?category=%EC%9D%B4%EC%8A%88" data-nw-section="이슈">이슈</a></h3>
+                    <p class="section-subcats"><a href="section.html?category=%EC%9D%B4%EC%8A%88-%EC%97%B0%EC%98%88%26%EC%8A%A4%ED%8F%AC%EC%B8%A0" data-nw-section="이슈-연예&스포츠">연예&스포츠</a> · <a href="section.html?category=%EC%9D%B4%EC%8A%88-%EB%B7%B0%ED%8B%B0" data-nw-section="이슈-뷰티">뷰티</a> · <a href="section.html?category=%EC%9D%B4%EC%8A%88-%EC%97%AC%ED%96%89%26%EC%9D%8C%EC%8B%9D" data-nw-section="이슈-여행&음식">여행&음식</a></p>
                     <ul class="section-list">
                         <li><a href="#">넥슨 '아크 레이더스', 글로벌 시상식 'D.I.C.E 어워드'서 '올해의 온라인 게임' 부문 수상</a></li>
                         <li><a href="#">넥슨, '메이플스토리M' 신규 캐릭터 '일리움' 및 신규 보스 '칼로스' 업데이트</a><span class="date">2026-02-13</span></li>
@@ -272,7 +219,7 @@
                 <!-- 국제 / 칼럼 2열 -->
                 <div class="two-col-sections">
                     <section class="news-section">
-                        <h3 class="section-title"><a href="#" data-nw-section="국제">국제</a></h3>
+                        <h3 class="section-title"><a href="section.html?category=%EA%B5%AD%EC%A0%9C" data-nw-section="국제">국제</a></h3>
                         <ul class="section-list">
                             <li><a href="#">KAI, 항공을 넘어 우주로 사우디와의 협력 확대 노린다.</a><span class="date">2026-02-13</span></li>
                             <li><a href="#">삼성전자, KBIS 2026서 美 특화 가전 앞세워 브랜드 위상 강화</a><span class="date">2026-02-12</span></li>
@@ -280,7 +227,7 @@
                         </ul>
                     </section>
                     <section class="news-section">
-                        <h3 class="section-title"><a href="#" data-nw-section="칼럼">칼럼</a></h3>
+                        <h3 class="section-title"><a href="section.html?category=%EC%B9%BC%EB%9F%BC" data-nw-section="칼럼">칼럼</a></h3>
                         <ul class="section-list">
                             <li><a href="#">[칼럼] 영주시, 왜 발전하지 못했나?</a></li>
                             <li><a href="#">[칼럼] 제천시, 고향에서 한우 2마리로 출발, 수백억대 자산가로</a><span class="date">2026-02-13</span></li>
@@ -291,7 +238,7 @@
 
                 <!-- 포토뉴스&영상 -->
                 <section class="tv-section">
-                    <h3 class="section-title"><a href="#" data-nw-section="포토뉴스&영상">포토뉴스&영상</a></h3>
+                    <h3 class="section-title"><a href="section.html?category=%ED%8F%AC%ED%86%A0%EB%89%B4%EC%8A%A4%26%EC%98%81%EC%83%81" data-nw-section="포토뉴스&영상">포토뉴스&영상</a></h3>
                     <div class="tv-list">
                         <article class="tv-item">
                             <a href="#">
