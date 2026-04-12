@@ -1116,8 +1116,30 @@ var NW_HEADLINE_STALE_SESSION_KEY = 'nw_headline_hero_v1';
 var NW_HEADLINE_STALE_MAX_AGE_MS = 5 * 60 * 1000;
 /** Main bundle generation — ignore stale deferred callbacks after a newer bundle run. */
 var nwMainBundleSeq = 0;
-/** Last applied feed length — skip hero overwrite after full list (25+) is painted. */
+/** Last applied feed length — skip full replace after list (25+) is painted (hero still merges from headlines). */
 var nwLastArticleFeedLen = 0;
+/** Last full main-feed rows — merge /api/home/headlines thumbs when feed length > 5. */
+var nwMainArticlesSnapshot = [];
+
+function nwMergeHeadlineHeroFields(headlineRows, fullArticles) {
+    if (!Array.isArray(headlineRows) || !Array.isArray(fullArticles) || fullArticles.length === 0) {
+        return fullArticles;
+    }
+    var byId = {};
+    headlineRows.forEach(function (h) {
+        if (h && h.id != null) byId[String(h.id)] = h;
+    });
+    return fullArticles.map(function (a) {
+        if (!a || a.id == null) return a;
+        var h = byId[String(a.id)];
+        if (!h) return a;
+        var o = Object.assign({}, a);
+        ['imageUrl', 'thumb', 'heroImageUrl', 'image_url', 'thumbnailUrl', 'thumbnail_url'].forEach(function (k) {
+            if (h[k] != null && String(h[k]).trim() !== '') o[k] = h[k];
+        });
+        return o;
+    });
+}
 
 function nwReadStaleHeadlineHero() {
     try {
@@ -1643,6 +1665,7 @@ function nwRenderMostViewedRows(rows) {
 function nwApplyMainArticlesArray(articles) {
     if (!Array.isArray(articles) || articles.length === 0) {
         nwLastArticleFeedLen = 0;
+        nwMainArticlesSnapshot = [];
         renderLatestTop5FromList([]);
         return;
     }
@@ -1653,6 +1676,7 @@ function nwApplyMainArticlesArray(articles) {
     });
     if (articles.length === 0) {
         nwLastArticleFeedLen = 0;
+        nwMainArticlesSnapshot = [];
         renderLatestTop5FromList([]);
         return;
     }
@@ -1660,6 +1684,7 @@ function nwApplyMainArticlesArray(articles) {
         var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
         console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
     }
+    nwMainArticlesSnapshot = articles.slice();
     nwLastArticleFeedLen = articles.length;
     renderLatestTop5FromList(articles);
     requestAnimationFrame(function () {
@@ -1792,13 +1817,19 @@ function nwFetchNetworkHeadlinesWithTimeout(hadCachePaint, onSettled) {
         }
         if (nwLastArticleFeedLen > 5) {
             perf.headlineFetchEndMs = Math.round(nwPerfNow());
+            perf.headlineTimeout = false;
+            perf.headlineSource = 'network';
+            perf.headlineHeroFetchMs = Math.round(perf.headlineFetchEndMs - perf.headlineFetchStartMs);
             if (nwHomePerfReportingEnabled()) {
                 console.info('[nw-home-perf] headline fetch success', {
-                    skipped: true,
+                    mergedHero: true,
                     via: via,
                     feedLen: nwLastArticleFeedLen,
                 });
             }
+            nwWriteStaleHeadlineHero(rows);
+            var merged = nwMergeHeadlineHeroFields(rows, nwMainArticlesSnapshot);
+            if (merged.length) renderLatestTop5FromList(merged);
             doneOnce();
             return;
         }
