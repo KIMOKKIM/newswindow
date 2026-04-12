@@ -84,7 +84,11 @@ app.use('/api/home', homeRouter);
 app.use((err, req, res, next) => {
   console.error('[api]', err);
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: err.message || '서버 오류' });
+  const safe =
+    process.env.NODE_ENV === 'production'
+      ? '\uc77c\uc2dc\uc801\uc778 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.'
+      : err.message || '서버 오류';
+  res.status(500).json({ error: safe });
 });
 
 const adminDist = path.join(__dirname, '..', 'admin', 'dist');

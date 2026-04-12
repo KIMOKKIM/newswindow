@@ -2,7 +2,7 @@
  * Vercel: admin SPA 빌드 후 항상 `public/admin/` 에 복사 — `VERCEL` 환경 변수 미노출 시에도
  * 배포 산출물에 /admin 정적 파일이 포함되도록 함 (public → 사이트 루트 매핑 전제).
  */
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,10 @@ const MAIN_SITE_FILES = [
   'all-articles.html',
   'section.html',
   'article-list-shared.js',
+  'nw-seo.js',
+  'nw-article-render.js',
+  'author.html',
+  'robots.txt',
   'info.html',
   'signup.html',
   'login.html',
@@ -86,7 +90,7 @@ function injectMainSiteUploadOrigin() {
     return h;
   };
 
-  for (const name of ['index.html', 'article.html', 'section.html', 'all-articles.html']) {
+  for (const name of ['index.html', 'article.html', 'section.html', 'all-articles.html', 'author.html']) {
     const p = join(publicDir, name);
     if (!existsSync(p)) continue;
     writeFileSync(p, injectIntoHead(readFileSync(p, 'utf8')), 'utf8');
@@ -123,6 +127,20 @@ if (existsSync(join(sharedDir, 'articleCategories.json'))) {
   mkdirSync(publicSharedDir, { recursive: true });
   cpSync(join(sharedDir, 'articleCategories.json'), join(publicSharedDir, 'articleCategories.json'), { force: true });
   console.log('vercel-build: shared/articleCategories.json → public/shared/ …');
+}
+if (existsSync(join(sharedDir, 'seo.json'))) {
+  mkdirSync(publicSharedDir, { recursive: true });
+  cpSync(join(sharedDir, 'seo.json'), join(publicSharedDir, 'seo.json'), { force: true });
+  console.log('vercel-build: shared/seo.json → public/shared/ …');
+}
+
+const genMap = join(root, 'scripts', 'generate-sitemap.mjs');
+if (existsSync(genMap)) {
+  try {
+    execFileSync(process.execPath, [genMap], { cwd: root, stdio: 'inherit', env: process.env });
+  } catch (e) {
+    console.warn('vercel-build: generate-sitemap failed (non-fatal)', e && e.message);
+  }
 }
 
 console.log('vercel-build: public/ (main + admin) ready.');

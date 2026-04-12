@@ -8,16 +8,20 @@ import {
   reporterOwnsArticleRecord,
   mapListFields,
   mapDetail,
+  mapArticlePatchSnapshot,
   sortTimePublished,
   sortTimeMainFeed,
-  publicListThumb,
   mapPublishedListItem,
+  mapPublishedListRowForPublicFeed,
+  mapPublishedListHeroMinimal,
   rowToArticleRecord,
   normalizeTitleDedupeKey,
   dedupeWindowMs,
   popularWindowReferenceMs,
   comparePopularArticlesDesc,
   mainFeedArticleCap,
+  normalizeReporterNameForFilter,
+  formatSitemapLastMod,
 } from './articles.shared.js';
 import {
   articleMatchesSectionCategory,
@@ -30,7 +34,24 @@ function sb() {
 
 /** 목록·메인 피드용 — 본문/다중 이미지 제외 (SELECT * 금지) */
 const PUBLISHED_LIST_SELECT =
-  'id,title,subtitle,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1';
+  'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1';
+
+const ARTICLES_LIST_FROM = (() => {
+  const v = String(process.env.NW_ARTICLES_TABLE_LIST || 'articles_list_slim').trim();
+  return v === 'articles' || v === 'articles_list_slim' ? v : 'articles_list_slim';
+})();
+
+const PUBLISHED_HERO_SELECT =
+  'id,title,category,author_name,created_at,published_at,submitted_at,status,image1';
+
+const POPULAR_WINDOW_SELECT =
+  'id,title,category,author_name,published_at,created_at,views,image1';
+
+const ROW_LIGHT_SELECT =
+  'id,title,author_id,author_name,status,submitted_at,published_at,rejected_at';
+
+const PATCH_RETURN_COLS =
+  'id,title,subtitle,summary,author_name,author_id,category,status,created_at,updated_at,submitted_at,published_at,rejected_at,views';
 
 async function selectAll() {
   const { data, error } = await sb().from('articles').select('*');
@@ -47,6 +68,15 @@ async function resolveArticleRecord(id) {
     return rowToArticleRecord(data);
   }
   return null;
+}
+
+async function resolveArticleRowLight(id) {
+  if (id == null || id === '') return null;
+  const n = Number(id);
+  if (!Number.isFinite(n)) return null;
+  const { data, error } = await sb().from('articles').select(ROW_LIGHT_SELECT).eq('id', n).maybeSingle();
+  if (error) throw error;
+  return data ? rowToArticleRecord(data) : null;
 }
 
 export const articlesDb = {
@@ -71,42 +101,55 @@ export const articlesDb = {
     return [...rows].sort((a, b) => b.id - a.id).map((a) => mapListFields(a));
   },
 
-  async listPublishedForMain() {
-    const cap = mainFeedArticleCap();
+  /** 홈 첫 화면 전용 — 소수 행·좁은 SELECT·작은 JSON */
+  async listPublishedLatestHero(limit) {
+    const lim = Math.min(15, Math.max(1, Number(limit) || 5));
     const { data, error } = await sb()
-      .from('articles')
-      .select(PUBLISHED_LIST_SELECT)
-      .eq('status', 'published')
+      .from(ARTICLES_LIST_FROM)
+      .select(PUBLISHED_HERO_SELECT)
+      .in('status', ['published', 'approved'])
       .order('published_at', { ascending: false, nullsFirst: false })
-      .limit(cap);
+      .limit(lim);
     if (error) throw error;
     const rows = (data || []).map(rowToArticleRecord);
     return rows
       .filter((a) => isPublicFeedReadableStatus(a.status))
       .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
-      .map((a) => ({
-        id: a.id,
-        title: a.title || '',
-        subtitle: a.subtitle || '',
-        category: a.category || '',
-        author_name: a.author_name || '',
-        created_at: a.created_at || '',
-        published_at: a.published_at || '',
-        submitted_at: a.submitted_at || '',
-        updated_at: a.updated_at || '',
-        status: toApiStatus(a.status),
-        views: Number(a.views) || 0,
-        thumb: publicListThumb(a),
-      }));
+      .map((a) => mapPublishedListHeroMinimal(a));
   },
 
-  async listPublishedPaginated(page, pageSize, titleQuery, sectionCategory) {
+  async listPublishedLatest(limit) {
+    const cap = mainFeedArticleCap();
+    const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
+    /* DB: (status, published_at DESC) partial index on published rows speeds this path. */
+    const { data, error } = await sb()
+      .from(ARTICLES_LIST_FROM)
+      .select(PUBLISHED_LIST_SELECT)
+      .in('status', ['published', 'approved'])
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(lim);
+    if (error) throw error;
+    const rows = (data || []).map(rowToArticleRecord);
+    return rows
+      .filter((a) => isPublicFeedReadableStatus(a.status))
+      .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
+      .map((a) => mapPublishedListRowForPublicFeed(a));
+  },
+
+  async listPublishedForMain() {
+    return this.listPublishedLatest(mainFeedArticleCap());
+  },
+
+  async listPublishedPaginated(page, pageSize, titleQuery, sectionCategory, opts) {
     const size = Math.min(50, Math.max(1, Number(pageSize) || 20));
     const p = Math.max(1, Number(page) || 1);
     const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
     if (catRaw && !isKnownSectionCategoryParam(catRaw)) {
       return { items: [], total: 0, page: p, pageSize: size, totalPages: 1 };
     }
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const authorRaw = o.authorName != null ? String(o.authorName).trim() : '';
+    const excludeRaw = o.excludeId != null ? String(o.excludeId).trim() : '';
     const rows = await selectAll();
     let all = rows
       .filter((a) => toApiStatus(a.status) === 'published')
@@ -117,6 +160,15 @@ export const articlesDb = {
     const needle = titleQuery != null ? String(titleQuery).trim().toLowerCase() : '';
     if (needle) {
       all = all.filter((a) => String(a.title || '').toLowerCase().includes(needle));
+    }
+    if (authorRaw) {
+      const want = normalizeReporterNameForFilter(authorRaw);
+      if (want) {
+        all = all.filter((a) => normalizeReporterNameForFilter(a.author_name) === want);
+      }
+    }
+    if (excludeRaw) {
+      all = all.filter((a) => String(a.id) !== excludeRaw);
     }
     const total = all.length;
     const start = (p - 1) * size;
@@ -131,6 +183,19 @@ export const articlesDb = {
     };
   },
 
+  async listPublishedSitemapRows() {
+    const { data, error } = await sb()
+      .from('articles')
+      .select('id,updated_at,published_at,created_at')
+      .eq('status', 'published')
+      .order('id', { ascending: false });
+    if (error) throw error;
+    return (data || []).map((r) => ({
+      id: Number(r.id),
+      lastmod: formatSitemapLastMod(r.updated_at || r.published_at || r.created_at),
+    }));
+  },
+
   async listPublishedPopularSince(sinceMs, limit, sectionCategory) {
     const since = Number(sinceMs);
     const lim = Math.min(50, Math.max(1, Number(limit) || 10));
@@ -138,30 +203,38 @@ export const articlesDb = {
     const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
     if (catRaw && !isKnownSectionCategoryParam(catRaw)) return [];
     const sinceIso = new Date(since).toISOString();
-    const { data, error } = await sb()
-      .from('articles')
-      .select(PUBLISHED_LIST_SELECT)
-      .eq('status', 'published')
-      .or(`published_at.gte.${sinceIso},created_at.gte.${sinceIso}`);
-    if (error) {
-      const fallback = await sb()
-        .from('articles')
-        .select(PUBLISHED_LIST_SELECT)
-        .eq('status', 'published')
-        .gte('published_at', sinceIso);
-      if (fallback.error) throw fallback.error;
-      const rowsFb = (fallback.data || []).map(rowToArticleRecord);
-      return rowsFb
-        .filter((a) => !catRaw || articleMatchesSectionCategory(a.category, catRaw))
-        .filter((a) => {
-          const ref = popularWindowReferenceMs(a);
-          return ref != null && ref >= since;
-        })
-        .sort(comparePopularArticlesDesc)
-        .slice(0, lim)
-        .map((a) => mapPublishedListItem(a));
+    /* Narrow at DB: status + published_at window; avoid unbounded OR on dates (statement timeouts). */
+    const fetchCap = Math.min(200, Math.max(lim * 8, 64));
+    let q = sb()
+      .from(ARTICLES_LIST_FROM)
+      .select(POPULAR_WINDOW_SELECT)
+      .in('status', ['published', 'approved'])
+      .gte('published_at', sinceIso)
+      .order('views', { ascending: false })
+      .limit(fetchCap);
+    const { data, error } = await q;
+    if (error) throw error;
+    let rows = (data || []).map(rowToArticleRecord);
+    if (String(process.env.NW_HOME_POPULAR_INCLUDE_NULL_PUB_AT || '').trim() === '1') {
+      const { data: d2, error: e2 } = await sb()
+        .from(ARTICLES_LIST_FROM)
+        .select(POPULAR_WINDOW_SELECT)
+        .in('status', ['published', 'approved'])
+        .is('published_at', null)
+        .gte('created_at', sinceIso)
+        .order('views', { ascending: false })
+        .limit(24);
+      if (!e2 && d2 && d2.length) {
+        const seen = new Set(rows.map((r) => r.id));
+        for (const r of d2) {
+          const rec = rowToArticleRecord(r);
+          if (!seen.has(rec.id)) {
+            rows.push(rec);
+            seen.add(rec.id);
+          }
+        }
+      }
     }
-    const rows = (data || []).map(rowToArticleRecord);
     return rows
       .filter((a) => !catRaw || articleMatchesSectionCategory(a.category, catRaw))
       .filter((a) => {
@@ -279,9 +352,13 @@ export const articlesDb = {
     return resolveArticleRecord(id);
   },
 
+  async recordLightForPatch(id) {
+    return resolveArticleRowLight(id);
+  },
+
   async update(id, authorId, data, reporterDisplayName) {
-    const a = await resolveArticleRecord(id);
-    if (!a || !reporterOwnsArticleRecord(a, authorId, reporterDisplayName)) return false;
+    const a = await resolveArticleRowLight(id);
+    if (!a || !reporterOwnsArticleRecord(a, authorId, reporterDisplayName)) return { ok: false };
     const now = nowStr();
     const patch = { updated_at: now };
     if (data.title !== undefined) patch.title = data.title;
@@ -309,14 +386,19 @@ export const articlesDb = {
       if (next === 'published') patch.published_at = a.published_at || now;
       if (next === 'rejected') patch.rejected_at = a.rejected_at || now;
     }
-    const { error } = await sb().from('articles').update(patch).eq('id', a.id);
+    const { data: updated, error } = await sb()
+      .from('articles')
+      .update(patch)
+      .eq('id', a.id)
+      .select(PATCH_RETURN_COLS)
+      .single();
     if (error) throw error;
-    return true;
+    return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
   },
 
   async updateByStaff(id, data) {
-    const a = await resolveArticleRecord(id);
-    if (!a) return false;
+    const a = await resolveArticleRowLight(id);
+    if (!a) return { ok: false };
     const now = nowStr();
     const patch = { updated_at: now };
     if (data.title !== undefined) patch.title = data.title;
@@ -344,9 +426,14 @@ export const articlesDb = {
       if (next === 'published') patch.published_at = a.published_at || now;
       if (next === 'rejected') patch.rejected_at = a.rejected_at || now;
     }
-    const { error } = await sb().from('articles').update(patch).eq('id', a.id);
+    const { data: updated, error } = await sb()
+      .from('articles')
+      .update(patch)
+      .eq('id', a.id)
+      .select(PATCH_RETURN_COLS)
+      .single();
     if (error) throw error;
-    return true;
+    return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
   },
 
   async updateStatus(id, status) {
@@ -394,7 +481,7 @@ export const articlesDb = {
     const a = await resolveArticleRecord(id);
     if (!a) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
     const st = toApiStatus(a.status);
-    if (st === 'published') return { ok: true, idempotent: true, article: mapDetail(a) };
+    if (st === 'published') return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(a) };
     if (st !== 'submitted')
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 승인할 수 있습니다.' };
     const now = nowStr();
@@ -408,13 +495,13 @@ export const articlesDb = {
       })
       .eq('id', n)
       .in('status', ['submitted', 'pending', 'sent'])
-      .select()
+      .select(PATCH_RETURN_COLS)
       .maybeSingle();
     if (error) throw error;
-    if (data) return { ok: true, article: mapDetail(rowToArticleRecord(data)) };
+    if (data) return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(data)) };
     const again = await resolveArticleRecord(id);
     if (again && toApiStatus(again.status) === 'published')
-      return { ok: true, idempotent: true, article: mapDetail(again) };
+      return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(again) };
     return { ok: false, http: 409, error: '이미 처리되었거나 승인할 수 없는 상태입니다.' };
   },
 
@@ -422,7 +509,7 @@ export const articlesDb = {
     const a = await resolveArticleRecord(id);
     if (!a) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
     const st = toApiStatus(a.status);
-    if (st === 'rejected') return { ok: true, idempotent: true, article: mapDetail(a) };
+    if (st === 'rejected') return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(a) };
     if (st !== 'submitted')
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 반려할 수 있습니다.' };
     const now = nowStr();
@@ -436,13 +523,13 @@ export const articlesDb = {
       })
       .eq('id', n)
       .in('status', ['submitted', 'pending', 'sent'])
-      .select()
+      .select(PATCH_RETURN_COLS)
       .maybeSingle();
     if (error) throw error;
-    if (data) return { ok: true, article: mapDetail(rowToArticleRecord(data)) };
+    if (data) return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(data)) };
     const again = await resolveArticleRecord(id);
     if (again && toApiStatus(again.status) === 'rejected')
-      return { ok: true, idempotent: true, article: mapDetail(again) };
+      return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(again) };
     return { ok: false, http: 409, error: '이미 처리되었거나 반려할 수 없는 상태입니다.' };
   },
 };

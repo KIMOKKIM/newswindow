@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Staff SPA (optional crawl exclusion)
+Disallow: /admin/
+
+Sitemap: https://www.newswindow.kr/sitemap.xml

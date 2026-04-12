@@ -8,6 +8,7 @@ import {
   normalizeTitleDedupeKey,
   dedupeWindowMs,
 } from '../db/articles.js';
+import { sanitizeForPublicListPayloadArr, sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
 import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js';
 import { authMiddleware } from '../middleware/auth.js';
 
@@ -39,6 +40,7 @@ articlesRouter.use((req, res, next) => {
 });
 
 const debug = () => process.env.NW_DEBUG === '1';
+const saveTiming = () => String(process.env.NW_SAVE_TIMING_LOG || '').trim() === '1';
 
 /** 동일 기자·짧은 시간·동일(정규화) 제목 송고/게시 중복 차단 */
 async function assertNoRecentDupSubmit(articlesDbClient, { authorId, title, excludeId }) {
@@ -69,11 +71,54 @@ articlesRouter.get('/public/list', async (req, res, next) => {
   try {
     const rows = await articlesDb.listPublishedForMain();
     if (debug()) console.log('[articles] GET /public/list count=', rows.length);
-    res.json(rows);
+    res.json(sanitizeForPublicListPayloadArr(rows));
   } catch (e) {
     next(e);
   }
 });
+
+// Static /public/* routes must be registered before /public/:id (otherwise "latest" is parsed as id).
+
+// GET /api/articles/public/latest — 메인 상단용 (?hero=1 이면 첫 페인트용 초소형 JSON, limit 기본 5)
+articlesRouter.get('/public/latest', async (req, res, next) => {
+  try {
+    const hq = req.query.hero;
+    const hero =
+      hq === '1' ||
+      hq === 1 ||
+      hq === true ||
+      (Array.isArray(hq) && hq.some((x) => String(x).trim() === '1')) ||
+      String(hq || '').trim() === '1';
+    const limit = hero
+      ? Math.min(15, Math.max(1, Number(req.query.limit) || 5))
+      : Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const t0 = Date.now();
+    const rows = hero
+      ? await articlesDb.listPublishedLatestHero(limit)
+      : await articlesDb.listPublishedLatest(limit);
+    const serverMs = Date.now() - t0;
+    const payload = hero ? sanitizeHeroPublicResponseArr(rows) : sanitizeForPublicListPayloadArr(rows);
+    const jsonBytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
+    res.set('X-NW-Public-Latest-Hero', hero ? '1' : '0');
+    res.set('X-NW-Public-Latest-Timing-Ms', String(serverMs));
+    res.set('X-NW-Public-Latest-Json-Bytes', String(jsonBytes));
+    res.set(
+      'Access-Control-Expose-Headers',
+      'X-NW-Public-Latest-Hero, X-NW-Public-Latest-Timing-Ms, X-NW-Public-Latest-Json-Bytes',
+    );
+    res.set(
+      'Cache-Control',
+      hero
+        ? 'public, s-maxage=60, stale-while-revalidate=120'
+        : 'public, s-maxage=30, stale-while-revalidate=90',
+    );
+    if (debug()) console.log('[articles] GET /public/latest hero=', hero, 'limit=', limit, 'count=', rows.length, 'ms=', serverMs, 'bytes=', jsonBytes);
+    res.json(payload);
+  } catch (e) {
+    next(e);
+  }
+});
+
 
 // GET /api/articles/public/page — 전체기사·섹션 (최신순, ?q= 제목, ?category= 섹션·하위분류)
 articlesRouter.get('/public/page', async (req, res, next) => {
@@ -82,15 +127,33 @@ articlesRouter.get('/public/page', async (req, res, next) => {
     const limit = Number(req.query.limit) || 20;
     const q = req.query.q != null ? String(req.query.q) : '';
     const category = req.query.category != null ? String(req.query.category) : '';
-    const data = await articlesDb.listPublishedPaginated(page, limit, q, category);
+    const authorName = req.query.author != null ? String(req.query.author) : '';
+    const excludeId = req.query.exclude_id != null ? String(req.query.exclude_id) : '';
+    const opts = {};
+    if (authorName.trim()) opts.authorName = authorName;
+    if (excludeId.trim()) opts.excludeId = excludeId;
+    const data = await articlesDb.listPublishedPaginated(page, limit, q, category, opts);
     if (debug()) console.log('[articles] GET /public/page', data.page, '/', data.totalPages, 'total', data.total);
-    res.json(data);
+    res.json({
+      ...data,
+      items: sanitizeForPublicListPayloadArr(data.items || []),
+    });
   } catch (e) {
     next(e);
   }
 });
 
 // GET /api/articles/public/popular — 조회수 순 (?category= 섹션 시 해당 분류만)
+
+
+articlesRouter.get('/public/sitemap-entries', async (req, res, next) => {
+  try {
+    const articles = await articlesDb.listPublishedSitemapRows();
+    res.json({ siteUrl: 'https://www.newswindow.kr', articles });
+  } catch (e) {
+    next(e);
+  }
+});
 articlesRouter.get('/public/popular', async (req, res, next) => {
   try {
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
@@ -110,14 +173,14 @@ articlesRouter.get('/public/popular', async (req, res, next) => {
       res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
       if (debug()) console.log('[articles] GET /public/popular months=', months, 'count=', rows.length);
     }
-    res.json(rows);
+    res.json(sanitizeForPublicListPayloadArr(rows));
   } catch (e) {
     next(e);
   }
 });
 
 // GET /api/articles/public/:id — 공개 기사 상세 (published 만; 조회수 증가는 published)
-articlesRouter.get('/public/:id', async (req, res, next) => {
+articlesRouter.get('/public/:id(\\d+)', async (req, res, next) => {
   try {
     const raw = await articlesDb.rawRecord(req.params.id);
     if (!raw) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
@@ -239,12 +302,14 @@ articlesRouter.post('/', authMiddleware, async (req, res, next) => {
 
 // PATCH /api/articles/:id — 기자: 본인 기사 수정 (임시저장/작성완료/송고)
 articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
+  const t0 = Date.now();
   try {
     const role = req.user.role;
     if (role === 'reporter') {
       const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status } =
         req.body;
-      const raw = await articlesDb.rawRecord(req.params.id);
+      const tAfterBody = Date.now();
+      const raw = await articlesDb.recordLightForPatch(req.params.id);
       if (!raw) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
       const prevCanon = canonicalStoreStatus(raw.status);
       const nextCanon = status !== undefined ? canonicalStoreStatus(status) : prevCanon;
@@ -263,7 +328,8 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
           throw e;
         }
       }
-      const ok = await articlesDb.update(
+      const tAfterDup = Date.now();
+      const upd = await articlesDb.update(
         req.params.id,
         req.user.id,
         {
@@ -287,10 +353,24 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
         },
         req.user.name
       );
-      if (!ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-      const row = await articlesDb.findById(req.params.id, req.user.id, req.user.name);
-      if (debug()) console.log('[articles] PATCH reporter', { id: row?.id, status: row?.status });
-      return res.json({ message: '수정되었습니다.', article: row });
+      const tAfterDb = Date.now();
+      if (!upd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+      if (debug()) console.log('[articles] PATCH reporter', { id: upd.article?.id, status: upd.article?.status });
+      if (saveTiming()) {
+        console.log(
+          '[nw/articles/save]',
+          JSON.stringify({
+            role: 'reporter',
+            id: req.params.id,
+            validateMs: tAfterBody - t0,
+            dupAndLoadMs: tAfterDup - tAfterBody,
+            dbMs: tAfterDb - tAfterDup,
+            totalMs: Date.now() - t0,
+            responseBytes: Buffer.byteLength(JSON.stringify({ message: '수정되었습니다.', article: upd.article }), 'utf8'),
+          }),
+        );
+      }
+      return res.json({ message: '수정되었습니다.', article: upd.article });
     }
     if (role !== 'admin' && role !== 'editor_in_chief') {
       return res.status(403).json({ error: '권한 없음' });
@@ -343,10 +423,25 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (!hasMeta) {
       return res.status(400).json({ error: '수정할 필드가 없습니다. approve/reject 또는 본문 필드를 보내세요.' });
     }
-    const ok = await articlesDb.updateByStaff(id, payload);
-    if (!ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-    const row = await articlesDb.findById(id, null);
-    return res.json({ message: '저장되었습니다.', article: row });
+    const tStaffPayload = Date.now();
+    const staffUpd = await articlesDb.updateByStaff(id, payload);
+    const tStaffDb = Date.now();
+    if (!staffUpd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+    if (saveTiming()) {
+      const bodyOut = { message: '저장되었습니다.', article: staffUpd.article };
+      console.log(
+        '[nw/articles/save]',
+        JSON.stringify({
+          role: 'staff',
+          id,
+          validateMs: tStaffPayload - t0,
+          dbMs: tStaffDb - tStaffPayload,
+          totalMs: Date.now() - t0,
+          responseBytes: Buffer.byteLength(JSON.stringify(bodyOut), 'utf8'),
+        }),
+      );
+    }
+    return res.json({ message: '저장되었습니다.', article: staffUpd.article });
   } catch (e) {
     if (isDupConflict(e)) {
       return res.status(409).json({ error: e.message, existingId: e.existingId });

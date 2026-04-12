@@ -114,6 +114,19 @@
     return n + ' 기자';
   }
 
+  function authorLinkHtml(rawName) {
+    var n = String(rawName || '').trim();
+    var line = reporterLine(rawName);
+    if (!n) return esc(line);
+    return (
+      '<a class="aa-author-link" href="' +
+      esc('author.html?name=' + encodeURIComponent(n)) +
+      '">' +
+      esc(line) +
+      '</a>'
+    );
+  }
+
   function getView() {
     try {
       var v = localStorage.getItem(VIEW_KEY);
@@ -150,7 +163,7 @@
     return renderGroupsHTML(items, function (it) {
       var cat = esc(it.category || '뉴스');
       var title = esc(it.title || '');
-      var auth = esc(reporterLine(it.author_name));
+      var auth = authorLinkHtml(it.author_name);
       var dt = esc(fmtNewsDate(it.published_at));
       return (
         '<article class="aa-row aa-row--list">' +
@@ -200,7 +213,13 @@
     items.forEach(function (it) {
       var rawThumb = it.thumb || '';
       var thumbUrl = resolveThumb(rawThumb);
-      var thumb = thumbUrl ? '<img src="' + esc(thumbUrl) + '" alt="" loading="lazy" decoding="async">' : '';
+      var thumb = thumbUrl
+        ? '<img src="' +
+          esc(thumbUrl) +
+          '" alt="' +
+          esc(it.title || '') +
+          '" loading="lazy" decoding="async">'
+        : '';
       html +=
         '<article class="aa-card">' +
         '<a href="' +
@@ -216,7 +235,7 @@
         esc(it.title || '') +
         '</h3>' +
         '<p class="aa-card-meta">' +
-        esc(reporterLine(it.author_name)) +
+        authorLinkHtml(it.author_name) +
         ' · ' +
         esc(fmtNewsDate(it.published_at)) +
         '</p></div>' +
@@ -398,6 +417,29 @@
     return false;
   }
 
+  function resolveSectionIntro(cat, spec, seo) {
+    if (!seo || !cat) return '';
+    var top = seo.topLevelSectionIntros && seo.topLevelSectionIntros[cat];
+    if (top) return top;
+    if (!spec || !spec.groups) return '';
+    var i;
+    var j;
+    var g;
+    for (i = 0; i < spec.groups.length; i++) {
+      g = spec.groups[i];
+      if (!g || !g.id) continue;
+      if (g.title && String(g.title).trim() === cat) {
+        return (seo.sectionIntroByGroupId && seo.sectionIntroByGroupId[g.id]) || '';
+      }
+      for (j = 0; j < (g.items || []).length; j++) {
+        if (g.items[j].value && String(g.items[j].value).trim() === cat) {
+          return (seo.sectionIntroByGroupId && seo.sectionIntroByGroupId[g.id]) || '';
+        }
+      }
+    }
+    return '';
+  }
+
   function updateSectionTitles(displayLabel) {
     var st = document.getElementById('aaSectionTitle');
     if (st) st.textContent = displayLabel;
@@ -435,6 +477,11 @@
 
     if (!SECTION_MODE) {
       SECTION_CATEGORY = null;
+      if (typeof nwSeoApplyAllArticlesPage === 'function') {
+        try {
+          nwSeoApplyAllArticlesPage(page, q);
+        } catch (eSeo) {}
+      }
       fetchListPage(page, q, getView());
       fetchPopular();
       return;
@@ -464,8 +511,30 @@
         }
         var label = resolveDisplayLabel(SECTION_CATEGORY, spec);
         updateSectionTitles(label);
-        fetchListPage(page, q, getView());
-        fetchPopular();
+        return fetch('shared/seo.json', { cache: 'force-cache' })
+          .then(function (rSeo) {
+            return rSeo.ok ? rSeo.json() : {};
+          })
+          .then(function (seo) {
+            var intro = resolveSectionIntro(SECTION_CATEGORY, spec, seo || {});
+            var introEl = document.getElementById('aaSectionIntro');
+            if (introEl) {
+              if (intro) {
+                introEl.textContent = intro;
+                introEl.hidden = false;
+              } else {
+                introEl.textContent = '';
+                introEl.hidden = true;
+              }
+            }
+            if (typeof nwSeoApplySectionPage === 'function') {
+              try {
+                nwSeoApplySectionPage(SECTION_CATEGORY, label, intro);
+              } catch (eSeo2) {}
+            }
+            fetchListPage(page, q, getView());
+            fetchPopular();
+          });
       })
       .catch(function () {
         updateSectionTitles(SECTION_CATEGORY);

@@ -50,6 +50,32 @@ CREATE INDEX IF NOT EXISTS idx_articles_status ON public.articles (status);
 CREATE INDEX IF NOT EXISTS idx_articles_author_id ON public.articles (author_id);
 -- 메인 피드: published 최신순·인기 구간 필터 (선택 적용, 운영 DB에서 ANALYZE 후 판단)
 CREATE INDEX IF NOT EXISTS idx_articles_published_at_desc ON public.articles (published_at DESC NULLS LAST);
+-- Home popular: status + published_at range, views sort (run ANALYZE after deploy)
+CREATE INDEX IF NOT EXISTS idx_articles_status_pub_at_views ON public.articles (status, published_at DESC NULLS LAST, views DESC NULLS LAST);
+
+-- Published-only list: trim huge data:image in image1 (smaller list/latest/home queries)
+CREATE OR REPLACE VIEW public.articles_list_slim
+WITH (security_invoker = true)
+AS
+SELECT
+  id,
+  title,
+  category,
+  author_name,
+  created_at,
+  published_at,
+  submitted_at,
+  updated_at,
+  status,
+  views,
+  CASE
+    WHEN image1 IS NULL OR btrim(image1) = '' THEN image1
+    WHEN image1 LIKE 'data:%' AND length(image1) > 2600 THEN ''
+    ELSE image1
+  END AS image1
+FROM public.articles
+WHERE lower(trim(coalesce(status, ''))) IN ('published', 'approved');
+
 
 -- ━━━ 광고 레이아웃 JSON (기존 normalizeAdsResponse 구조 그대로 저장) ━━━
 CREATE TABLE IF NOT EXISTS public.ad_site_config (

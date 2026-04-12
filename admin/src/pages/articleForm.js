@@ -14,6 +14,9 @@ import {
   formatArticleMetaDateYmd,
 } from '../../../shared/articleMetaFormat.js';
 
+const NW_SAVE_SLOW_MSG =
+  '\uc800\uc7a5 \ucc98\ub9ac \uc2dc\uac04\uc774 \uae38\uc5b4\uc9c0\uace0 \uc788\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.';
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -215,7 +218,12 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         return;
       }
       if (!res.ok) {
-        errEl.textContent = (data && data.error) || '저장 실패';
+        const rawErr = (data && data.error) || '저장 실패';
+        const slow =
+          res.status === 504 ||
+          res.status === 408 ||
+          /timeout|ETIMEDOUT|Gateway/i.test(String(rawErr));
+        errEl.textContent = slow ? NW_SAVE_SLOW_MSG : rawErr;
         errEl.style.display = 'block';
         return;
       }
@@ -228,7 +236,11 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         navigate('/admin/article/' + id + '/edit');
       } else {
         alert(savedMsg);
-        article = data.article || data;
+        const patch = data.article || data;
+        article =
+          patch && typeof patch === 'object' && article && typeof article === 'object'
+            ? Object.assign({}, article, patch)
+            : patch || article;
       }
     } finally {
       setFormBusy(false);
@@ -251,13 +263,22 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         return;
       }
       if (!res.ok) {
-        errEl.textContent = (data && data.error) || '저장 실패';
+        const rawErr = (data && data.error) || '저장 실패';
+        const slow =
+          res.status === 504 ||
+          res.status === 408 ||
+          /timeout|ETIMEDOUT|Gateway/i.test(String(rawErr));
+        errEl.textContent = slow ? NW_SAVE_SLOW_MSG : rawErr;
         errEl.style.display = 'block';
         return;
       }
       bumpMainArticleListCache();
       alert((data && data.message) || '저장되었습니다.');
-      if (data && data.article) article = data.article;
+      if (data && data.article && article && typeof article === 'object') {
+        article = Object.assign({}, article, data.article);
+      } else if (data && data.article) {
+        article = data.article;
+      }
     } finally {
       setFormBusy(false);
     }

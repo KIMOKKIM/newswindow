@@ -5,7 +5,7 @@
       "id": "politics",
       "title": "정치",
       "items": [
-        { "value": "정치-최신뉴스", "label": "최신기사" },
+        { "value": "정치-최신뉴스", "label": "최신뉴스" },
         { "value": "정치-지방자치", "label": "지방자치" },
         { "value": "정치-외교", "label": "외교" },
         { "value": "정치-북한", "label": "북한" }

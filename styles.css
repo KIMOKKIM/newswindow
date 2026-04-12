@@ -2044,3 +2044,135 @@ body:has(#nwLatestTop5) .headline-section {
         font-size: 1.75rem;
     }
 }
+
+.aa-section-intro {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    background: #f6f8fb;
+    border: 1px solid var(--color-border, #e6e6e6);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: #333;
+}
+
+.aa-author-link {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.aa-author-link:hover {
+    color: var(--color-link, #2d7dd2);
+}
+
+.nw-article-detail__author-link {
+    color: var(--color-link, #2d7dd2);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.nw-article-detail__author-link:hover {
+    text-decoration: underline;
+}
+
+.nw-article-detail__section-nav {
+    margin-top: 8px;
+    font-size: 0.875rem;
+}
+
+.nw-article-detail__section-nav a {
+    color: var(--color-link, #2d7dd2);
+}
+
+.nw-article-detail__summary {
+    margin: 16px 0 20px;
+    padding: 14px 16px;
+    background: #f9fafb;
+    border: 1px solid var(--color-border, #e6e6e6);
+    border-radius: 8px;
+}
+
+.nw-article-detail__summary-title {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.nw-article-detail__summary-lead,
+.nw-article-detail__summary-hint {
+    margin: 0 0 8px;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: #222;
+}
+
+.nw-article-detail__summary-hint {
+    font-size: 0.8125rem;
+    color: #555;
+    margin-bottom: 0;
+}
+
+.nw-article-detail__summary-list {
+    margin: 0 0 8px 1.1em;
+    padding: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+}
+
+.nw-related-articles {
+    margin: 24px 0 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border, #e6e6e6);
+}
+
+.nw-related-title {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.nw-related-list {
+    margin: 0;
+    padding-left: 1.2em;
+    line-height: 1.7;
+}
+
+.nw-related-list a {
+    color: var(--color-link, #2d7dd2);
+}
+
+.nw-related-empty,
+.nw-related-loading {
+    font-size: 0.9rem;
+    color: var(--color-muted, #666);
+    margin: 0;
+}
+
+.author-profile-wrap {
+    max-width: 720px;
+}
+
+.author-profile__intro {
+    margin: 12px 0 8px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: #333;
+}
+
+.author-profile__list {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0;
+}
+
+.author-profile__list li {
+    margin: 0 0 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.author-profile__list a {
+    color: var(--color-link, #2d7dd2);
+    font-weight: 600;
+}

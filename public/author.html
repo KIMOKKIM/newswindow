@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기자 프로필 | 뉴스의 창</title>
+  <meta name="description" content="뉴스의 창 기자별 공개 기사 목록입니다.">
+  <link rel="canonical" href="https://www.newswindow.kr/author.html">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="article-wrap author-profile-wrap">
+    <a class="article-top-link" href="index.html">← 메인으로</a>
+    <div id="authorView">
+      <p role="status">불러오는 중…</p>
+    </div>
+  </div>
+  <script src="nw-seo.js"></script>
+  <script>
+    (function () {
+      var NW_PRODUCTION_API_ORIGIN = 'https://newswindow-backend.onrender.com';
+      function nwIsProductionNewswindowHost(hostname) {
+        var hl = (hostname || '').trim().toLowerCase();
+        if (!hl) return false;
+        return hl === 'newswindow.kr' || hl.slice(-14) === '.newswindow.kr';
+      }
+      var API = (function () {
+        try {
+          if (typeof window !== 'undefined' && window.NW_API_ORIGIN != null && String(window.NW_API_ORIGIN).trim()) {
+            return String(window.NW_API_ORIGIN).trim().replace(/\/+$/, '');
+          }
+        } catch (e0) {}
+        try {
+          var h = String(location.hostname || '').trim().toLowerCase();
+          if (!h) return 'http://127.0.0.1:3000';
+          if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return 'http://127.0.0.1:3000';
+          if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h) || /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h))
+            return 'http://127.0.0.1:3000';
+          if (nwIsProductionNewswindowHost(h)) return NW_PRODUCTION_API_ORIGIN;
+        } catch (e1) {}
+        return '';
+      })();
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+      var params = new URLSearchParams(location.search);
+      var name = params.get('name') != null ? String(params.get('name')).trim() : '';
+      var mount = document.getElementById('authorView');
+      if (!name) {
+        mount.innerHTML = '<h1>기자 이름이 필요합니다.</h1>';
+        return;
+      }
+      var url =
+        API.replace(/\/+$/, '') +
+        '/api/articles/public/page?author=' +
+        encodeURIComponent(name) +
+        '&limit=30&page=1';
+      fetch(url, { cache: 'no-store', credentials: 'omit' })
+        .then(function (r) {
+          return r.ok ? r.json() : Promise.reject();
+        })
+        .then(function (data) {
+          var items = (data && data.items) || [];
+          var total = data && data.total != null ? Number(data.total) : items.length;
+          var sections = {};
+          items.forEach(function (it) {
+            var c = String(it.category || '').trim() || '기타';
+            sections[c] = (sections[c] || 0) + 1;
+          });
+          var secList = Object.keys(sections).sort();
+          var intro =
+            (secList.length
+              ? '주요 분야: ' + secList.slice(0, 5).join(', ') + (secList.length > 5 ? ' 외 ' + (secList.length - 5) + '건' : '') + '. '
+              : '') +
+            '공개 기사 ' +
+            total +
+            '건입니다.';
+          if (typeof nwSeoApplyAuthorPage === 'function') {
+            try {
+              nwSeoApplyAuthorPage(name, intro, total);
+            } catch (eSeo) {}
+          }
+          var html = '';
+          html += '<h1 class="nw-article-detail__title">' + esc(name) + ' 기자</h1>';
+          html += '<p class="author-profile__intro">' + esc(intro) + '</p>';
+          if (!items.length) {
+            html += '<p>표시할 기사가 없습니다.</p>';
+            mount.innerHTML = html;
+            return;
+          }
+          html += '<h2 class="nw-related-title">최근 기사</h2><ul class="author-profile__list">';
+          items.forEach(function (it) {
+            html +=
+              '<li><span class="aa-row-cat">[' +
+              esc(it.category || '') +
+              ']</span> <a href="article.html?id=' +
+              esc(String(it.id)) +
+              '">' +
+              esc(it.title || '') +
+              '</a></li>';
+          });
+          html += '</ul>';
+          mount.innerHTML = html;
+        })
+        .catch(function () {
+          mount.innerHTML = '<p>목록을 불러오지 못했습니다.</p>';
+        });
+    })();
+  </script>
+</body>
+</html>

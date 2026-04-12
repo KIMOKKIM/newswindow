@@ -18,8 +18,11 @@ function wrapLegacy(L) {
     countPublished: async () => L.countPublished(),
     all: async () => L.all(),
     listPublishedForMain: async () => L.listPublishedForMain(),
-    listPublishedPaginated: async (page, pageSize, titleQuery, sectionCategory) =>
-      L.listPublishedPaginated(page, pageSize, titleQuery, sectionCategory),
+    listPublishedLatest: async (limit) => L.listPublishedLatest(limit),
+    listPublishedLatestHero: async (limit) => L.listPublishedLatestHero(limit),
+    listPublishedPaginated: async (page, pageSize, titleQuery, sectionCategory, opts) =>
+      L.listPublishedPaginated(page, pageSize, titleQuery, sectionCategory, opts),
+    listPublishedSitemapRows: async () => L.listPublishedSitemapRows(),
     listPublishedPopularByMonths: async (...a) => L.listPublishedPopularByMonths(...a),
     listPublishedPopularSince: async (...a) => L.listPublishedPopularSince(...a),
     findByAuthor: async (...a) => L.findByAuthor(...a),
@@ -28,6 +31,7 @@ function wrapLegacy(L) {
     incrementPublicViews: async (...a) => L.incrementPublicViews(...a),
     findById: async (...a) => L.findById(...a),
     rawRecord: async (...a) => L.rawRecord(...a),
+    recordLightForPatch: async (...a) => L.recordLightForPatch(...a),
     update: async (...a) => L.update(...a),
     updateByStaff: async (...a) => L.updateByStaff(...a),
     updateStatus: async (...a) => L.updateStatus(...a),

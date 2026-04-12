@@ -4,18 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>기사 보기 - 뉴스의 창</title>
+  <meta name="description" content="뉴스의 창 공개 기사 상세 페이지입니다.">
+  <link rel="canonical" href="https://www.newswindow.kr/article.html">
   <link rel="stylesheet" href="styles.css">
   <style>
     .article-wrap { max-width: 960px; margin: 24px auto 48px; background:#fff; padding: 24px; border:1px solid #e6e6e6; border-radius: 8px; }
-    .article-title { font-size: 30px; line-height: 1.35; margin: 0 0 8px; }
-    .article-subtitle { font-size: 17px; color:#555; margin: 0 0 12px; white-space: pre-line; font-weight:700; }
-    .article-meta { font-size: 13px; color:#777; margin-bottom: 20px; }
-    .article-body p { margin: 0 0 16px; line-height: 1.9; font-size: 16px; color:#222; }
-    .article-img { display:block; width:100%; max-width:100%; height:auto; border-radius:6px; margin: 16px 0 6px; }
-    .article-cap { font-size:13px; color:#666; margin: 0 0 14px; }
     .article-top-link { display:inline-block; margin-bottom: 12px; color:#2d7dd2; text-decoration:none; }
     .article-top-link:hover { text-decoration:underline; }
-    .article-legal { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e6e6e6; font-size: 12px; color:#888; text-align: center; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -25,8 +20,16 @@
       <h1 class="article-title">기사 불러오는 중...</h1>
     </article>
   </div>
+  <script src="nw-article-render.js"></script>
+  <script src="nw-seo.js"></script>
   <script>
     (function () {
+      const NW_PRODUCTION_API_ORIGIN = 'https://newswindow-backend.onrender.com';
+      function nwIsProductionNewswindowHost(hostname) {
+        var hl = (hostname || '').trim().toLowerCase();
+        if (!hl) return false;
+        return hl === 'newswindow.kr' || hl.slice(-14) === '.newswindow.kr';
+      }
       const API = (function () {
         try {
           if (typeof window !== 'undefined' && window.NW_API_ORIGIN != null && String(window.NW_API_ORIGIN).trim()) {
@@ -39,20 +42,21 @@
           if (!h) return 'http://127.0.0.1:3000';
           if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return 'http://127.0.0.1:3000';
           if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h) || /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return 'http://127.0.0.1:3000';
+          if (nwIsProductionNewswindowHost(h)) return NW_PRODUCTION_API_ORIGIN;
         } catch (eeee) {}
         return '';
+      })();
+      const NW_PUBLIC_UPLOAD_ORIGIN = (function () {
+        try {
+          if (typeof window === 'undefined' || window.NW_PUBLIC_UPLOAD_ORIGIN == null) return '';
+          return String(window.NW_PUBLIC_UPLOAD_ORIGIN).trim().replace(/\/+$/, '');
+        } catch (e) {
+          return '';
+        }
       })();
       const STORAGE_KEY = 'nw_public_article_id';
       const view = document.getElementById('articleView');
 
-      function esc(s) {
-        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      }
-      function para(t) {
-        return esc(t).replace(/\n/g, '</p><p>');
-      }
-
-      /** 일부 로컬 서버가 /article.html?id= → /article 로만 넘기며 쿼리를 버림 → 해시·sessionStorage로 보완 */
       function resolveArticleId() {
         try {
           const q = new URLSearchParams(location.search).get('id');
@@ -80,45 +84,44 @@
         return;
       }
 
+      function runSeoAndRelated(a) {
+        if (typeof nwSeoApplyArticlePage === 'function') {
+          try {
+            nwSeoApplyArticlePage(a, id, API, NW_PUBLIC_UPLOAD_ORIGIN);
+          } catch (e1) {}
+        }
+        if (window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.fetchRelatedArticles) {
+          NW_ARTICLE_RENDER.fetchRelatedArticles(API, id, a.category, document.getElementById('nwRelatedMount'));
+        }
+      }
+
       fetch(API + '/api/articles/public/' + encodeURIComponent(id))
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error || '기사를 불러오지 못했습니다.');
+          if (!res.ok) throw new Error(data.error || '\uae30\uc0ac\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.');
           return data;
         })
         .then((a) => {
           try {
             sessionStorage.removeItem(STORAGE_KEY);
           } catch (e) {}
-          const parts = [];
-          parts.push('<h1 class="article-title">' + esc(a.title || '(제목 없음)') + '</h1>');
-          if (a.subtitle) parts.push('<p class="article-subtitle">' + esc(a.subtitle) + '</p>');
-          parts.push('<p class="article-meta">' + esc(a.category || '뉴스') + ' | ' + esc(a.author_name || '기자') + ' | ' + esc((a.created_at || '').slice(0, 10)) + '</p>');
-          parts.push('<div class="article-body">');
-          const block = (img, cap, content) => {
-            if (content) parts.push('<p>' + para(content) + '</p>');
-            if (img) {
-              const src = String(img).startsWith('data:') ? img : ('data:image/jpeg;base64,' + img);
-              parts.push('<img class="article-img" src="' + src + '" alt="">');
-            }
-            if (cap) parts.push('<p class="article-cap">' + esc(cap) + '</p>');
-          };
-          block(a.image1, a.image1_caption, a.content1);
-          block(a.image2, a.image2_caption, a.content2);
-          block(a.image3, a.image3_caption, a.content3);
-          block(a.image4, a.image4_caption, a.content4);
-          if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
-            parts.push('<p>' + para(a.content) + '</p>');
+          if (window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.buildDetailHtml) {
+            view.className = 'nw-article-detail__inner';
+            view.innerHTML = NW_ARTICLE_RENDER.buildDetailHtml(a, {
+              categoryLabel: a.category || '뉴스',
+              uploadOrigin: NW_PUBLIC_UPLOAD_ORIGIN,
+              apiOrigin: API,
+            });
+            runSeoAndRelated(a);
+            return;
           }
-          parts.push('</div>');
-          parts.push('<p class="article-legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
-          view.innerHTML = parts.join('');
+          view.innerHTML = '<h1 class="article-title">모듈 로드 실패</h1>';
         })
         .catch((e) => {
           try {
             sessionStorage.removeItem(STORAGE_KEY);
           } catch (err) {}
-          view.innerHTML = '<h1 class="article-title">기사 로드 실패</h1><p>' + esc(e.message || '오류') + '</p>';
+          view.innerHTML = '<h1 class="article-title">기사 로드 실패</h1><p>' + String(e.message || e) + '</p>';
         });
     })();
   </script>

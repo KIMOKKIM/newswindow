@@ -10,15 +10,19 @@ import {
   reporterOwnsArticleRecord,
   mapListFields,
   mapDetail,
+  mapArticlePatchSnapshot,
   sortTimePublished,
   sortTimeMainFeed,
-  publicListThumb,
   mapPublishedListItem,
+  mapPublishedListRowForPublicFeed,
+  mapPublishedListHeroMinimal,
   normalizeTitleDedupeKey,
   dedupeWindowMs,
   popularWindowReferenceMs,
   comparePopularArticlesDesc,
   mainFeedArticleCap,
+  normalizeReporterNameForFilter,
+  formatSitemapLastMod,
 } from './articles.shared.js';
 import {
   articleMatchesSectionCategory,
@@ -67,35 +71,39 @@ export const legacySyncArticlesDb = {
     return [...articles].reverse().map((a) => mapListFields(a));
   },
 
-  listPublishedForMain() {
+  listPublishedLatest(limit) {
     const cap = mainFeedArticleCap();
+    const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
     return [...articles]
       .filter((a) => isPublicFeedReadableStatus(a.status))
       .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
-      .slice(0, cap)
-      .map((a) => ({
-        id: a.id,
-        title: a.title || '',
-        subtitle: a.subtitle || '',
-        category: a.category || '',
-        author_name: a.author_name || '',
-        created_at: a.created_at || '',
-        published_at: a.published_at || '',
-        submitted_at: a.submitted_at || '',
-        updated_at: a.updated_at || '',
-        status: toApiStatus(a.status),
-        views: Number(a.views) || 0,
-        thumb: publicListThumb(a),
-      }));
+      .slice(0, lim)
+      .map((a) => mapPublishedListRowForPublicFeed(a));
   },
 
-  listPublishedPaginated(page, pageSize, titleQuery, sectionCategory) {
+  listPublishedLatestHero(limit) {
+    const lim = Math.min(15, Math.max(1, Number(limit) || 5));
+    return [...articles]
+      .filter((a) => isPublicFeedReadableStatus(a.status))
+      .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
+      .slice(0, lim)
+      .map((a) => mapPublishedListHeroMinimal(a));
+  },
+
+  listPublishedForMain() {
+    return legacySyncArticlesDb.listPublishedLatest(mainFeedArticleCap());
+  },
+
+  listPublishedPaginated(page, pageSize, titleQuery, sectionCategory, opts) {
     const size = Math.min(50, Math.max(1, Number(pageSize) || 20));
     const p = Math.max(1, Number(page) || 1);
     const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
     if (catRaw && !isKnownSectionCategoryParam(catRaw)) {
       return { items: [], total: 0, page: p, pageSize: size, totalPages: 1 };
     }
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const authorRaw = o.authorName != null ? String(o.authorName).trim() : '';
+    const excludeRaw = o.excludeId != null ? String(o.excludeId).trim() : '';
     let all = [...articles]
       .filter((a) => toApiStatus(a.status) === 'published')
       .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
@@ -105,6 +113,15 @@ export const legacySyncArticlesDb = {
     const needle = titleQuery != null ? String(titleQuery).trim().toLowerCase() : '';
     if (needle) {
       all = all.filter((a) => String(a.title || '').toLowerCase().includes(needle));
+    }
+    if (authorRaw) {
+      const want = normalizeReporterNameForFilter(authorRaw);
+      if (want) {
+        all = all.filter((a) => normalizeReporterNameForFilter(a.author_name) === want);
+      }
+    }
+    if (excludeRaw) {
+      all = all.filter((a) => String(a.id) !== excludeRaw);
     }
     const total = all.length;
     const start = (p - 1) * size;
@@ -117,6 +134,16 @@ export const legacySyncArticlesDb = {
       pageSize: size,
       totalPages: Math.max(1, Math.ceil(total / size) || 1),
     };
+  },
+
+  listPublishedSitemapRows() {
+    return [...articles]
+      .filter((a) => toApiStatus(a.status) === 'published')
+      .sort((x, y) => Number(y.id) - Number(x.id))
+      .map((a) => ({
+        id: a.id,
+        lastmod: formatSitemapLastMod(a.updated_at || a.published_at || a.created_at),
+      }));
   },
 
   listPublishedPopularSince(sinceMs, limit, sectionCategory) {
@@ -244,9 +271,13 @@ export const legacySyncArticlesDb = {
     return resolveArticleRecord(id);
   },
 
+  recordLightForPatch(id) {
+    return resolveArticleRecord(id);
+  },
+
   update(id, authorId, data, reporterDisplayName) {
     const a = resolveArticleRecord(id);
-    if (!a || !reporterOwnsArticleRecord(a, authorId, reporterDisplayName)) return false;
+    if (!a || !reporterOwnsArticleRecord(a, authorId, reporterDisplayName)) return { ok: false };
     const now = nowStr();
     if (data.title !== undefined) a.title = data.title;
     if (data.subtitle !== undefined) a.subtitle = data.subtitle;
@@ -275,12 +306,12 @@ export const legacySyncArticlesDb = {
     }
     a.updated_at = now;
     save();
-    return true;
+    return { ok: true, article: mapArticlePatchSnapshot(a) };
   },
 
   updateByStaff(id, data) {
     const a = resolveArticleRecord(id);
-    if (!a) return false;
+    if (!a) return { ok: false };
     const now = nowStr();
     if (data.title !== undefined) a.title = data.title;
     if (data.subtitle !== undefined) a.subtitle = data.subtitle;
@@ -309,7 +340,7 @@ export const legacySyncArticlesDb = {
     }
     a.updated_at = now;
     save();
-    return true;
+    return { ok: true, article: mapArticlePatchSnapshot(a) };
   },
 
   updateStatus(id, status) {
@@ -352,7 +383,7 @@ export const legacySyncArticlesDb = {
     const a = resolveArticleRecord(id);
     if (!a) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
     const st = toApiStatus(a.status);
-    if (st === 'published') return { ok: true, idempotent: true, article: mapDetail(a) };
+    if (st === 'published') return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(a) };
     if (st !== 'submitted')
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 승인할 수 있습니다.' };
     const now = nowStr();
@@ -360,14 +391,14 @@ export const legacySyncArticlesDb = {
     a.published_at = a.published_at || now;
     a.updated_at = now;
     save();
-    return { ok: true, article: mapDetail(a) };
+    return { ok: true, article: mapArticlePatchSnapshot(a) };
   },
 
   rejectFromSubmitted(id) {
     const a = resolveArticleRecord(id);
     if (!a) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
     const st = toApiStatus(a.status);
-    if (st === 'rejected') return { ok: true, idempotent: true, article: mapDetail(a) };
+    if (st === 'rejected') return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(a) };
     if (st !== 'submitted')
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 반려할 수 있습니다.' };
     const now = nowStr();
@@ -375,6 +406,6 @@ export const legacySyncArticlesDb = {
     a.rejected_at = a.rejected_at || now;
     a.updated_at = now;
     save();
-    return { ok: true, article: mapDetail(a) };
+    return { ok: true, article: mapArticlePatchSnapshot(a) };
   },
 };

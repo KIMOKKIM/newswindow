@@ -172,6 +172,10 @@ export async function loadPublicAdsConfig() {
   return loadAdsSupabase();
 }
 
+export function buildFallbackAdsConfig() {
+  return normalizeAdsResponse(getDefaultAds());
+}
+
 /** JSONB 저장용 순수 객체(plain data). undefined 제거, 직렬화 검증 */
 function cloneConfigForStore(payload) {
   return JSON.parse(JSON.stringify(payload));
@@ -277,8 +281,19 @@ async function saveAdsSupabase(payload) {
 // GET /api/ads — 메인 페이지용 광고 설정 (공개)
 adsRouter.get('/', async (req, res, next) => {
   try {
-    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-    res.json(await loadAdsSupabase());
+    const t0 = Date.now();
+    const body = await loadAdsSupabase();
+    const ms = Date.now() - t0;
+    const jsonBytes = Buffer.byteLength(JSON.stringify(body), 'utf8');
+    // max-age: browser HTTP cache; s-maxage: shared/CDN
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+    res.set('X-NW-Ads-Timing-Ms', String(ms));
+    res.set('X-NW-Ads-Json-Bytes', String(jsonBytes));
+    res.set(
+      'Access-Control-Expose-Headers',
+      'X-NW-Ads-Timing-Ms, X-NW-Ads-Json-Bytes, Cache-Control',
+    );
+    res.json(body);
   } catch (e) {
     next(e);
   }

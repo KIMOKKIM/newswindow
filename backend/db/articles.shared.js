@@ -65,6 +65,15 @@ function isMissingAuthorIdRecord(a) {
   return a.author_id == null || a.author_id === '' || authorIdNorm(a.author_id) == null;
 }
 
+export function normalizeReporterNameForFilter(name) {
+  let s = String(name == null ? '' : name)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+  s = s.replace(/\s*기자\s*$/u, '').trim();
+  return s;
+}
+
 export function reporterOwnsArticleRecord(a, reporterId, reporterDisplayName) {
   if (!a) return false;
   if (authorIdNorm(a.author_id) === authorIdNorm(reporterId)) return true;
@@ -94,12 +103,34 @@ export function mapListFields(a) {
   };
 }
 
+/** Save PATCH response: metadata only (no body/images; client merges into local state). */
+export function mapArticlePatchSnapshot(a) {
+  if (!a) return null;
+  return {
+    id: a.id,
+    title: a.title || '',
+    subtitle: a.subtitle || '',
+    summary: a.summary || '',
+    author_name: a.author_name || '',
+    author_id: a.author_id,
+    category: a.category || '',
+    status: toApiStatus(a.status),
+    created_at: a.created_at || '',
+    updated_at: a.updated_at || a.created_at || '',
+    submitted_at: a.submitted_at || '',
+    published_at: a.published_at || '',
+    rejected_at: a.rejected_at || '',
+    views: Number(a.views) || 0,
+  };
+}
+
 export function mapDetail(a) {
   if (!a) return null;
   return {
     id: a.id,
     title: a.title || '',
     subtitle: a.subtitle || '',
+    summary: a.summary || '',
     author_name: a.author_name || '',
     author_id: a.author_id,
     category: a.category || '',
@@ -136,8 +167,23 @@ export function parseArticleDateMs(v) {
   return Number.isFinite(t) ? t : NaN;
 }
 
+/** sitemap `<lastmod>` date (YYYY-MM-DD) */
+export function formatSitemapLastMod(v) {
+  if (v == null || v === '') return '';
+  const ms = parseArticleDateMs(v);
+  if (!Number.isFinite(ms)) {
+    const s = String(v).trim();
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
+  }
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${day}`;
+}
+
 /**
- * 인기 기사 시간 윈도우: 게시일 우선, 없으면 작성일 (updated_at 미사용)
+ * 인기 기사 시간�도우: 게시일 우선, 없으면 작성일 (updated_at 미사용)
  * @returns {number|null} epoch ms or null if unusable
  */
 export function popularWindowReferenceMs(a) {
@@ -177,16 +223,109 @@ export function sortTimeMainFeed(a) {
   return Number.isFinite(t) ? t : 0;
 }
 
+/** Public list/home: never ship data:* (incl. base64) — only http(s) or path-like URLs for thumb. */
 export function publicListThumb(a) {
-  const im = a.image1 || '';
+  if (!a || typeof a !== 'object') return '';
+  const im = a.image1 || a.thumb || '';
   if (!im) return '';
-  const s = String(im).trim();
+  let s = String(im).trim().replace(/^\uFEFF/, '');
+  if (!s) return '';
+  if (/^data:/i.test(s)) return '';
+  if (s.length > 2048) return '';
   if (/^https?:\/\//i.test(s)) return s;
   if (s.startsWith('//')) return s;
   if (s.startsWith('/')) return s;
   if (/^uploads\//i.test(s)) return '/' + s.replace(/^\/+/, '');
-  if (/^data:image\//i.test(s)) return s;
   return '';
+}
+
+const PUBLIC_LIST_DROP_KEYS = new Set([
+  'content',
+  'content1',
+  'content2',
+  'content3',
+  'content4',
+  'summary',
+  'subtitle',
+  'image1',
+  'image2',
+  'image3',
+  'image4',
+  'image1_caption',
+  'image2_caption',
+  'image3_caption',
+  'image4_caption',
+]);
+
+/** Strip body/images from a row before JSON for /public/list|latest|page|home bundles. */
+export function sanitizeForPublicListPayload(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const out = { ...obj };
+  for (const k of PUBLIC_LIST_DROP_KEYS) {
+    if (k in out) delete out[k];
+  }
+  const th = out.thumb != null ? String(out.thumb).trim() : '';
+  if (th && (/^data:/i.test(th) || th.length > 2048)) delete out.thumb;
+  return out;
+}
+
+export function sanitizeForPublicListPayloadArr(arr) {
+  if (!Array.isArray(arr)) return arr;
+  return arr.map((x) => sanitizeForPublicListPayload(x));
+}
+
+/** 히어로 응답만 허용 필드로 고정(잘못된 중간 객체·data URL 유입 방지) */
+export function sanitizeHeroPublicResponseArr(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((r) => {
+    const t = publicListThumb({
+      image1: r.image1,
+      thumb: r.thumb,
+    });
+    return {
+      id: Number(r.id),
+      title: String(r.title ?? '').slice(0, 2000),
+      category: String(r.category ?? ''),
+      author_name: String(r.author_name ?? ''),
+      created_at: String(r.created_at ?? ''),
+      published_at: String(r.published_at ?? ''),
+      submitted_at: String(r.submitted_at ?? ''),
+      status: toApiStatus(r.status),
+      thumb: t || '',
+    };
+  });
+}
+
+/** 홈 첫 페인트용 — id·제목·분류·날짜·썸네일 URL만 (필드 최소) */
+export function mapPublishedListHeroMinimal(a) {
+  return {
+    id: a.id,
+    title: a.title || '',
+    category: a.category || '',
+    author_name: a.author_name || '',
+    created_at: a.created_at || '',
+    published_at: a.published_at || '',
+    submitted_at: a.submitted_at || '',
+    status: toApiStatus(a.status),
+    thumb: publicListThumb(a),
+  };
+}
+
+/** Public list/latest/home: no subtitle; sort timestamps + thumb only */
+export function mapPublishedListRowForPublicFeed(a) {
+  return {
+    id: a.id,
+    title: a.title || '',
+    category: a.category || '',
+    author_name: a.author_name || '',
+    created_at: a.created_at || '',
+    published_at: a.published_at || '',
+    submitted_at: a.submitted_at || '',
+    updated_at: a.updated_at || '',
+    status: toApiStatus(a.status),
+    views: Number(a.views) || 0,
+    thumb: publicListThumb(a),
+  };
 }
 
 export function mapPublishedListItem(a) {
