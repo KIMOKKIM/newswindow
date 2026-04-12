@@ -14,7 +14,13 @@ authRouter.post('/login', async (req, res) => {
     if (!userid || !password) {
       console.log(
         '[nw/auth/login]',
-        JSON.stringify({ ok: false, reason: 'missing_fields', ms: Date.now() - t0, userid: useridRaw }),
+        JSON.stringify({
+          reqId: req.nwRequestId,
+          ok: false,
+          reason: 'missing_fields',
+          ms: Date.now() - t0,
+          userid: useridRaw,
+        }),
       );
       return res.status(400).json({ error: 'userid와 password가 필요합니다.' });
     }
@@ -25,7 +31,13 @@ authRouter.post('/login', async (req, res) => {
     if (!row) {
       console.log(
         '[nw/auth/login]',
-        JSON.stringify({ ok: false, reason: 'unknown_user', ms: Date.now() - t0, userid: String(userid) }),
+        JSON.stringify({
+          reqId: req.nwRequestId,
+          ok: false,
+          reason: 'unknown_user',
+          ms: Date.now() - t0,
+          userid: String(userid),
+        }),
       );
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
@@ -33,7 +45,13 @@ authRouter.post('/login', async (req, res) => {
     if (!ok) {
       console.log(
         '[nw/auth/login]',
-        JSON.stringify({ ok: false, reason: 'bad_password', ms: Date.now() - t0, userid: String(userid) }),
+        JSON.stringify({
+          reqId: req.nwRequestId,
+          ok: false,
+          reason: 'bad_password',
+          ms: Date.now() - t0,
+          userid: String(userid),
+        }),
       );
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
@@ -58,6 +76,7 @@ authRouter.post('/login', async (req, res) => {
     console.error(
       '[nw/auth/login]',
       JSON.stringify({
+        reqId: req.nwRequestId,
         ok: false,
         reason: 'exception',
         ms: Date.now() - t0,

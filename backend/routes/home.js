@@ -57,6 +57,7 @@ homeRouter.get('/headlines', async (req, res, next) => {
     const totalMs = Date.now() - wall0;
     const concurrentSuspicion = !cacheHit && dbMs > 2500;
     const logLine = {
+      reqId: req.nwRequestId,
       totalMs,
       dbMs,
       cache: cacheHit ? 'HIT' : 'MISS',

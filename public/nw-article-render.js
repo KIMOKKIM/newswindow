@@ -163,7 +163,49 @@
     mast.push('</div>');
     return mast.join('');
   }
+  var NW_FETCH_TIMEOUT_MS = 20000;
+
+  /** GET JSON: timeout + Abort/네트워크 시 1회 재시도, X-Request-Id 로그 */
+  function fetchJsonGetWithRetry(url) {
+    function inner(isRetry) {
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) ctrl.abort();
+      }, NW_FETCH_TIMEOUT_MS);
+      return fetch(url, { cache: 'no-store', credentials: 'omit', signal: ctrl ? ctrl.signal : undefined })
+        .then(function (res) {
+          clearTimeout(timer);
+          try {
+            var rid = res.headers.get('X-Request-Id');
+            if (rid && typeof console !== 'undefined' && console.info) {
+              console.info('[nw/fetch]', url, 'X-Request-Id:', rid, isRetry ? '(retry)' : '');
+            }
+          } catch (e0) {}
+          return res.text().then(function (t) {
+            var data;
+            try {
+              data = t ? JSON.parse(t) : null;
+            } catch (eJ) {
+              return Promise.reject(new Error('JSON'));
+            }
+            return { res: res, data: data };
+          });
+        })
+        .catch(function (err) {
+          clearTimeout(timer);
+          if (!isRetry && err && (err.name === 'AbortError' || err.name === 'TypeError')) {
+            return inner(true);
+          }
+          return Promise.reject(err);
+        });
+    }
+    return inner(false);
+  }
+
   function buildDetailHtml(a, opts) {
+    if (a == null || typeof a !== 'object' || Array.isArray(a)) {
+      return '<p class="nw-article-detail__error" role="alert">\uae30\uc0ac \ub370\uc774\ud130\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.</p>';
+    }
     opts = opts || {};
     var uploadOrigin = opts.uploadOrigin || '';
     var apiOrigin = opts.apiOrigin || '';
@@ -187,9 +229,9 @@
       encodeURIComponent(String(category).trim()) +
       '&exclude_id=' +
       encodeURIComponent(String(articleId));
-    fetch(url, { cache: 'no-store', credentials: 'omit' })
-      .then(function (r) {
-        return r.ok ? r.json() : Promise.reject();
+    fetchJsonGetWithRetry(url)
+      .then(function (out) {
+        return out.res.ok ? out.data : Promise.reject();
       })
       .then(function (data) {
         var items = (data && data.items) || [];
@@ -218,6 +260,7 @@
   }
   global.NW_ARTICLE_RENDER = {
     buildDetailHtml: buildDetailHtml,
+    fetchJsonGetWithRetry: fetchJsonGetWithRetry,
     fetchRelatedArticles: fetchRelatedArticles,
     articleMainImageSrc: articleMainImageSrc,
     reporterDisplayName: reporterDisplayName,

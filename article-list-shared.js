@@ -52,6 +52,45 @@
   var SECTION_MODE = PAGE_HTML === 'section.html';
   var SECTION_CATEGORY = null;
 
+  var NW_API_FETCH_TIMEOUT_MS = 20000;
+
+  /** GET: timeout + Abort/네트워크 시 1회 재시도, X-Request-Id 콘솔 */
+  function nwFetchJsonGetWithRetry(url) {
+    function inner(isRetry) {
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) ctrl.abort();
+      }, NW_API_FETCH_TIMEOUT_MS);
+      return fetch(url, { cache: 'no-store', credentials: 'omit', signal: ctrl ? ctrl.signal : undefined })
+        .then(function (res) {
+          clearTimeout(timer);
+          try {
+            var rid = res.headers.get('X-Request-Id');
+            if (rid && typeof console !== 'undefined' && console.info) {
+              console.info('[nw/fetch]', url, 'X-Request-Id:', rid, isRetry ? '(retry)' : '');
+            }
+          } catch (e0) {}
+          return res.text().then(function (t) {
+            var data;
+            try {
+              data = t ? JSON.parse(t) : null;
+            } catch (eJ) {
+              return Promise.reject(new Error('json'));
+            }
+            return { res: res, data: data };
+          });
+        })
+        .catch(function (err) {
+          clearTimeout(timer);
+          if (!isRetry && err && (err.name === 'AbortError' || err.name === 'TypeError')) {
+            return inner(true);
+          }
+          return Promise.reject(err);
+        });
+    }
+    return inner(false);
+  }
+
   var PAGE_SIZE = 5;
   var GROUP = 5;
   var VIEW_KEY = SECTION_MODE ? 'nw_section_articles_view' : 'nw_all_articles_view';
@@ -353,10 +392,11 @@
       (qStr ? '&q=' + encodeURIComponent(qStr) : '') +
       (SECTION_MODE && SECTION_CATEGORY ? '&category=' + encodeURIComponent(SECTION_CATEGORY) : '');
     if (mount) mount.innerHTML = '<p class="aa-loading">불러오는 중…</p>';
-    return fetch(url, { cache: 'no-store', credentials: 'omit' })
-      .then(function (r) {
+    return nwFetchJsonGetWithRetry(url)
+      .then(function (out) {
+        var r = out.res;
         if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status));
-        return r.json();
+        return out.data;
       })
       .then(function (data) {
         var pack = normalizePagePayload(data);
@@ -374,7 +414,16 @@
         drawPager(pack.page || 1, pack.totalPages || 1, qStr);
       })
       .catch(function () {
-        if (mount) mount.innerHTML = '<p class="aa-error">기사 목록을 불러오지 못했습니다.</p>';
+        if (mount) {
+          mount.innerHTML =
+            '<p class="aa-error" role="alert">기사 목록을 불러오지 못했습니다.</p>' +
+            '<p><button type="button" class="aa-pager-btn" id="aaListRetry">다시 시도</button></p>';
+          var btn = document.getElementById('aaListRetry');
+          if (btn)
+            btn.addEventListener('click', function () {
+              fetchListPage(page, q, viewMode);
+            });
+        }
         if (totalEl) totalEl.textContent = '0';
         if (pagerEl) pagerEl.innerHTML = '';
       });
@@ -385,10 +434,10 @@
       API +
       '/api/articles/public/popular?days=30&limit=10' +
       (SECTION_MODE && SECTION_CATEGORY ? '&category=' + encodeURIComponent(SECTION_CATEGORY) : '');
-    fetch(popUrl, { cache: 'no-store', credentials: 'omit' })
-      .then(function (r) {
-        if (!r.ok) return Promise.reject();
-        return r.json();
+    nwFetchJsonGetWithRetry(popUrl)
+      .then(function (out) {
+        if (!out.res.ok) return Promise.reject();
+        return out.data;
       })
       .then(function (rows) {
         popularData = Array.isArray(rows) ? rows : [];

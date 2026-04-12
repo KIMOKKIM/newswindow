@@ -17,6 +17,7 @@ import { assertSupabaseRequiredAtStartup } from './lib/supabaseServer.js';
 import { getUserByUserid, createUser, updateUserRoleById } from './db/userStore.js';
 import { bootState } from './lib/bootState.js';
 import { logSupabaseEnvStatus, fatalStartupOneLine } from './lib/startupLog.js';
+import { requestLogMiddleware } from './middleware/requestLog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,6 +52,7 @@ app.use(
     credentials: true,
   })
 );
+app.use(requestLogMiddleware);
 app.use(express.json({ limit: '10mb' }));
 app.use((req, res, next) => {
   const _json = res.json.bind(res);

@@ -18,6 +18,9 @@ export function clearUnifiedPublicFeedCache() {
  * @param {() => Promise<unknown[]>} loader
  */
 export async function getUnifiedPublicFeedCached(loader) {
+  if (String(process.env.NW_UNIFIED_FEED_CACHE_BYPASS || '').trim() === '1') {
+    return loader();
+  }
   if (cachedRows) return cachedRows;
   if (!inFlight) {
     inFlight = loader()

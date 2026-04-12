@@ -64,7 +64,38 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
       ? '/admin/admin/dashboard'
       : '/admin/editor/dashboard';
 
-  const { res, data } = await apiFetch('/api/articles', { headers: authHeaders(session.token) });
+  const adminLead =
+    mode === 'admin'
+      ? '<p class="nw-page-lead">송고·검토 대기 기사를 승인 또는 반려하고, 왼쪽 메뉴에서 광고를 관리할 수 있습니다.</p>'
+      : '';
+
+  app.innerHTML = renderShell({
+    title,
+    activePath,
+    navHtml: nav,
+    bodyHtml: `<section class="nw-section"><h2>기사 목록</h2><p class="nw-form-busy" id="staffDashLoad" aria-live="polite"><span class="nw-spinner" aria-hidden="true"></span> 목록을 불러오는 중…</p></section>`,
+    underTitleHtml: adminLead,
+  });
+  bindShell(app, { navigate });
+
+  let listRes;
+  try {
+    listRes = await apiFetch('/api/articles', { headers: authHeaders(session.token) });
+  } catch (e) {
+    const msg = esc(String(e && e.message ? e.message : e));
+    app.innerHTML = renderShell({
+      title,
+      activePath,
+      navHtml: nav,
+      bodyHtml: `<section class="nw-section"><h2>기사 목록</h2><p class="nw-error" role="alert">네트워크 오류로 목록을 불러오지 못했습니다. (로그인은 성공한 상태입니다)</p><p class="nw-muted">${msg}</p><p><button type="button" class="nw-btn" id="staffDashRetry">다시 시도</button></p></section>`,
+      underTitleHtml: adminLead,
+    });
+    bindShell(app, { navigate });
+    app.querySelector('#staffDashRetry')?.addEventListener('click', () => renderStaffDashboard(app, { navigate, mode }));
+    return;
+  }
+
+  const { res, data } = listRes;
   if (res.status === 401) {
     alert('세션이 만료되었습니다.');
     navigate(mode === 'admin' ? '/admin/admin/login' : '/admin/editor/login');
@@ -76,10 +107,25 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
       activePath,
       navHtml: nav,
       bodyHtml: `<p class="nw-error">권한이 없습니다.</p>`,
+      underTitleHtml: adminLead,
     });
     bindShell(app, { navigate });
     return;
   }
+  if (!res.ok) {
+    const errText = esc((data && data.error) || `HTTP ${res.status}`);
+    app.innerHTML = renderShell({
+      title,
+      activePath,
+      navHtml: nav,
+      bodyHtml: `<section class="nw-section"><h2>기사 목록</h2><p class="nw-error" role="alert">서버에서 목록을 반환하지 못했습니다.</p><p class="nw-muted">${errText}</p><p><button type="button" class="nw-btn" id="staffDashRetry">다시 시도</button></p></section>`,
+      underTitleHtml: adminLead,
+    });
+    bindShell(app, { navigate });
+    app.querySelector('#staffDashRetry')?.addEventListener('click', () => renderStaffDashboard(app, { navigate, mode }));
+    return;
+  }
+
   const list = Array.isArray(data) ? data : [];
 
   const rows = list
@@ -128,11 +174,6 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
         </table>
       </div>
     </section>`;
-
-  const adminLead =
-    mode === 'admin'
-      ? '<p class="nw-page-lead">송고·검토 대기 기사를 승인 또는 반려하고, 왼쪽 메뉴에서 광고를 관리할 수 있습니다.</p>'
-      : '';
 
   app.innerHTML = renderShell({
     title,

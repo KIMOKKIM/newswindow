@@ -554,6 +554,9 @@ function nwModalArticleImageSrc(img) {
 
 /** 메인 인라인 상세 패널 — GET /api/articles/public/:id 응답만 사용(더미 없음). 메타 줄은 admin 미리보기와 동일 규칙 */
 function nwBuildArticleDetailHtml(a) {
+    if (a == null || typeof a !== 'object' || Array.isArray(a)) {
+        throw new Error('기사 데이터 형식이 올바르지 않습니다.');
+    }
     var catShown = nwCategoryLabelForValue(cleanBrokenKoreanText(a.category, '뉴스'));
     if (!catShown) catShown = '—';
     if (typeof window !== 'undefined' && window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.buildDetailHtml) {
@@ -647,14 +650,31 @@ function nwOpenArticleDetail(articleId) {
     } catch (eScroll) {}
     fetch(url, { cache: 'no-store' })
         .then(function (res) {
-            return res.json().then(function (data) {
+            return res.text().then(function (t) {
+                var data;
+                try {
+                    data = t ? JSON.parse(t) : null;
+                } catch (eJ) {
+                    throw new Error(
+                        '서버 응답을 JSON으로 해석하지 못했습니다. 네트워크 및 API 주소를 확인해 주세요.'
+                    );
+                }
                 if (!res.ok) throw new Error((data && data.error) || '기사를 불러오지 못했습니다.');
                 return data;
             });
         })
         .then(function (a) {
+            if (a == null || typeof a !== 'object' || Array.isArray(a)) {
+                throw new Error('서버에서 기사 데이터를 받지 못했습니다.');
+            }
             innerEl.className = 'nw-article-detail__inner';
-            innerEl.innerHTML = nwBuildArticleDetailHtml(a);
+            try {
+                innerEl.innerHTML = nwBuildArticleDetailHtml(a);
+            } catch (buildErr) {
+                throw new Error(
+                    (buildErr && buildErr.message) || '기사 본문을 표시하는 중 오류가 발생했습니다.'
+                );
+            }
             if (window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.fetchRelatedArticles) {
                 NW_ARTICLE_RENDER.fetchRelatedArticles(
                     ARTICLES_API,
@@ -1218,6 +1238,8 @@ var nwLatestTop5Sync = {
 
 /** index.html에 #nwLatestTop5 가 있어야 함 — DOM 삽입하지 않고 데이터만 바인딩 */
 var NW_HEADLINE_FETCH_TIMEOUT_MS = 4000;
+/** 공개 API GET(목록·홈·광고 등) — Render cold start 대비. 히어로 전용은 NW_HEADLINE_FETCH_TIMEOUT_MS 유지 */
+var NW_API_FETCH_TIMEOUT_MS = 20000;
 /** Stale-while-revalidate: last successful hero rows for instant paint before network. */
 var NW_HEADLINE_STALE_SESSION_KEY = 'nw_headline_hero_v1';
 var NW_HEADLINE_STALE_MAX_AGE_MS = 5 * 60 * 1000;
@@ -1281,30 +1303,47 @@ function nwRemoveHeadlineRetryUi() {
 
 function nwFetchJsonWithTimeout(url, init, timeoutMs) {
     var deadline = timeoutMs == null ? NW_HEADLINE_FETCH_TIMEOUT_MS : timeoutMs;
-    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var merged = Object.assign({ credentials: 'omit', cache: 'default' }, init || {});
-    if (ctrl) merged.signal = ctrl.signal;
-    var timer = setTimeout(function () {
-        if (ctrl) ctrl.abort();
-    }, deadline);
-    return fetch(url, merged)
-        .then(function (res) {
-            clearTimeout(timer);
-            return res.text().then(function (t) {
-                var data;
+    var mergedBase = Object.assign({ credentials: 'omit', cache: 'default' }, init || {});
+    var method = String(mergedBase.method || 'GET').toUpperCase();
+    var allowRetry = method === 'GET' && mergedBase.retry !== false;
+
+    function inner(isRetry) {
+        var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var merged = Object.assign({}, mergedBase);
+        if (merged.retry !== undefined) delete merged.retry;
+        if (ctrl) merged.signal = ctrl.signal;
+        var timer = setTimeout(function () {
+            if (ctrl) ctrl.abort();
+        }, deadline);
+        return fetch(url, merged)
+            .then(function (res) {
+                clearTimeout(timer);
                 try {
-                    data = t ? JSON.parse(t) : null;
-                } catch (eJ) {
-                    return Promise.reject({ aborted: false, parseError: true });
+                    var rid = res.headers.get('X-Request-Id');
+                    if (rid && typeof console !== 'undefined' && console.info) {
+                        console.info('[nw/fetch]', url, 'X-Request-Id:', rid, isRetry ? '(retry)' : '');
+                    }
+                } catch (eLog) {}
+                return res.text().then(function (t) {
+                    var data;
+                    try {
+                        data = t ? JSON.parse(t) : null;
+                    } catch (eJ) {
+                        return Promise.reject({ aborted: false, parseError: true });
+                    }
+                    return { res: res, data: data };
+                });
+            })
+            .catch(function (err) {
+                clearTimeout(timer);
+                if (allowRetry && !isRetry && err && (err.name === 'AbortError' || err.name === 'TypeError')) {
+                    return inner(true);
                 }
-                return { res: res, data: data };
+                var aborted = !!(err && err.name === 'AbortError');
+                return Promise.reject({ aborted: aborted, err: err });
             });
-        })
-        .catch(function (err) {
-            clearTimeout(timer);
-            var aborted = !!(err && err.name === 'AbortError');
-            return Promise.reject({ aborted: aborted, err: err });
-        });
+    }
+    return inner(false);
 }
 
 function getNwLatestTop5Section() {
@@ -1774,19 +1813,18 @@ function nwFetchPublicLatestRows(limit, rowOpts) {
         encodeURIComponent(String(limit == null ? 20 : limit));
     if (hero) url += '&hero=1';
     var fetchOpts = { cache: 'no-store', credentials: 'omit', headers: { 'Cache-Control': 'no-cache' } };
-    return fetch(url, fetchOpts).then(function (res) {
-        if (!res.ok) return Promise.reject(new Error('latest http ' + res.status));
-        return res.text().then(function (t) {
-            try {
-                return t ? JSON.parse(t) : [];
-            } catch (e) {
-                return Promise.reject(new Error('latest json'));
-            }
+    return nwFetchJsonWithTimeout(url, fetchOpts, NW_API_FETCH_TIMEOUT_MS)
+        .then(function (out) {
+            if (!out.res.ok) return Promise.reject(new Error('latest http ' + out.res.status));
+            var rows = out.data;
+            if (!Array.isArray(rows)) return Promise.reject(new Error('latest shape'));
+            return rows;
+        })
+        .catch(function (rej) {
+            if (rej && rej.parseError) return Promise.reject(new Error('latest json'));
+            if (rej && rej.err) return Promise.reject(rej.err);
+            return Promise.reject(rej);
         });
-    }).then(function (rows) {
-        if (!Array.isArray(rows)) return Promise.reject(new Error('latest shape'));
-        return rows;
-    });
 }
 
 function nwRenderMostViewedRows(rows) {
@@ -2063,12 +2101,13 @@ function nwFetchMainLegacyHomeParallel() {
     var popUrl = ARTICLES_API + '/api/articles/public/popular?days=30&limit=10';
     var opts = { cache: 'no-store', credentials: 'omit', headers: { 'Cache-Control': 'no-cache' } };
     Promise.allSettled([
-        fetch(ADS_API + '/api/ads', { credentials: 'omit', cache: 'default' }).then(function (res) {
-            return res.ok ? res.json() : Promise.reject(new Error('ads'));
+        nwFetchJsonWithTimeout(ADS_API + '/api/ads', { credentials: 'omit', cache: 'default' }, NW_API_FETCH_TIMEOUT_MS).then(function (r) {
+            if (!r.res.ok) return Promise.reject(new Error('ads'));
+            return r.data;
         }),
-        fetch(listUrl, opts)
-            .then(function (res) {
-                if (res.ok) return res.json();
+        nwFetchJsonWithTimeout(listUrl, opts, NW_API_FETCH_TIMEOUT_MS)
+            .then(function (r) {
+                if (r.res.ok) return r.data;
                 return Promise.reject(new Error('list'));
             })
             .catch(function () {
@@ -2077,8 +2116,9 @@ function nwFetchMainLegacyHomeParallel() {
                 }
                 return nwFetchPublicLatestRows(30);
             }),
-        fetch(popUrl, opts).then(function (res) {
-            return res.ok ? res.json() : Promise.reject(new Error('popular'));
+        nwFetchJsonWithTimeout(popUrl, opts, NW_API_FETCH_TIMEOUT_MS).then(function (r) {
+            if (!r.res.ok) return Promise.reject(new Error('popular'));
+            return r.data;
         }),
     ]).then(function (results) {
         if (results[0].status === 'fulfilled') {
@@ -2134,9 +2174,10 @@ function nwFetchMainLegacyHomeParallel() {
 
 /** 좌·우 사이드 등 광고만 갱신 (/api/home 실패·캐시에 ads 없음 등 보정) */
 function nwFetchAdsOnly() {
-    fetch(ADS_API + '/api/ads', { credentials: 'omit', cache: 'default' })
-        .then(function (res) {
-            return res.ok ? res.json() : Promise.reject(new Error('ads'));
+    nwFetchJsonWithTimeout(ADS_API + '/api/ads', { credentials: 'omit', cache: 'default' }, NW_API_FETCH_TIMEOUT_MS)
+        .then(function (r) {
+            if (!r.res.ok) return Promise.reject(new Error('ads'));
+            return r.data;
         })
         .then(function (ads) {
             applyHeaderAds(ads);
@@ -2156,12 +2197,16 @@ function nwRunDeferredMainLoads(ctx) {
     var hasFull = ctx.hasFull;
     var t0 = ctx.t0;
     var adsStart = nwPerfNow();
-    fetch(ADS_API + '/api/ads', { credentials: 'omit', headers: { 'Cache-Control': 'max-age=60' } })
-        .then(function (res) {
+    nwFetchJsonWithTimeout(
+        ADS_API + '/api/ads',
+        { credentials: 'omit', headers: { 'Cache-Control': 'max-age=60' } },
+        NW_API_FETCH_TIMEOUT_MS
+    )
+        .then(function (r) {
             var ms = nwPerfNow() - adsStart;
-            if (nwMainPerfEnabled()) console.info('[nw-perf] ads fetch ms', ms, 'status', res.status);
-            if (!res.ok) return Promise.reject(new Error('ads'));
-            return res.json();
+            if (nwMainPerfEnabled()) console.info('[nw-perf] ads fetch ms', ms, 'status', r.res.status);
+            if (!r.res.ok) return Promise.reject(new Error('ads'));
+            return r.data;
         })
         .then(function (ads) {
             applyHeaderAds(ads);
@@ -2186,9 +2231,14 @@ function nwRunDeferredMainLoads(ctx) {
 
     setTimeout(function () {
         if (ctx.seq !== nwMainBundleSeq) return;
-        fetch(ARTICLES_API + '/api/articles/public/popular?days=30&limit=10', { credentials: 'omit' })
-            .then(function (res) {
-                return res.ok ? res.json() : Promise.reject();
+        nwFetchJsonWithTimeout(
+            ARTICLES_API + '/api/articles/public/popular?days=30&limit=10',
+            { credentials: 'omit' },
+            NW_API_FETCH_TIMEOUT_MS
+        )
+            .then(function (r) {
+                if (!r.res.ok) return Promise.reject();
+                return r.data;
             })
             .then(function (rows) {
                 if (Array.isArray(rows)) nwRenderMostViewedRows(rows);
@@ -2207,22 +2257,20 @@ function nwRunDeferredMainLoads(ctx) {
     setTimeout(function () {
         if (ctx.seq !== nwMainBundleSeq) return;
         var homeStart = nwPerfNow();
-        fetch(ARTICLES_API + '/api/home', {
-            cache: 'no-store',
-            credentials: 'omit',
-            headers: { 'Cache-Control': 'no-cache' },
-        })
-            .then(function (res) {
+        nwFetchJsonWithTimeout(
+            ARTICLES_API + '/api/home',
+            {
+                cache: 'no-store',
+                credentials: 'omit',
+                headers: { 'Cache-Control': 'no-cache' },
+            },
+            NW_API_FETCH_TIMEOUT_MS
+        )
+            .then(function (r) {
                 var ms = nwPerfNow() - homeStart;
-                if (nwHomePerfReportingEnabled()) console.info('[nw-perf] /api/home ms', ms, 'status', res.status);
-                if (!res.ok) return Promise.reject(new Error('HTTP ' + res.status));
-                return res.text().then(function (t) {
-                    try {
-                        return t ? JSON.parse(t) : null;
-                    } catch (e) {
-                        return Promise.reject(new Error('home json'));
-                    }
-                });
+                if (nwHomePerfReportingEnabled()) console.info('[nw-perf] /api/home ms', ms, 'status', r.res.status);
+                if (!r.res.ok) return Promise.reject(new Error('HTTP ' + r.res.status));
+                return r.data;
             })
             .then(function (payload) {
                 if (!payload || typeof payload !== 'object') return Promise.reject(new Error('home payload'));

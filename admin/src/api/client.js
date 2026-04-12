@@ -25,27 +25,68 @@ function runtimeProdApiOrigin() {
 
 const API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_ORIGIN) || runtimeProdApiOrigin();
 
+/** 기본 타임아웃(ms). Render cold start·슬립 대비 */
+const DEFAULT_TIMEOUT_MS = (() => {
+  const n = Number(import.meta.env.VITE_API_TIMEOUT_MS);
+  if (Number.isFinite(n) && n >= 3000 && n <= 120000) return Math.floor(n);
+  return 20000;
+})();
+
 export function apiUrl(path) {
   const p = path.startsWith('/') ? path : '/' + path;
   if (!API_ORIGIN) return p;
   return API_ORIGIN + p;
 }
 
-/** Vite dev: proxy /api — 운영: 동일 오리진 또는 VITE_API_ORIGIN */
+/**
+ * GET: timeout + 실패 시 1회 재시도(Abort/네트워크). POST/PATCH 등: 재시도 없음.
+ * 응답 헤더 X-Request-Id 는 콘솔 [nw/apiFetch]에 출력.
+ */
 export async function apiFetch(path, opts = {}) {
   const url = apiUrl(path);
-  const headers = { Accept: 'application/json', ...opts.headers };
-  const cache = opts.cache != null ? opts.cache : 'no-store';
-  const { cache: _omit, ...rest } = opts;
-  const res = await fetch(url, { ...rest, cache, headers });
-  const text = await res.text().catch(() => '');
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = { _raw: text };
+  const method = String(opts.method || 'GET').toUpperCase();
+  const timeoutMs = opts.timeoutMs != null ? opts.timeoutMs : DEFAULT_TIMEOUT_MS;
+  const allowRetry = method === 'GET' && opts.retry !== false;
+
+  async function doOnce(isRetry) {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      if (ctrl) ctrl.abort();
+    }, timeoutMs);
+    const headers = { Accept: 'application/json', ...opts.headers };
+    const cache = opts.cache != null ? opts.cache : 'no-store';
+    const { cache: _c, timeoutMs: _t, retry: _r, ...rest } = opts;
+    try {
+      const res = await fetch(url, {
+        ...rest,
+        method: opts.method || 'GET',
+        cache,
+        headers,
+        signal: ctrl ? ctrl.signal : undefined,
+      });
+      clearTimeout(timer);
+      const text = await res.text().catch(() => '');
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = { _raw: text };
+      }
+      const rid = res.headers.get('X-Request-Id');
+      if (rid && typeof console !== 'undefined' && console.info) {
+        console.info('[nw/apiFetch]', path, 'X-Request-Id:', rid, isRetry ? '(retry)' : '');
+      }
+      return { res, data, text };
+    } catch (err) {
+      clearTimeout(timer);
+      if (allowRetry && !isRetry && (err.name === 'AbortError' || err.name === 'TypeError')) {
+        return doOnce(true);
+      }
+      throw err;
+    }
   }
-  return { res, data, text };
+
+  return doOnce(false);
 }
 
 export function authHeaders(token, extra = {}) {

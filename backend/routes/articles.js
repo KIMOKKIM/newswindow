@@ -26,20 +26,21 @@ articlesRouter.use((req, res, next) => {
 });
 
 articlesRouter.use((req, res, next) => {
-  const _json = res.json.bind(res);
-  res.json = (body) => {
-    console.log(
-      '[nw/articles]',
-      JSON.stringify({
-        method: req.method,
-        path: req.originalUrl || req.url,
-        op: req.method === 'GET' ? 'read' : 'write',
-        articlesReadSource: getArticlesReadSource(),
-        articlesWriteSource: getArticlesWriteSource(),
-      }),
-    );
-    return _json(body);
-  };
+  if (String(process.env.NW_HTTP_LOG_ARTICLES_JSON || '').trim() === '1') {
+    const _json = res.json.bind(res);
+    res.json = (body) => {
+      console.log(
+        '[nw/articles/json]',
+        JSON.stringify({
+          reqId: req.nwRequestId,
+          method: req.method,
+          path: req.originalUrl || req.url,
+          articlesReadSource: getArticlesReadSource(),
+        }),
+      );
+      return _json(body);
+    };
+  }
   next();
 });
 
@@ -218,11 +219,13 @@ articlesRouter.get('/public/:id(\\d+)', async (req, res, next) => {
       return res.status(403).json({ error: '공개된 기사만 조회할 수 있습니다.' });
     }
     const st = toApiStatus(raw.status);
-    const row =
+    let row =
       st === 'published'
         ? await articlesDb.incrementPublicViews(req.params.id)
         : await articlesDb.findById(req.params.id, null);
-    res.json(row || (await articlesDb.findById(req.params.id, null)));
+    if (!row) row = await articlesDb.findById(req.params.id, null);
+    if (!row) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+    res.json(row);
   } catch (e) {
     next(e);
   }
