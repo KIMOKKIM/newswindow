@@ -11,7 +11,8 @@ import {
 import { sanitizeForPublicListPayloadArr, sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
 import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { clearHeadlineMemCache } from '../lib/headlineMemCache.js';
+import { clearHomePublicFeedCaches } from '../lib/headlineMemCache.js';
+import { logPublicFeedAfterPublish } from '../lib/feedConsistencyLog.js';
 
 export const articlesRouter = Router();
 
@@ -72,6 +73,12 @@ articlesRouter.get('/public/list', async (req, res, next) => {
   try {
     const rows = await articlesDb.listPublishedForMain();
     if (debug()) console.log('[articles] GET /public/list count=', rows.length);
+    if (String(process.env.NW_PUBLIC_FEED_DEBUG || '').trim() === '1') {
+      console.log(
+        '[nw/public-list]',
+        JSON.stringify({ ids: (rows || []).slice(0, 50).map((r) => r && r.id) }),
+      );
+    }
     res.json(sanitizeForPublicListPayloadArr(rows));
   } catch (e) {
     next(e);
@@ -363,6 +370,10 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
       );
       const tAfterDb = Date.now();
       if (!upd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+      if (toApiStatus(upd.article && upd.article.status) === 'published') {
+        clearHomePublicFeedCaches();
+        await logPublicFeedAfterPublish('reporter-patch', upd.article?.id, upd.article?.title);
+      }
       if (debug()) console.log('[articles] PATCH reporter', { id: upd.article?.id, status: upd.article?.status });
       if (saveTiming()) {
         console.log(
@@ -388,7 +399,8 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (action === 'approve') {
       const r = await articlesDb.approveFromSubmitted(id);
       if (!r.ok) return res.status(r.http).json({ error: r.error });
-      clearHeadlineMemCache();
+      clearHomePublicFeedCaches();
+      await logPublicFeedAfterPublish('approve', r.article?.id, r.article?.title);
       if (debug()) console.log('[articles] approve', { id: r.article?.id, idempotent: r.idempotent });
       return res.json({
         message: r.idempotent ? '이미 게시된 기사입니다.' : '승인되었습니다.',
@@ -436,7 +448,10 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     const staffUpd = await articlesDb.updateByStaff(id, payload);
     const tStaffDb = Date.now();
     if (!staffUpd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-    if (toApiStatus(staffUpd.article && staffUpd.article.status) === 'published') clearHeadlineMemCache();
+    if (toApiStatus(staffUpd.article && staffUpd.article.status) === 'published') {
+      clearHomePublicFeedCaches();
+      await logPublicFeedAfterPublish('staff-patch', staffUpd.article?.id, staffUpd.article?.title);
+    }
     if (saveTiming()) {
       const bodyOut = { message: '저장되었습니다.', article: staffUpd.article };
       console.log(

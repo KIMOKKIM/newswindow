@@ -9,6 +9,14 @@ export function clearHeadlineMemCache() {
   headlineMemEntry = null;
 }
 
+/**
+ * 홈 공개 피드 관련 서버 메모리 캐시 전부 무효화
+ * (히어로 메모리 캐시 — latest 목록은 DB 직조회이나 동일 트랜잭션에서 함께 호출)
+ */
+export function clearHomePublicFeedCaches() {
+  clearHeadlineMemCache();
+}
+
 function headlineTtlMs() {
   if (String(process.env.NW_HEADLINE_CACHE_BYPASS || '').trim() === '1') return 0;
   const t = Number(process.env.NW_HEADLINE_CACHE_TTL_MS);

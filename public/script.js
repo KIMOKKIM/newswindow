@@ -969,7 +969,9 @@ function majorCategory(cat) {
 
 function sortArticleTime(a) {
     if (!a) return 0;
-    return parseCreatedAt(a.published_at || a.submitted_at || a.updated_at || a.created_at);
+    var t = parseCreatedAt(a.published_at || a.updated_at || a.created_at);
+    if (t) return t;
+    return parseCreatedAt(a.submitted_at);
 }
 
 function sortByLatest(list) {
@@ -1379,33 +1381,40 @@ function renderLatestTop5FromList(articles) {
         }
         function tryAt(k) {
             if (k >= candidates.length) {
-                showPlaceholder();
+                if (heroImg.src && heroImg.getAttribute('src')) {
+                    heroImg.hidden = false;
+                    heroMedia.classList.remove('is-placeholder');
+                } else {
+                    showPlaceholder();
+                }
                 return;
             }
             var tsrc = candidates[k];
-            heroImg.onerror = function () {
+            var preload = new Image();
+            preload.onload = function () {
                 if (nwHeroImageDebugEnabled()) {
-                    console.warn('[nw-main] hero image onerror, next candidate', row && row.id, k);
+                    console.info('[nw-main] hero image preload ok', row && row.id, k);
+                }
+                heroImg.src = tsrc;
+                heroImg.removeAttribute('hidden');
+                heroImg.hidden = false;
+                heroMedia.classList.remove('is-placeholder');
+            };
+            preload.onerror = function () {
+                if (nwHeroImageDebugEnabled()) {
+                    console.warn('[nw-main] hero image preload onerror, next candidate', row && row.id, k);
                 }
                 tryAt(k + 1);
             };
-            heroImg.onload = function () {
-                if (nwHeroImageDebugEnabled()) {
-                    console.info('[nw-main] hero image load ok', row && row.id, k);
-                }
-                heroImg.hidden = false;
-                heroMedia.classList.remove('is-placeholder');
-            };
-            heroMedia.classList.remove('is-placeholder');
-            heroImg.removeAttribute('hidden');
-            heroImg.src = tsrc;
-            if (heroImg.complete && heroImg.naturalWidth > 0) {
-                heroImg.hidden = false;
-                heroMedia.classList.remove('is-placeholder');
-            }
+            preload.src = tsrc;
         }
         if (candidates.length === 0) {
-            showPlaceholder();
+            if (heroImg.src && heroImg.getAttribute('src')) {
+                heroImg.hidden = false;
+                heroMedia.classList.remove('is-placeholder');
+            } else {
+                showPlaceholder();
+            }
         } else {
             tryAt(0);
         }

@@ -97,7 +97,7 @@
       if (desc) setMeta('name', 'description', desc);
       setMeta('property', 'og:type', 'website');
       setMeta('property', 'og:site_name', name);
-      setMeta('property', 'og:title', name + ((seo && seo.siteTitleSuffix) || ''));
+      setMeta('property', 'og:title', document.title || name);
       if (desc) setMeta('property', 'og:description', desc);
       setMeta('property', 'og:url', canon);
       var logo =
@@ -125,7 +125,8 @@
         ];
       }
       injectJsonLdById('nw-org-jsonld', org);
-      document.title = name + ((seo && seo.siteTitleSuffix) || '');
+      var suff = (seo && seo.siteTitleSuffix) || '';
+      document.title = suff ? name + suff : document.title.replace(/\s*$/, '') || name;
     });
   }
 

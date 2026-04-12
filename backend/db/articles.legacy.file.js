@@ -12,7 +12,6 @@ import {
   mapDetail,
   mapArticlePatchSnapshot,
   sortTimePublished,
-  sortTimeMainFeed,
   mapPublishedListItem,
   mapPublishedListRowForPublicFeed,
   mapPublishedListHeroMinimal,
@@ -76,7 +75,7 @@ export const legacySyncArticlesDb = {
     const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
     return [...articles]
       .filter((a) => isPublicFeedReadableStatus(a.status))
-      .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
+      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x))
       .slice(0, lim)
       .map((a) => mapPublishedListRowForPublicFeed(a));
   },
@@ -85,7 +84,7 @@ export const legacySyncArticlesDb = {
     const lim = Math.min(15, Math.max(1, Number(limit) || 5));
     return [...articles]
       .filter((a) => isPublicFeedReadableStatus(a.status))
-      .sort((x, y) => sortTimeMainFeed(y) - sortTimeMainFeed(x))
+      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x))
       .slice(0, lim)
       .map((a) => mapPublishedListHeroMinimal(a));
   },
