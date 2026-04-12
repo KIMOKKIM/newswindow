@@ -1,14 +1,15 @@
 import { articlesDb } from '../db/articles.js';
 import { mainFeedArticleCap } from '../db/articles.shared.js';
+import { tracePublicFeedPresence } from './publicFeedTrace.js';
 
 /**
  * publish/approve 직후 공개 피드 일관성 점검 (NW_PUBLIC_FEED_DEBUG=1 일 때만).
- * /api/articles/public/list, /api/home latest, /api/home/headlines 히어로가 동일 소스 순서인지 ids 로 확인.
  */
 export async function logPublicFeedAfterPublish(label, articleId, articleTitle) {
   if (String(process.env.NW_PUBLIC_FEED_DEBUG || '').trim() !== '1') return;
   try {
     const cap = mainFeedArticleCap();
+    const unified = await articlesDb.getUnifiedPublicFeedRecords();
     const listRows = await articlesDb.listPublishedForMain();
     const listIds = listRows.map((r) => r.id);
     const hero = await articlesDb.listPublishedLatestHero(10);
@@ -22,11 +23,17 @@ export async function logPublicFeedAfterPublish(label, articleId, articleTitle) 
       }
     }
     const aid = articleId != null ? Number(articleId) : null;
+    tracePublicFeedPresence(
+      `afterPublish:${label}`,
+      unified.map((r) => ({ id: r.id, title: r.title })),
+      { unifiedLen: unified.length },
+    );
     const payload = {
       label,
       cap,
       articleId: Number.isFinite(aid) ? aid : null,
       articleTitle: articleTitle != null ? String(articleTitle).slice(0, 200) : null,
+      unifiedTopIds: unified.slice(0, 40).map((r) => r.id),
       publicListIds: listIds.slice(0, 40),
       homeLatestIds: listIds.slice(0, 40),
       headlinesHeroIds: heroIds.slice(0, 10),

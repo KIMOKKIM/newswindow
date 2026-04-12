@@ -13,6 +13,7 @@ import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js'
 import { authMiddleware } from '../middleware/auth.js';
 import { clearHomePublicFeedCaches } from '../lib/headlineMemCache.js';
 import { logPublicFeedAfterPublish } from '../lib/feedConsistencyLog.js';
+import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
 
 export const articlesRouter = Router();
 
@@ -71,7 +72,18 @@ function isDupConflict(e) {
 // GET /api/articles/public/list — 메인 노출용 공개 기사 목록 (승인·게시 published 만, 최신순)
 articlesRouter.get('/public/list', async (req, res, next) => {
   try {
+    const unified = await articlesDb.getUnifiedPublicFeedRecords();
+    tracePublicFeedPresence(
+      'pipeline.unifiedPublicFeed',
+      unified.map((r) => ({ id: r.id, title: r.title })),
+      { fullLen: unified.length },
+    );
     const rows = await articlesDb.listPublishedForMain();
+    tracePublicFeedPresence(
+      'api/articles/public/list',
+      rows.map((r) => ({ id: r.id, title: r.title })),
+      { len: rows.length },
+    );
     if (debug()) console.log('[articles] GET /public/list count=', rows.length);
     if (String(process.env.NW_PUBLIC_FEED_DEBUG || '').trim() === '1') {
       console.log(

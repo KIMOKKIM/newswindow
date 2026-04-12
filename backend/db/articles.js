@@ -18,6 +18,7 @@ function wrapLegacy(L) {
     countPublished: async () => L.countPublished(),
     all: async () => L.all(),
     listPublishedForMain: async () => L.listPublishedForMain(),
+    getUnifiedPublicFeedRecords: async () => L.getUnifiedPublicFeedRecords(),
     listPublishedLatest: async (limit) => L.listPublishedLatest(limit),
     listPublishedLatestHero: async (limit) => L.listPublishedLatestHero(limit),
     listPublishedPaginated: async (page, pageSize, titleQuery, sectionCategory, opts) =>

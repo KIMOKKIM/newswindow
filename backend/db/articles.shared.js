@@ -211,10 +211,28 @@ export function comparePopularArticlesDesc(x, y) {
   return cny - cnx;
 }
 
-export function sortTimePublished(a) {
+/**
+ * 공개 피드 단일 정렬 키: published_at → updated_at → created_at (ms).
+ * 서버·프론트 모두 동일 우선순위 유지.
+ */
+export function computeUnifiedPublicFeedSortMs(a) {
+  if (!a) return 0;
   const d = a.published_at || a.updated_at || a.created_at || '';
   const t = Date.parse(String(d).replace(' ', 'T'));
   return Number.isFinite(t) ? t : 0;
+}
+
+/** 내림차순: 더 최신이 앞 (동률 시 id 큰 쪽) */
+export function compareUnifiedPublicFeedDesc(a, b) {
+  const tb = computeUnifiedPublicFeedSortMs(b);
+  const ta = computeUnifiedPublicFeedSortMs(a);
+  if (tb !== ta) return tb - ta;
+  return Number(b.id) - Number(a.id);
+}
+
+/** @deprecated 이름 호환 — 내부는 computeUnifiedPublicFeedSortMs 와 동일 */
+export function sortTimePublished(a) {
+  return computeUnifiedPublicFeedSortMs(a);
 }
 
 export function sortTimeMainFeed(a) {

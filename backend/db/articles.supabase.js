@@ -1,4 +1,5 @@
 import { assertSupabase } from '../lib/supabaseServer.js';
+import { getUnifiedPublicFeedCached } from '../lib/unifiedPublicFeedCache.js';
 import {
   nowStr,
   canonicalStoreStatus,
@@ -9,7 +10,7 @@ import {
   mapListFields,
   mapDetail,
   mapArticlePatchSnapshot,
-  sortTimePublished,
+  compareUnifiedPublicFeedDesc,
   mapPublishedListItem,
   mapPublishedListRowForPublicFeed,
   mapPublishedListHeroMinimal,
@@ -26,6 +27,7 @@ import {
   articleMatchesSectionCategory,
   isKnownSectionCategoryParam,
 } from '../lib/sectionCategoryFilter.js';
+import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
 
 function sb() {
   return assertSupabase();
@@ -41,11 +43,11 @@ const ARTICLES_LIST_FROM = (() => {
 })();
 
 /**
- * 메인·공개 list·히어로 공통 — 전체기사(listPublishedPaginated)와 동일하게 sortTimePublished 기준.
- * published_at 만으로 ORDER+LIMIT 하면 NULL/지연 반영 행이 잘려 나가므로 dated+undated 병합 후 JS 정렬.
+ * 통합 공개 피드 — 본문 제외, 썸네일용 image1~4.
+ * 정렬은 전부 JS compareUnifiedPublicFeedDesc (published_at → updated_at → created_at).
  */
 const MERGED_PUBLIC_FEED_SELECT =
-  'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1,image2,image3';
+  'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1,image2,image3,image4';
 
 const POPULAR_WINDOW_SELECT =
   'id,title,category,author_name,published_at,created_at,views,image1';
@@ -82,41 +84,29 @@ async function resolveArticleRowLight(id) {
   return data ? rowToArticleRecord(data) : null;
 }
 
-/**
- * 전체기사 페이지(listPublishedPaginated)와 동일한 sortTimePublished 순서의 상위 `limit`건.
- * articles 테이블 직조회(뷰 지연·published_at 단일 정렬 LIMIT 편향 방지).
- */
-async function fetchMergedPublishedRecordsForPublicFeed(limit) {
-  const cap = Math.min(mainFeedArticleCap(), Math.max(1, Number(limit) || 10));
-  const branch = Math.min(1500, Math.max(cap * 4, 200));
-  const [{ data: dated, error: e1 }, { data: undated, error: e2 }] = await Promise.all([
-    sb()
+/** 승인·게시 행만 JS에서 통일 정렬된 배열 (서버 캐시 + 무효화는 unifiedPublicFeedCache). */
+async function loadUnifiedPublicFeedRecordsFromDatabase() {
+  const pageSize = 1000;
+  const out = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await sb()
       .from('articles')
       .select(MERGED_PUBLIC_FEED_SELECT)
       .in('status', ['published', 'approved'])
-      .not('published_at', 'is', null)
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .limit(branch),
-    sb()
-      .from('articles')
-      .select(MERGED_PUBLIC_FEED_SELECT)
-      .in('status', ['published', 'approved'])
-      .is('published_at', null)
-      .order('updated_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false, nullsFirst: false })
-      .limit(branch),
-  ]);
-  if (e1) throw e1;
-  if (e2) throw e2;
-  const byId = new Map();
-  for (const r of [...(dated || []), ...(undated || [])]) {
-    const rec = rowToArticleRecord(r);
-    if (!byId.has(rec.id)) byId.set(rec.id, rec);
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const chunk = data || [];
+    if (chunk.length === 0) break;
+    for (const r of chunk) {
+      out.push(rowToArticleRecord(r));
+    }
+    if (chunk.length < pageSize) break;
+    from += pageSize;
   }
-  const merged = [...byId.values()]
-    .filter((a) => isPublicFeedReadableStatus(a.status))
-    .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
-  return merged.slice(0, cap);
+  const filtered = out.filter((a) => isPublicFeedReadableStatus(a.status));
+  filtered.sort((x, y) => compareUnifiedPublicFeedDesc(x, y));
+  return filtered;
 }
 
 export const articlesDb = {
@@ -141,19 +131,26 @@ export const articlesDb = {
     return [...rows].sort((a, b) => b.id - a.id).map((a) => mapListFields(a));
   },
 
-  /** 홈 첫 화면 전용 — listPublishedLatest와 동일 정렬·동일 소스에서 앞쪽만 */
-  async listPublishedLatestHero(limit) {
-    const lim = Math.min(15, Math.max(1, Number(limit) || 5));
-    const rows = await fetchMergedPublishedRecordsForPublicFeed(lim);
-    return rows.map((a) => mapPublishedListHeroMinimal(a));
+  /**
+   * 공개 피드 단일 소스 (정렬 완료). list / home / headlines / 전체기사 페이지 모두 이 배열을 슬라이스·필터.
+   */
+  async getUnifiedPublicFeedRecords() {
+    return getUnifiedPublicFeedCached(() => loadUnifiedPublicFeedRecordsFromDatabase());
   },
 
-  /** 메인·GET /api/articles/public/list·GET /api/home — 전체기사와 동일 sortTimePublished */
+  /** 홈 첫 화면 전용 — 통합 피드 앞쪽만 */
+  async listPublishedLatestHero(limit) {
+    const lim = Math.min(15, Math.max(1, Number(limit) || 5));
+    const all = await this.getUnifiedPublicFeedRecords();
+    return all.slice(0, lim).map((a) => mapPublishedListHeroMinimal(a));
+  },
+
+  /** 메인·GET /api/articles/public/list·GET /api/home */
   async listPublishedLatest(limit) {
     const cap = mainFeedArticleCap();
     const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
-    const rows = await fetchMergedPublishedRecordsForPublicFeed(lim);
-    return rows.map((a) => mapPublishedListRowForPublicFeed(a));
+    const all = await this.getUnifiedPublicFeedRecords();
+    return all.slice(0, lim).map((a) => mapPublishedListRowForPublicFeed(a));
   },
 
   async listPublishedForMain() {
@@ -170,10 +167,8 @@ export const articlesDb = {
     const o = opts && typeof opts === 'object' ? opts : {};
     const authorRaw = o.authorName != null ? String(o.authorName).trim() : '';
     const excludeRaw = o.excludeId != null ? String(o.excludeId).trim() : '';
-    const rows = await selectAll();
-    let all = rows
-      .filter((a) => toApiStatus(a.status) === 'published')
-      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
+    const unified = await this.getUnifiedPublicFeedRecords();
+    let all = unified.filter((a) => toApiStatus(a.status) === 'published');
     if (catRaw) {
       all = all.filter((a) => articleMatchesSectionCategory(a.category, catRaw));
     }
@@ -522,6 +517,11 @@ export const articlesDb = {
     if (error) throw error;
     if (data) {
       const rec = rowToArticleRecord(data);
+      tracePublicFeedPresence(
+        'db.row.afterApprove',
+        [{ id: rec.id, title: rec.title, status: rec.status, published_at: rec.published_at }],
+        { rawStatusBefore: rawStatus },
+      );
       if (String(process.env.NW_PUBLIC_FEED_DEBUG || '').trim() === '1') {
         console.log(
           '[nw/publish]',

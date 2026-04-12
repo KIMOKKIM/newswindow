@@ -1,5 +1,6 @@
 import { articlesDb } from '../db/articles.js';
 import { sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
+import { clearUnifiedPublicFeedCache } from './unifiedPublicFeedCache.js';
 
 /** @type {{ key: string, expiresAt: number, rows: unknown[] } | null} */
 let headlineMemEntry = null;
@@ -15,6 +16,7 @@ export function clearHeadlineMemCache() {
  */
 export function clearHomePublicFeedCaches() {
   clearHeadlineMemCache();
+  clearUnifiedPublicFeedCache();
 }
 
 function headlineTtlMs() {

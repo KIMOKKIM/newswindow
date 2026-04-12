@@ -6,6 +6,7 @@ import {
   sanitizeForPublicListPayloadArr,
 } from '../db/articles.shared.js';
 import { getHeadlinesRowsCached } from '../lib/headlineMemCache.js';
+import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
 
 export const homeRouter = Router();
 
@@ -38,7 +39,18 @@ homeRouter.get('/headlines', async (req, res, next) => {
   const wall0 = Date.now();
   try {
     const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 5));
+    const unified = await articlesDb.getUnifiedPublicFeedRecords();
+    tracePublicFeedPresence(
+      'pipeline.unifiedPublicFeed',
+      unified.slice(0, limit).map((r) => ({ id: r.id, title: r.title })),
+      { sliceNote: 'headlines cap' },
+    );
     const { rows, cacheHit, dbMs } = await getHeadlinesRowsCached(limit);
+    tracePublicFeedPresence(
+      'api/home/headlines',
+      rows.map((r) => ({ id: r.id, title: r.title })),
+      { cache: cacheHit ? 'HIT' : 'MISS' },
+    );
     const totalMs = Date.now() - wall0;
     const concurrentSuspicion = !cacheHit && dbMs > 2500;
     const logLine = {
@@ -84,6 +96,13 @@ homeRouter.get('/', async (req, res, next) => {
   const wall0 = Date.now();
   const sinceMs = Date.now() - POPULAR_DAYS * 24 * 60 * 60 * 1000;
 
+  const unified = await articlesDb.getUnifiedPublicFeedRecords();
+  tracePublicFeedPresence(
+    'pipeline.unifiedPublicFeed',
+    unified.map((r) => ({ id: r.id, title: r.title })),
+    { fullLen: unified.length },
+  );
+
   const rL = await timeSegment('latest', () => articlesDb.listPublishedForMain());
   if (!rL.ok || !Array.isArray(rL.value)) {
     const err = rL.err || new Error('latest failed');
@@ -96,6 +115,11 @@ homeRouter.get('/', async (req, res, next) => {
     timeSegment('ads', () => loadAdsForHome()),
   ]);
 
+  tracePublicFeedPresence(
+    'api/home.latestArticles',
+    rL.value.map((r) => ({ id: r.id, title: r.title })),
+    { cap: mainFeedArticleCap(), len: rL.value.length },
+  );
   const latestArticles = sanitizeForPublicListPayloadArr(rL.value);
   const popularArticles = sanitizeForPublicListPayloadArr(
     rP.ok && Array.isArray(rP.value) ? rP.value : [],

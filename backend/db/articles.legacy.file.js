@@ -11,7 +11,7 @@ import {
   mapListFields,
   mapDetail,
   mapArticlePatchSnapshot,
-  sortTimePublished,
+  compareUnifiedPublicFeedDesc,
   mapPublishedListItem,
   mapPublishedListRowForPublicFeed,
   mapPublishedListHeroMinimal,
@@ -70,21 +70,25 @@ export const legacySyncArticlesDb = {
     return [...articles].reverse().map((a) => mapListFields(a));
   },
 
+  getUnifiedPublicFeedRecords() {
+    return [...articles]
+      .filter((a) => isPublicFeedReadableStatus(a.status))
+      .sort((x, y) => compareUnifiedPublicFeedDesc(x, y));
+  },
+
   listPublishedLatest(limit) {
     const cap = mainFeedArticleCap();
     const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
-    return [...articles]
-      .filter((a) => isPublicFeedReadableStatus(a.status))
-      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x))
+    return legacySyncArticlesDb
+      .getUnifiedPublicFeedRecords()
       .slice(0, lim)
       .map((a) => mapPublishedListRowForPublicFeed(a));
   },
 
   listPublishedLatestHero(limit) {
     const lim = Math.min(15, Math.max(1, Number(limit) || 5));
-    return [...articles]
-      .filter((a) => isPublicFeedReadableStatus(a.status))
-      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x))
+    return legacySyncArticlesDb
+      .getUnifiedPublicFeedRecords()
       .slice(0, lim)
       .map((a) => mapPublishedListHeroMinimal(a));
   },
@@ -103,9 +107,7 @@ export const legacySyncArticlesDb = {
     const o = opts && typeof opts === 'object' ? opts : {};
     const authorRaw = o.authorName != null ? String(o.authorName).trim() : '';
     const excludeRaw = o.excludeId != null ? String(o.excludeId).trim() : '';
-    let all = [...articles]
-      .filter((a) => toApiStatus(a.status) === 'published')
-      .sort((x, y) => sortTimePublished(y) - sortTimePublished(x));
+    let all = legacySyncArticlesDb.getUnifiedPublicFeedRecords().filter((a) => toApiStatus(a.status) === 'published');
     if (catRaw) {
       all = all.filter((a) => articleMatchesSectionCategory(a.category, catRaw));
     }
