@@ -969,9 +969,7 @@ function majorCategory(cat) {
 
 function sortArticleTime(a) {
     if (!a) return 0;
-    var t = parseCreatedAt(a.published_at || a.updated_at || a.created_at);
-    if (t) return t;
-    return parseCreatedAt(a.submitted_at);
+    return parseCreatedAt(a.published_at || a.updated_at || a.created_at);
 }
 
 function sortByLatest(list) {
@@ -1086,6 +1084,51 @@ function nwPublicFeedDebugEnabled() {
         if (typeof localStorage !== 'undefined' && localStorage.getItem('nwfeeddebug') === '1') return true;
     } catch (e) {}
     return false;
+}
+
+/** 서버 NW_PUBLIC_FEED_TRACE 와 동일 마커로 프론트 단계 추적 (?nwfeedtrace=1 또는 localStorage nwfeedtrace=1) */
+function nwPublicFeedTraceEnabled() {
+    try {
+        if (typeof window === 'undefined' || !window.location) return false;
+        if (window.location.search && window.location.search.indexOf('nwfeedtrace=1') !== -1) return true;
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('nwfeedtrace') === '1') return true;
+    } catch (e) {}
+    return false;
+}
+
+function nwHomeSessionCacheSkipped() {
+    if (nwPublicFeedTraceEnabled()) return true;
+    try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('nw_disable_home_cache') === '1') return true;
+    } catch (e) {}
+    return false;
+}
+
+var NW_FEED_TRACE_MARKERS = [
+    { id: 'twosome', needle: '투썸플레이스' },
+    { id: 'samsung_ai', needle: 'AI 무풍' },
+];
+
+function nwTraceFeedMarkersOnClient(stage, articles) {
+    if (!nwPublicFeedTraceEnabled()) return;
+    try {
+        var arr = Array.isArray(articles) ? articles : [];
+        var markers = {};
+        NW_FEED_TRACE_MARKERS.forEach(function (m) {
+            var hit = null;
+            var i;
+            for (i = 0; i < arr.length; i++) {
+                var a = arr[i];
+                if (!a || a.title == null) continue;
+                if (String(a.title).indexOf(m.needle) !== -1) {
+                    hit = { id: a.id, title: String(a.title).slice(0, 160) };
+                    break;
+                }
+            }
+            markers[m.id] = hit;
+        });
+        console.info('[nw-main] feed-trace', JSON.stringify({ stage: stage, rowCount: arr.length, markers: markers }));
+    } catch (e) {}
 }
 
 var NW_HERO_CLIENT_DATA_MAX = 6000000;
@@ -1326,6 +1369,7 @@ function renderLatestTop5FromList(articles) {
 
     var ordered = sortByLatest(articles);
     var top5 = ordered.slice(0, 5);
+    nwTraceFeedMarkersOnClient('render.heroTop5', top5);
     var heroLink = document.getElementById('nwLatestHeroLink');
     var heroTitle = document.getElementById('nwLatestHeroTitle');
     var heroMeta = document.getElementById('nwLatestHeroMeta');
@@ -1662,6 +1706,10 @@ function nwThrottleFetchMainPublicList() {
     var now = Date.now();
     if (now - NW_MAIN_LIST_LAST_FETCH_AT < 1200) return;
     NW_MAIN_LIST_LAST_FETCH_AT = now;
+    try {
+        sessionStorage.removeItem(NW_HOME_SESSION_KEY);
+        sessionStorage.removeItem(NW_HEADLINE_STALE_SESSION_KEY);
+    } catch (e) {}
     nwFetchMainHomeBundle();
 }
 
@@ -1792,6 +1840,7 @@ function nwApplyMainArticlesArray(articles) {
             })
         });
     }
+    nwTraceFeedMarkersOnClient('render.applyMainArticles', articles);
     renderLatestTop5FromList(articles);
     requestAnimationFrame(function () {
         try {
@@ -1846,6 +1895,9 @@ function setLatestTop5FetchErrorState(sec, isTimeout) {
     sec.appendChild(wrap);
     if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'fallback';
     if (nwHomePerfReportingEnabled()) console.info('[nw-home-perf] headline fallback rendered');
+    if (nwPublicFeedTraceEnabled()) {
+        console.warn('[nw-main] fallback UI: headline area (network error or timeout)');
+    }
     nwHomePerfMarkHeadlines();
 }
 
@@ -1959,9 +2011,15 @@ function nwFetchNetworkHeadlinesWithTimeout(hadCachePaint, onSettled) {
             finishOk(rows, 'home/headlines');
         })
         .catch(function () {
+            if (nwPublicFeedTraceEnabled()) {
+                console.warn('[nw-main] headlines primary failed; trying fallback GET /api/articles/public/latest?hero=1');
+            }
             return nwFetchJsonWithTimeout(fallbackUrl, { cache: 'default' }, tlim).then(function (r) {
                 if (!r.res.ok) throw { aborted: false };
                 if (!Array.isArray(r.data) || r.data.length === 0) throw { aborted: false };
+                if (nwPublicFeedTraceEnabled()) {
+                    console.info('[nw-main] headlines fallback success: articles/public/latest');
+                }
                 finishOk(r.data, 'articles/public/latest');
             });
         })
@@ -2014,6 +2072,9 @@ function nwFetchMainLegacyHomeParallel() {
                 return Promise.reject(new Error('list'));
             })
             .catch(function () {
+                if (nwPublicFeedTraceEnabled()) {
+                    console.warn('[nw-main] legacy parallel: public/list failed; fallback nwFetchPublicLatestRows');
+                }
                 return nwFetchPublicLatestRows(30);
             }),
         fetch(popUrl, opts).then(function (res) {
@@ -2186,7 +2247,11 @@ function nwFetchMainHomeBundle() {
     nwHomePerfEnsureStarted();
     var seq = ++nwMainBundleSeq;
     var t0 = nwPerfNow();
-    var cached = nwReadHomeSessionCache();
+    var skipSess = nwHomeSessionCacheSkipped();
+    if (skipSess && nwPublicFeedTraceEnabled()) {
+        console.info('[nw-main] session cache skipped (nwfeedtrace or nw_disable_home_cache)');
+    }
+    var cached = skipSess ? null : nwReadHomeSessionCache();
     var hasFull = nwSessionCacheHasLatestAndAdsShape(cached);
     var hasLatestOnly = nwSessionCacheHasLatestShape(cached);
     var hadCachePaint = false;
