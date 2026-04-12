@@ -41,6 +41,7 @@ const ARTICLES_LIST_FROM = (() => {
   return v === 'articles' || v === 'articles_list_slim' ? v : 'articles_list_slim';
 })();
 
+/** Hero/top5 only — narrow columns; ORDER published_at DESC + LIMIT (index on status,published_at recommended). */
 const PUBLISHED_HERO_SELECT =
   'id,title,category,author_name,created_at,published_at,submitted_at,status,image1';
 

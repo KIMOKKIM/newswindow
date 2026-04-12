@@ -80,6 +80,7 @@ articlesRouter.get('/public/list', async (req, res, next) => {
 // Static /public/* routes must be registered before /public/:id (otherwise "latest" is parsed as id).
 
 // GET /api/articles/public/latest — 메인 상단용 (?hero=1 이면 첫 페인트용 초소형 JSON, limit 기본 5)
+// Main page: 4s client timeout; check X-NW-Public-Latest-Timing-Ms and slow logs when diagnosing.
 articlesRouter.get('/public/latest', async (req, res, next) => {
   try {
     const hq = req.query.hero;
@@ -113,6 +114,12 @@ articlesRouter.get('/public/latest', async (req, res, next) => {
         : 'public, s-maxage=30, stale-while-revalidate=90',
     );
     if (debug()) console.log('[articles] GET /public/latest hero=', hero, 'limit=', limit, 'count=', rows.length, 'ms=', serverMs, 'bytes=', jsonBytes);
+    if (serverMs > 4000) {
+      console.warn(
+        '[articles] slow GET /public/latest',
+        JSON.stringify({ hero, limit, serverMs, count: rows.length, bytes: jsonBytes }),
+      );
+    }
     res.json(payload);
   } catch (e) {
     next(e);

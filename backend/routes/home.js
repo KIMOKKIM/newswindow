@@ -8,40 +8,79 @@ export const homeRouter = Router();
 const POPULAR_DAYS = 30;
 const POPULAR_LIMIT = 10;
 
-/** Home ads cache TTL (ms). Default 60000; NW_HOME_ADS_CACHE_MS=0 disables cache. */
-const ADS_HOME_CACHE_MS = (() => {
-  const v = process.env.NW_HOME_ADS_CACHE_MS;
-  if (v == null || String(v).trim() === '') return 60000;
-  return Math.max(0, Number(v) || 0);
-})();
-
-let adsHomeCache = { at: 0, data: null };
-let lastAdsHomeCacheHit = false;
-
-async function loadAdsForHome() {
-  lastAdsHomeCacheHit = false;
-  if (ADS_HOME_CACHE_MS > 0 && adsHomeCache.data && Date.now() - adsHomeCache.at < ADS_HOME_CACHE_MS) {
-    lastAdsHomeCacheHit = true;
-    return adsHomeCache.data;
-  }
-  const data = await loadPublicAdsConfig();
-  if (ADS_HOME_CACHE_MS > 0) {
-    adsHomeCache = { at: Date.now(), data };
-  }
-  return data;
-}
-
-async function timeSegment(name, fn) {
+async function timeSegment(_label, fn) {
   const t0 = Date.now();
   try {
     const value = await fn();
-    return { name, ok: true, ms: Date.now() - t0, value, err: null };
-  } catch (e) {
-    const msg = e && e.message ? String(e.message) : String(e);
-    console.error('[nw/home] segment failed', JSON.stringify({ segment: name, ms: Date.now() - t0, error: msg }));
-    return { name, ok: false, ms: Date.now() - t0, value: null, err: e };
+    return { ok: true, value, ms: Date.now() - t0, err: null };
+  } catch (err) {
+    return { ok: false, value: null, ms: Date.now() - t0, err };
   }
 }
+
+function loadAdsForHome() {
+  return loadPublicAdsConfig();
+}
+
+/** In-memory cache for GET /api/home/headlines — reduces duplicate Supabase work under main-page burst. */
+const HEADLINE_MEM_TTL_MS = Math.min(
+  120_000,
+  Math.max(30_000, Number(process.env.NW_HEADLINE_CACHE_TTL_MS) || 45_000),
+);
+/** @type {{ key: string, expiresAt: number, rows: unknown[] } | null} */
+let headlineMemEntry = null;
+
+async function getHeadlinesRowsCached(limit) {
+  const key = `n:${limit}`;
+  const now = Date.now();
+  if (headlineMemEntry && headlineMemEntry.key === key && headlineMemEntry.expiresAt > now) {
+    return { rows: headlineMemEntry.rows, cacheHit: true, dbMs: 0 };
+  }
+  const db0 = Date.now();
+  const rows = await articlesDb.listPublishedLatestHero(limit);
+  const dbMs = Date.now() - db0;
+  headlineMemEntry = { key, expiresAt: now + HEADLINE_MEM_TTL_MS, rows };
+  return { rows, cacheHit: false, dbMs };
+}
+
+/** Lightweight first paint: hero rows only (no ads/popular). GET /api/home/headlines?limit=5 */
+homeRouter.get('/headlines', async (req, res, next) => {
+  const wall0 = Date.now();
+  try {
+    const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 5));
+    const { rows, cacheHit, dbMs } = await getHeadlinesRowsCached(limit);
+    const totalMs = Date.now() - wall0;
+    const concurrentSuspicion = !cacheHit && dbMs > 2500;
+    const logLine = {
+      totalMs,
+      dbMs,
+      cache: cacheHit ? 'HIT' : 'MISS',
+      limit,
+      rowCount: rows.length,
+      concurrentSuspicion,
+      memTtlMs: HEADLINE_MEM_TTL_MS,
+    };
+    if (totalMs > 1500 || concurrentSuspicion) {
+      console.warn('[nw/home/headlines]', JSON.stringify(logLine));
+    } else {
+      console.log('[nw/home/headlines]', JSON.stringify(logLine));
+    }
+    res.set('Cache-Control', 'public, max-age=30, s-maxage=30, stale-while-revalidate=60');
+    res.set('X-NW-Home-Headlines-Ms', String(totalMs));
+    res.set('X-NW-Headlines-Db-Ms', String(dbMs));
+    res.set('X-NW-Cache', cacheHit ? 'HIT' : 'MISS');
+    res.set(
+      'Access-Control-Expose-Headers',
+      'X-NW-Home-Headlines-Ms, X-NW-Headlines-Db-Ms, X-NW-Cache',
+    );
+    res.json({
+      latestHero: rows,
+      _meta: { ms: totalMs, dbMs, cache: cacheHit ? 'HIT' : 'MISS', limit, rowCount: rows.length },
+    });
+  } catch (e) {
+    next(e);
+  }
+});
 
 /** Main bundle: latest required; popular/ads may be partial on failure. */
 homeRouter.get('/', async (req, res, next) => {
@@ -72,6 +111,9 @@ homeRouter.get('/', async (req, res, next) => {
   };
 
   const wallMs = Date.now() - wall0;
+  if (wallMs > 8000) {
+    console.warn('[nw/home] slow bundle', JSON.stringify({ wallMs, latestMs: rL.ms, popularMs: rP.ms, adsMs: rA.ms }));
+  }
   const body = {
     latestArticles,
     popularArticles,
@@ -140,7 +182,7 @@ homeRouter.get('/', async (req, res, next) => {
       jsonBytes,
       latestLen: latestArticles.length,
       popularLen: popularArticles.length,
-      adsHomeCacheHit: lastAdsHomeCacheHit,
+      adsHomeCacheHit: false,
       partial,
       popularError: rP.ok ? null : rP.err && rP.err.message,
       adsError: rA.ok ? null : rA.err && rA.err.message,

@@ -1058,6 +1058,71 @@ var nwLatestTop5Sync = {
 };
 
 /** index.html에 #nwLatestTop5 가 있어야 함 — DOM 삽입하지 않고 데이터만 바인딩 */
+var NW_HEADLINE_FETCH_TIMEOUT_MS = 4000;
+/** Stale-while-revalidate: last successful hero rows for instant paint before network. */
+var NW_HEADLINE_STALE_SESSION_KEY = 'nw_headline_hero_v1';
+var NW_HEADLINE_STALE_MAX_AGE_MS = 5 * 60 * 1000;
+/** Main bundle generation — ignore stale deferred callbacks after a newer bundle run. */
+var nwMainBundleSeq = 0;
+/** Last applied feed length — skip hero overwrite after full list (25+) is painted. */
+var nwLastArticleFeedLen = 0;
+
+function nwReadStaleHeadlineHero() {
+    try {
+        var raw = sessionStorage.getItem(NW_HEADLINE_STALE_SESSION_KEY);
+        if (!raw) return null;
+        var o = JSON.parse(raw);
+        if (!o || !Array.isArray(o.rows) || o.rows.length === 0 || typeof o.at !== 'number') return null;
+        if (Date.now() - o.at > NW_HEADLINE_STALE_MAX_AGE_MS) return null;
+        return o.rows;
+    } catch (e) {
+        return null;
+    }
+}
+
+function nwWriteStaleHeadlineHero(rows) {
+    try {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        sessionStorage.setItem(
+            NW_HEADLINE_STALE_SESSION_KEY,
+            JSON.stringify({ at: Date.now(), rows: rows })
+        );
+    } catch (e) {}
+}
+
+function nwRemoveHeadlineRetryUi() {
+    var el = document.getElementById('nwHeadlineRetryWrap');
+    if (el) el.remove();
+}
+
+function nwFetchJsonWithTimeout(url, init, timeoutMs) {
+    var deadline = timeoutMs == null ? NW_HEADLINE_FETCH_TIMEOUT_MS : timeoutMs;
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var merged = Object.assign({ credentials: 'omit', cache: 'default' }, init || {});
+    if (ctrl) merged.signal = ctrl.signal;
+    var timer = setTimeout(function () {
+        if (ctrl) ctrl.abort();
+    }, deadline);
+    return fetch(url, merged)
+        .then(function (res) {
+            clearTimeout(timer);
+            return res.text().then(function (t) {
+                var data;
+                try {
+                    data = t ? JSON.parse(t) : null;
+                } catch (eJ) {
+                    return Promise.reject({ aborted: false, parseError: true });
+                }
+                return { res: res, data: data };
+            });
+        })
+        .catch(function (err) {
+            clearTimeout(timer);
+            var aborted = !!(err && err.name === 'AbortError');
+            return Promise.reject({ aborted: aborted, err: err });
+        });
+}
+
 function getNwLatestTop5Section() {
     return document.getElementById('nwLatestTop5');
 }
@@ -1115,6 +1180,7 @@ function renderLatestTop5FromList(articles) {
         );
         return;
     }
+    nwRemoveHeadlineRetryUi();
     sec.classList.remove('nw-latest-top5--loading', 'nw-latest-top5--empty');
 
     var ordered = sortByLatest(articles);
@@ -1274,7 +1340,11 @@ function nwHomePerfEnsureStarted() {
     window.__NW_HOME_PERF__ = {
         v: 1,
         navigationType: nav ? nav.type : 'unknown',
+        headlineFetchStartMs: null,
+        headlineFetchEndMs: null,
         headlineVisibleMs: null,
+        headlineTimeout: false,
+        headlineSource: null,
         adsConfiguredMs: null,
         adsVisibleMs: null,
         headlineHeroFetchMs: null,
@@ -1514,6 +1584,7 @@ function nwRenderMostViewedRows(rows) {
 
 function nwApplyMainArticlesArray(articles) {
     if (!Array.isArray(articles) || articles.length === 0) {
+        nwLastArticleFeedLen = 0;
         renderLatestTop5FromList([]);
         return;
     }
@@ -1523,6 +1594,7 @@ function nwApplyMainArticlesArray(articles) {
         return s === 'published' || s === 'approved';
     });
     if (articles.length === 0) {
+        nwLastArticleFeedLen = 0;
         renderLatestTop5FromList([]);
         return;
     }
@@ -1530,6 +1602,7 @@ function nwApplyMainArticlesArray(articles) {
         var t = articles.filter(function (a) { return a && a.id >= 16 && a.id <= 20; }).map(function (a) { return a.id; });
         console.info('[nw-main] list count=', articles.length, 'TEST id16-20 in payload=', t);
     }
+    nwLastArticleFeedLen = articles.length;
     renderLatestTop5FromList(articles);
     requestAnimationFrame(function () {
         try {
@@ -1545,16 +1618,191 @@ function nwApplyMainArticlesArray(articles) {
     }
 }
 
+function setLatestTop5FetchErrorState(sec, isTimeout) {
+    if (!sec) return;
+    nwRemoveHeadlineRetryUi();
+    sec.classList.remove('nw-latest-top5--loading');
+    sec.classList.add('nw-latest-top5--empty');
+    var heroTitle = document.getElementById('nwLatestHeroTitle');
+    var heroMeta = document.getElementById('nwLatestHeroMeta');
+    var heroImg = document.getElementById('nwLatestHeroImg');
+    var heroMedia = document.getElementById('nwLatestHeroMedia');
+    var dotsEl = document.getElementById('nwLatestHeroDots');
+    var listEl = document.getElementById('nwLatestList');
+    if (heroTitle) heroTitle.textContent = '기사 목록을 불러오지 못했습니다.';
+    if (heroMeta) {
+        heroMeta.textContent = isTimeout
+            ? '요청이 지연되어 중단되었습니다. 아래 버튼으로 다시 시도해 주세요.'
+            : '네트워크 상태를 확인하고 다시 시도해 주세요.';
+    }
+    if (heroImg) {
+        heroImg.removeAttribute('src');
+        heroImg.hidden = true;
+    }
+    if (heroMedia) heroMedia.classList.add('is-placeholder');
+    if (dotsEl) dotsEl.innerHTML = '';
+    if (listEl) listEl.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.id = 'nwHeadlineRetryWrap';
+    wrap.className = 'nw-headline-retry';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nw-headline-retry__btn';
+    btn.textContent = '다시 시도';
+    btn.setAttribute('aria-label', '최신 기사 다시 불러오기');
+    btn.addEventListener('click', function () {
+        nwRetryHeadlinesFromNetwork();
+    });
+    wrap.appendChild(btn);
+    sec.appendChild(wrap);
+    if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'fallback';
+    if (nwHomePerfReportingEnabled()) console.info('[nw-home-perf] headline fallback rendered');
+    nwHomePerfMarkHeadlines();
+}
+
+function nwRetryHeadlinesFromNetwork() {
+    nwRemoveHeadlineRetryUi();
+    var sec = getNwLatestTop5Section();
+    if (sec) {
+        sec.classList.remove('nw-latest-top5--empty');
+        sec.classList.add('nw-latest-top5--loading');
+    }
+    var ht = document.getElementById('nwLatestHeroTitle');
+    if (ht) ht.textContent = '불러오는 중…';
+    var hm = document.getElementById('nwLatestHeroMeta');
+    if (hm) hm.textContent = '';
+    nwFetchNetworkHeadlinesWithTimeout(false, null);
+}
+
+/**
+ * Headlines only first: /api/home/headlines then public latest hero fallback; 4s each.
+ * onSettled: run after success/fail/skip (e.g. schedule deferred main loads — no parallel article APIs before this).
+ */
+function nwFetchNetworkHeadlinesWithTimeout(hadCachePaint, onSettled) {
+    if (!nwIsHomeModalPage()) return;
+    nwHomePerfEnsureStarted();
+    var perf = window.__NW_HOME_PERF__;
+    if (!perf) return;
+    var settled = false;
+    function doneOnce() {
+        if (settled) return;
+        settled = true;
+        if (typeof onSettled === 'function') {
+            try {
+                onSettled();
+            } catch (eS) {
+                if (nwHomePerfReportingEnabled()) console.warn('[nw-home-perf] onSettled error', eS);
+            }
+        }
+    }
+    perf.headlineTimeout = false;
+    perf.headlineFetchStartMs = Math.round(nwPerfNow());
+    if (nwHomePerfReportingEnabled()) {
+        console.info('[nw-home-perf] headline fetch started', { hadCachePaint: !!hadCachePaint });
+    }
+    var primaryUrl = ARTICLES_API + '/api/home/headlines?limit=5';
+    var fallbackUrl = ARTICLES_API + '/api/articles/public/latest?limit=5&hero=1';
+    var tlim = NW_HEADLINE_FETCH_TIMEOUT_MS;
+
+    function finishFail(lastErr) {
+        var aborted = !!(lastErr && lastErr.aborted);
+        perf.headlineFetchEndMs = Math.round(nwPerfNow());
+        perf.headlineTimeout = !!aborted;
+        if (hadCachePaint) {
+            if (nwHomePerfReportingEnabled()) {
+                if (aborted) console.warn('[nw-home-perf] headline fetch timeout');
+                else console.warn('[nw-home-perf] headline fetch error (kept cache)');
+            }
+            doneOnce();
+            return;
+        }
+        if (nwHomePerfReportingEnabled()) {
+            if (aborted) console.warn('[nw-home-perf] headline fetch timeout');
+            else console.warn('[nw-home-perf] headline fetch error');
+        }
+        var sec = getNwLatestTop5Section();
+        if (sec && !nwLatestTop5AlreadyPopulated()) {
+            setLatestTop5FetchErrorState(sec, !!aborted);
+        }
+        doneOnce();
+    }
+
+    function finishOk(rows, via) {
+        if (!Array.isArray(rows) || rows.length === 0) {
+            finishFail({ aborted: false });
+            return;
+        }
+        if (nwLastArticleFeedLen > 5) {
+            perf.headlineFetchEndMs = Math.round(nwPerfNow());
+            if (nwHomePerfReportingEnabled()) {
+                console.info('[nw-home-perf] headline fetch success', {
+                    skipped: true,
+                    via: via,
+                    feedLen: nwLastArticleFeedLen,
+                });
+            }
+            doneOnce();
+            return;
+        }
+        perf.headlineFetchEndMs = Math.round(nwPerfNow());
+        perf.headlineTimeout = false;
+        perf.headlineSource = 'network';
+        perf.headlineHeroFetchMs = Math.round(perf.headlineFetchEndMs - perf.headlineFetchStartMs);
+        if (nwHomePerfReportingEnabled()) {
+            console.info('[nw-home-perf] headline fetch success', { count: rows.length, via: via });
+        }
+        nwWriteStaleHeadlineHero(rows);
+        nwApplyMainArticlesArray(rows);
+        doneOnce();
+    }
+
+    nwFetchJsonWithTimeout(primaryUrl, { cache: 'default' }, tlim)
+        .then(function (r) {
+            if (!r.res.ok) throw new Error('primary http');
+            var rows = r.data && r.data.latestHero;
+            if (!Array.isArray(rows) || rows.length === 0) throw new Error('primary empty');
+            finishOk(rows, 'home/headlines');
+        })
+        .catch(function () {
+            return nwFetchJsonWithTimeout(fallbackUrl, { cache: 'default' }, tlim).then(function (r) {
+                if (!r.res.ok) throw { aborted: false };
+                if (!Array.isArray(r.data) || r.data.length === 0) throw { aborted: false };
+                finishOk(r.data, 'articles/public/latest');
+            });
+        })
+        .catch(function (e) {
+            finishFail(e && typeof e === 'object' && e.aborted !== undefined ? e : { aborted: false });
+        });
+}
+
+function nwFetchFullLatestWithTimeout() {
+    var url = ARTICLES_API + '/api/articles/public/latest?limit=25';
+    var t0 = nwPerfNow();
+    nwFetchJsonWithTimeout(url, { headers: { 'Cache-Control': 'no-cache' } }, NW_HEADLINE_FETCH_TIMEOUT_MS)
+        .then(function (r) {
+            var ms = Math.round(nwPerfNow() - t0);
+            if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineFullFetchMs = ms;
+            if (!r.res.ok) return;
+            if (!Array.isArray(r.data)) return;
+            if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'network';
+            nwApplyMainArticlesArray(r.data);
+            if (nwHomePerfReportingEnabled()) console.info('[nw-home-perf] latest full fetch ok', ms, 'status', r.res.status);
+        })
+        .catch(function () {
+            if (nwHomePerfReportingEnabled()) console.warn('[nw-home-perf] latest full fetch timeout or error');
+        });
+}
+
 function nwApplyMainFromHomePayload(payload) {
     if (!payload) return;
+    nwApplyMainArticlesArray(payload.latestArticles || []);
+    if (Array.isArray(payload.popularArticles)) nwRenderMostViewedRows(payload.popularArticles);
     if (payload.ads) {
         applyHeaderAds(payload.ads);
         applySideStacks(payload.ads);
         applyFooterStrip(Array.isArray(payload.ads.footer) ? payload.ads.footer : []);
     }
     nwHomePerfAfterAdsApplied(payload.ads || null);
-    nwApplyMainArticlesArray(payload.latestArticles || []);
-    nwRenderMostViewedRows(payload.popularArticles);
 }
 
 function nwFetchMainLegacyHomeParallel() {
@@ -1645,67 +1893,16 @@ function nwFetchAdsOnly() {
 }
 
 /**
- * 메인 로딩 3단계: (1) hero latest 5건 즉시 (2) full latest로 섹션·히어로 보강 (3) 인기·광고·/api/home 병렬·지연.
- * /api/home 실패해도 최신기사는 hero/full latest로 유지.
+ * Phase 2: after headlines settle — ads, then staggered article APIs (reduces Supabase contention).
  */
-function nwFetchMainHomeBundle() {
-    nwHomePerfEnsureStarted();
-    var t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    var cached = nwReadHomeSessionCache();
-    var hasFull = nwSessionCacheHasLatestAndAdsShape(cached);
-    var hasLatestOnly = nwSessionCacheHasLatestShape(cached);
-
-    if (hasFull) {
-        nwApplyMainFromHomePayload({
-            latestArticles: cached.latestArticles,
-            popularArticles: cached.popularArticles,
-            ads: cached.ads,
-        });
-        if (!hasSideAdData(cached.ads)) nwFetchAdsOnly();
-    } else if (hasLatestOnly) {
-        nwApplyMainArticlesArray(cached.latestArticles);
-    }
-
-    var heroUrl = ARTICLES_API + '/api/articles/public/latest?limit=5&hero=1';
-    var heroFetchStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    fetch(heroUrl, { credentials: 'omit', cache: 'default' })
-        .then(function (res) {
-            var ms = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - heroFetchStart;
-            if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineHeroFetchMs = Math.round(ms);
-            if (nwHomePerfReportingEnabled()) {
-                console.info('[nw-perf] latest hero fetch ms', ms, 'status', res.status);
-            }
-            if (!res.ok) return Promise.reject(new Error('hero'));
-            return res.json();
-        })
-        .then(function (rows) {
-            if (!Array.isArray(rows)) return;
-            nwApplyMainArticlesArray(rows);
-            var tPaint = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - t0;
-            if (nwHomePerfReportingEnabled()) console.info('[nw-perf] first headline render ~ms', tPaint);
-        })
-        .catch(function () {});
-
-    var fullStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    fetch(ARTICLES_API + '/api/articles/public/latest?limit=25', {
-        credentials: 'omit',
-        headers: { 'Cache-Control': 'no-cache' },
-    })
-        .then(function (res) {
-            var ms = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - fullStart;
-            if (nwMainPerfEnabled()) console.info('[nw-perf] latest full fetch ms', ms, 'status', res.status);
-            if (!res.ok) return Promise.reject();
-            return res.json();
-        })
-        .then(function (rows) {
-            if (Array.isArray(rows)) nwApplyMainArticlesArray(rows);
-        })
-        .catch(function () {});
-
-    var adsStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+function nwRunDeferredMainLoads(ctx) {
+    if (!ctx || ctx.seq !== nwMainBundleSeq) return;
+    var hasFull = ctx.hasFull;
+    var t0 = ctx.t0;
+    var adsStart = nwPerfNow();
     fetch(ADS_API + '/api/ads', { credentials: 'omit', headers: { 'Cache-Control': 'max-age=60' } })
         .then(function (res) {
-            var ms = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - adsStart;
+            var ms = nwPerfNow() - adsStart;
             if (nwMainPerfEnabled()) console.info('[nw-perf] ads fetch ms', ms, 'status', res.status);
             if (!res.ok) return Promise.reject(new Error('ads'));
             return res.json();
@@ -1726,51 +1923,121 @@ function nwFetchMainHomeBundle() {
             applyFooterStrip(footerAds);
         });
 
-    fetch(ARTICLES_API + '/api/articles/public/popular?days=30&limit=10', { credentials: 'omit' })
-        .then(function (res) {
-            return res.ok ? res.json() : Promise.reject();
-        })
-        .then(function (rows) {
-            if (Array.isArray(rows)) nwRenderMostViewedRows(rows);
-        })
-        .catch(function () {
-            var mel = document.getElementById('nwMostViewedList');
-            if (mel) {
-                mel.innerHTML =
-                    '<li class="nw-most-viewed-empty">많이 본 기사를 불러오지 못했습니다.</li>';
-            }
-        });
+    setTimeout(function () {
+        if (ctx.seq !== nwMainBundleSeq) return;
+        nwFetchFullLatestWithTimeout();
+    }, 100);
 
-    var homeStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    fetch(ARTICLES_API + '/api/home', {
-        cache: 'no-store',
-        credentials: 'omit',
-        headers: { 'Cache-Control': 'no-cache' },
-    })
-        .then(function (res) {
-            var ms = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - homeStart;
-            if (nwHomePerfReportingEnabled()) console.info('[nw-perf] /api/home ms', ms, 'status', res.status);
-            if (!res.ok) return Promise.reject(new Error('HTTP ' + res.status));
-            return res.text().then(function (t) {
-                try {
-                    return t ? JSON.parse(t) : null;
-                } catch (e) {
-                    return Promise.reject(new Error('home json'));
+    setTimeout(function () {
+        if (ctx.seq !== nwMainBundleSeq) return;
+        fetch(ARTICLES_API + '/api/articles/public/popular?days=30&limit=10', { credentials: 'omit' })
+            .then(function (res) {
+                return res.ok ? res.json() : Promise.reject();
+            })
+            .then(function (rows) {
+                if (Array.isArray(rows)) nwRenderMostViewedRows(rows);
+            })
+            .catch(function () {
+                var mel = document.getElementById('nwMostViewedList');
+                if (mel) {
+                    mel.innerHTML =
+                        '<li class="nw-most-viewed-empty">' +
+                        '\ub9ce\uc774 \ubcf8 \uae30\uc0ac\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.' +
+                        '</li>';
                 }
             });
+    }, 280);
+
+    setTimeout(function () {
+        if (ctx.seq !== nwMainBundleSeq) return;
+        var homeStart = nwPerfNow();
+        fetch(ARTICLES_API + '/api/home', {
+            cache: 'no-store',
+            credentials: 'omit',
+            headers: { 'Cache-Control': 'no-cache' },
         })
-        .then(function (payload) {
-            if (!payload || typeof payload !== 'object') return Promise.reject(new Error('home payload'));
-            nwWriteHomeSessionCache(payload);
-            nwApplyMainFromHomePayload(payload);
-            if (!hasSideAdData(payload.ads)) nwFetchAdsOnly();
-            var tDone = (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - t0;
-            if (nwHomePerfReportingEnabled()) console.info('[nw-perf] after /api/home bundle ~ms', tDone);
-        })
-        .catch(function (err) {
-            if (nwHomePerfReportingEnabled()) console.warn('[nw-perf] /api/home failed (latest/ads/popular already parallel)', err);
-            if (!hasFull) nwFetchAdsOnly();
-        });
+            .then(function (res) {
+                var ms = nwPerfNow() - homeStart;
+                if (nwHomePerfReportingEnabled()) console.info('[nw-perf] /api/home ms', ms, 'status', res.status);
+                if (!res.ok) return Promise.reject(new Error('HTTP ' + res.status));
+                return res.text().then(function (t) {
+                    try {
+                        return t ? JSON.parse(t) : null;
+                    } catch (e) {
+                        return Promise.reject(new Error('home json'));
+                    }
+                });
+            })
+            .then(function (payload) {
+                if (!payload || typeof payload !== 'object') return Promise.reject(new Error('home payload'));
+                nwWriteHomeSessionCache(payload);
+                if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'network';
+                nwApplyMainFromHomePayload(payload);
+                if (!hasSideAdData(payload.ads)) nwFetchAdsOnly();
+                var tDone = nwPerfNow() - t0;
+                if (nwHomePerfReportingEnabled()) console.info('[nw-perf] after /api/home bundle ~ms', tDone);
+            })
+            .catch(function (err) {
+                if (nwHomePerfReportingEnabled()) console.warn('[nw-perf] /api/home failed (deferred)', err);
+                if (!hasFull) nwFetchAdsOnly();
+            });
+    }, 450);
+}
+
+/**
+ * Phase 1: headlines only on the network — deferred loads after headline fetch settles.
+ */
+function nwFetchMainHomeBundle() {
+    nwHomePerfEnsureStarted();
+    var seq = ++nwMainBundleSeq;
+    var t0 = nwPerfNow();
+    var cached = nwReadHomeSessionCache();
+    var hasFull = nwSessionCacheHasLatestAndAdsShape(cached);
+    var hasLatestOnly = nwSessionCacheHasLatestShape(cached);
+    var hadCachePaint = false;
+
+    if (hasFull) {
+        nwApplyMainArticlesArray(cached.latestArticles);
+        if (Array.isArray(cached.popularArticles)) nwRenderMostViewedRows(cached.popularArticles);
+        if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'cache';
+        hadCachePaint = true;
+        setTimeout(function () {
+            if (cached.ads) {
+                applyHeaderAds(cached.ads);
+                applySideStacks(cached.ads);
+                applyFooterStrip(Array.isArray(cached.ads.footer) ? cached.ads.footer : []);
+                nwHomePerfAfterAdsApplied(cached.ads || null);
+            }
+        }, 0);
+        if (!hasSideAdData(cached.ads)) nwFetchAdsOnly();
+    } else if (hasLatestOnly) {
+        nwApplyMainArticlesArray(cached.latestArticles);
+        if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'cache';
+        hadCachePaint = true;
+    } else {
+        var staleRows = nwReadStaleHeadlineHero();
+        if (staleRows && staleRows.length) {
+            nwApplyMainArticlesArray(staleRows);
+            if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'cache';
+            hadCachePaint = true;
+            if (nwHomePerfReportingEnabled()) {
+                console.info('[nw-home-perf] stale headline hero painted from sessionStorage', staleRows.length);
+            }
+        }
+    }
+
+    var ctx = { seq: seq, hasFull: hasFull, t0: t0 };
+    var needDeferred = !hasFull;
+    nwFetchNetworkHeadlinesWithTimeout(
+        hadCachePaint,
+        needDeferred
+            ? function () {
+                  setTimeout(function () {
+                      nwRunDeferredMainLoads(ctx);
+                  }, 0);
+              }
+            : null
+    );
 }
 
 document.addEventListener('DOMContentLoaded', function () {

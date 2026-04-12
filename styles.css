@@ -1687,6 +1687,33 @@ body:has(#nwLatestTop5) .headline-section {
     line-height: 1.5;
 }
 
+.nw-headline-retry {
+    margin-top: 14px;
+}
+
+.nw-headline-retry__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    font: inherit;
+    font-size: 0.95rem;
+    color: var(--color-bg, #fff);
+    background: var(--color-nav-light, #1a5fb4);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.nw-headline-retry__btn:hover {
+    filter: brightness(1.06);
+}
+
+.nw-headline-retry__btn:focus-visible {
+    outline: 2px solid var(--color-nav-light, #1a5fb4);
+    outline-offset: 2px;
+}
+
 .nw-latest-top5__grid {
     display: grid;
     grid-template-columns: minmax(0, 65fr) minmax(240px, 35fr);
