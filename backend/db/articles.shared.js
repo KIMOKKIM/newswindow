@@ -223,12 +223,22 @@ export function sortTimeMainFeed(a) {
   return Number.isFinite(t) ? t : 0;
 }
 
-/** Normalize a single candidate string to a safe public thumb URL (no data:). */
+/**
+ * Normalize a single candidate string for public list/hero thumbs.
+ * - http(s), //, /path, uploads/… allowed
+ * - data:image/* allowed only up to NW_PUBLIC_DATA_IMAGE_MAX_CHARS (default 400k) so huge pasted PNGs
+ *   are skipped and the next candidate (e.g. image2) can be used
+ */
 function normalizePublicThumbString(s) {
   if (s == null || s === '') return '';
   let t = String(s).trim().replace(/^\uFEFF/, '');
   if (!t) return '';
-  if (/^data:/i.test(t)) return '';
+  if (/^data:/i.test(t)) {
+    const cap = Number(process.env.NW_PUBLIC_DATA_IMAGE_MAX_CHARS);
+    const max = Number.isFinite(cap) && cap > 0 ? Math.min(2_000_000, cap) : 400_000;
+    if (t.length > max) return '';
+    return t;
+  }
   if (t.length > 2048) return '';
   if (/^https?:\/\//i.test(t)) return t;
   if (t.startsWith('//')) return t;
@@ -238,7 +248,8 @@ function normalizePublicThumbString(s) {
 }
 
 /**
- * Public list/home: never ship data:* — try imageUrl aliases, then image1–3, thumb.
+ * Public list/home: try imageUrl aliases, then image1–3, thumb.
+ * Oversized data: URIs are dropped per normalizePublicThumbString so a smaller image2/3 can win.
  * articles_list_slim can blank image1 when data: was stripped; image2/3 may still hold the URL.
  */
 export function publicListThumb(a) {
@@ -290,7 +301,15 @@ export function sanitizeForPublicListPayload(obj) {
     if (k in out) delete out[k];
   }
   const th = out.thumb != null ? String(out.thumb).trim() : '';
-  if (th && (/^data:/i.test(th) || th.length > 2048)) delete out.thumb;
+  if (th) {
+    const cap = Number(process.env.NW_PUBLIC_DATA_IMAGE_MAX_CHARS);
+    const dataMax = Number.isFinite(cap) && cap > 0 ? Math.min(2_000_000, cap) : 400_000;
+    if (/^data:/i.test(th)) {
+      if (th.length > dataMax) delete out.thumb;
+    } else if (th.length > 2048) {
+      delete out.thumb;
+    }
+  }
   return out;
 }
 
