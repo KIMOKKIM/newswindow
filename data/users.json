@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "userid": "teomok1",
+    "password_hash": "$2a$10$d0Cne8Fn5Sl20gbufqVOPOslxiSseHrYqtCMFPzNjsG1JiBpXAWI6",
+    "name": "편집장",
+    "email": "editor@newswindow.kr",
+    "role": "editor_in_chief",
+    "created_at": "2026-03-30 07:00:02"
+  },
+  {
+    "id": 2,
+    "userid": "admin1",
+    "password_hash": "$2a$10$d0Cne8Fn5Sl20gbufqVOPOslxiSseHrYqtCMFPzNjsG1JiBpXAWI6",
+    "name": "관리자",
+    "email": "admin@newswindow.kr",
+    "role": "admin",
+    "created_at": "2026-03-30 07:00:02"
+  }
+]
