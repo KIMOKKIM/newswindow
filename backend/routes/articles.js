@@ -8,7 +8,11 @@ import {
   normalizeTitleDedupeKey,
   dedupeWindowMs,
 } from '../db/articles.js';
-import { sanitizeForPublicListPayloadArr, sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
+import {
+  sanitizeForPublicListPayloadArr,
+  sanitizeHeroPublicResponseArr,
+  useUnifiedFeedForMainPublicApi,
+} from '../db/articles.shared.js';
 import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { clearHomePublicFeedCaches } from '../lib/headlineMemCache.js';
@@ -74,12 +78,7 @@ function isDupConflict(e) {
 // GET /api/articles/public/list — 메인 노출용 공개 기사 목록 (승인·게시 published 만, 최신순)
 articlesRouter.get('/public/list', async (req, res, next) => {
   try {
-    const unified = await articlesDb.getUnifiedPublicFeedRecords();
-    tracePublicFeedPresence(
-      'pipeline.unifiedPublicFeed',
-      unified.map((r) => ({ id: r.id, title: r.title })),
-      { fullLen: unified.length },
-    );
+    /** listPublishedForMain 내부에서만 피드 조회 — 통합 피드 이중 로드 제거 */
     const rows = await articlesDb.listPublishedForMain();
     tracePublicFeedPresence(
       'api/articles/public/list',
@@ -123,11 +122,14 @@ articlesRouter.get('/public/latest', async (req, res, next) => {
     const payload = hero ? sanitizeHeroPublicResponseArr(rows) : sanitizeForPublicListPayloadArr(rows);
     const jsonBytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
     res.set('X-NW-Public-Latest-Hero', hero ? '1' : '0');
+    if (!useUnifiedFeedForMainPublicApi()) {
+      res.set('X-NW-Public-Main-Slim', '1');
+    }
     res.set('X-NW-Public-Latest-Timing-Ms', String(serverMs));
     res.set('X-NW-Public-Latest-Json-Bytes', String(jsonBytes));
     res.set(
       'Access-Control-Expose-Headers',
-      'X-NW-Public-Latest-Hero, X-NW-Public-Latest-Timing-Ms, X-NW-Public-Latest-Json-Bytes',
+      'X-NW-Public-Latest-Hero, X-NW-Public-Latest-Timing-Ms, X-NW-Public-Latest-Json-Bytes, X-NW-Public-Main-Slim',
     );
     res.set(
       'Cache-Control',

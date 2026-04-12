@@ -42,12 +42,7 @@ homeRouter.get('/headlines', async (req, res, next) => {
   const wall0 = Date.now();
   try {
     const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 5));
-    const unified = await articlesDb.getUnifiedPublicFeedRecords();
-    tracePublicFeedPresence(
-      'pipeline.unifiedPublicFeed',
-      unified.slice(0, limit).map((r) => ({ id: r.id, title: r.title })),
-      { sliceNote: 'headlines cap' },
-    );
+    /** 통합 피드 전량 로드 금지 — headlines는 캐시+listPublishedLatestHero만(이중 전량 조회로 300s 타임아웃 유발하던 경로 제거) */
     const { rows, cacheHit, dbMs } = await getHeadlinesRowsCached(limit);
     tracePublicFeedPresence(
       'api/home/headlines',

@@ -21,6 +21,15 @@ export function mainFeedArticleCap() {
   return 400;
 }
 
+/**
+ * true: /public/latest, /home/headlines 등이 기존처럼 통합 피드 전량 로드(getUnifiedPublicFeedRecords) 후 슬라이스.
+ * false(기본): 메인 공개 API는 published만 제한 건수로 조회 후 JS 정렬(전량 merge·Supabase 장시간 타임아웃 회피).
+ * 상세 API는 영향 없음.
+ */
+export function useUnifiedFeedForMainPublicApi() {
+  return String(process.env.NW_USE_UNIFIED_FEED_FOR_MAIN_PUBLIC || '').trim() === '1';
+}
+
 export function nowStr() {
   return new Date().toISOString().replace('T', ' ').slice(0, 19);
 }

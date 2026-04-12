@@ -14,6 +14,7 @@ import {
   mapPublishedListItem,
   mapPublishedListRowForPublicFeed,
   mapPublishedListHeroMinimal,
+  useUnifiedFeedForMainPublicApi,
   rowToArticleRecord,
   normalizeTitleDedupeKey,
   dedupeWindowMs,
@@ -109,6 +110,20 @@ async function loadUnifiedPublicFeedRecordsFromDatabase() {
   return filtered;
 }
 
+/** 메인 공개 API용: 전량 페이지 루프 없이 published 상한만 조회 후 통합 정렬과 동일 규칙으로 정렬 */
+async function slimPublishedRecordsForMainSort(maxFetch) {
+  const max = Math.min(5000, Math.max(50, Number(maxFetch) || 2000));
+  const { data, error } = await sb()
+    .from('articles')
+    .select(MERGED_PUBLIC_FEED_SELECT)
+    .eq('status', 'published')
+    .limit(max);
+  if (error) throw error;
+  const rows = (data || []).map(rowToArticleRecord).filter((a) => isPublicFeedReadableStatus(a.status));
+  rows.sort((x, y) => compareUnifiedPublicFeedDesc(x, y));
+  return rows;
+}
+
 export const articlesDb = {
   async count() {
     const { count, error } = await sb().from('articles').select('*', { count: 'exact', head: true });
@@ -141,6 +156,10 @@ export const articlesDb = {
   /** 홈 첫 화면 전용 — 통합 피드 앞쪽만 */
   async listPublishedLatestHero(limit) {
     const lim = Math.min(15, Math.max(1, Number(limit) || 5));
+    if (!useUnifiedFeedForMainPublicApi()) {
+      const all = await slimPublishedRecordsForMainSort(Math.min(2000, lim * 200 + 100));
+      return all.slice(0, lim).map((a) => mapPublishedListHeroMinimal(a));
+    }
     const all = await this.getUnifiedPublicFeedRecords();
     return all.slice(0, lim).map((a) => mapPublishedListHeroMinimal(a));
   },
@@ -149,6 +168,10 @@ export const articlesDb = {
   async listPublishedLatest(limit) {
     const cap = mainFeedArticleCap();
     const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
+    if (!useUnifiedFeedForMainPublicApi()) {
+      const all = await slimPublishedRecordsForMainSort(2000);
+      return all.slice(0, lim).map((a) => mapPublishedListRowForPublicFeed(a));
+    }
     const all = await this.getUnifiedPublicFeedRecords();
     return all.slice(0, lim).map((a) => mapPublishedListRowForPublicFeed(a));
   },
