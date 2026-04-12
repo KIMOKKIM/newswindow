@@ -218,10 +218,10 @@ export const articlesDb = {
     const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
     if (catRaw && !isKnownSectionCategoryParam(catRaw)) return [];
     const sinceIso = new Date(since).toISOString();
-    /* Narrow at DB: status + published_at window; avoid unbounded OR on dates (statement timeouts). */
-    const fetchCap = Math.min(200, Math.max(lim * 8, 64));
+    /* 직접 articles 테이블 — 뷰 지연 회피, 상한 축소로 타임아웃 완화 */
+    const fetchCap = Math.min(80, Math.max(lim * 4, 32));
     let q = sb()
-      .from(ARTICLES_LIST_FROM)
+      .from('articles')
       .select(POPULAR_WINDOW_SELECT)
       .in('status', ['published', 'approved'])
       .gte('published_at', sinceIso)
@@ -232,7 +232,7 @@ export const articlesDb = {
     let rows = (data || []).map(rowToArticleRecord);
     if (String(process.env.NW_HOME_POPULAR_INCLUDE_NULL_PUB_AT || '').trim() === '1') {
       const { data: d2, error: e2 } = await sb()
-        .from(ARTICLES_LIST_FROM)
+        .from('articles')
         .select(POPULAR_WINDOW_SELECT)
         .in('status', ['published', 'approved'])
         .is('published_at', null)

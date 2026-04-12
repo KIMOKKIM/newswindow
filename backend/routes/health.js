@@ -6,6 +6,7 @@ import {
   getAdsReadSource,
 } from '../lib/dbMode.js';
 import { isSupabaseConfigured, getServiceSupabase } from '../lib/supabaseServer.js';
+import { bootState } from '../lib/bootState.js';
 
 /** 배포/지원 식별용 — 짧은 JSON만 보이면 이 번들이 아님 */
 export const HEALTH_ROUTE_VERSION = '2-extended';
@@ -37,6 +38,10 @@ router.get('/', async (req, res) => {
     ok: true,
     timestamp: new Date().toISOString(),
     healthRouteVersion: HEALTH_ROUTE_VERSION,
+    boot: {
+      supabaseRequiredEnvOk: bootState.supabaseRequiredEnvOk,
+      listenAt: bootState.listenAt,
+    },
     renderGitCommit: process.env.RENDER_GIT_COMMIT || null,
     storage: useSupabasePersistence() ? 'supabase' : 'file',
     articlesReadSource: getArticlesReadSource(),

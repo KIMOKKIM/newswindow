@@ -312,6 +312,23 @@ export function publicListThumb(a) {
   return c.length ? c[0] : '';
 }
 
+/**
+ * 목록·홈·인기 JSON: data URI 제외 — http(s)·경로 썸네일만 (대용량 base64 응답 방지)
+ */
+export function publicThumbUrlOnly(a) {
+  const cands = listHeroImageCandidates(a);
+  for (const u of cands) {
+    if (u && !/^data:/i.test(String(u))) return u;
+  }
+  return '';
+}
+
+function stripDataUriThumbString(th) {
+  const s = th != null ? String(th).trim() : '';
+  if (!s || /^data:/i.test(s)) return '';
+  return s;
+}
+
 const PUBLIC_LIST_DROP_KEYS = new Set([
   'content',
   'content1',
@@ -339,9 +356,8 @@ export function sanitizeForPublicListPayload(obj) {
   }
   const th = out.thumb != null ? String(out.thumb).trim() : '';
   if (th) {
-    const dataMax = publicDataUriMaxChars();
     if (/^data:/i.test(th)) {
-      if (th.length > dataMax) delete out.thumb;
+      delete out.thumb;
     } else if (th.length > 2048) {
       delete out.thumb;
     }
@@ -354,7 +370,7 @@ export function sanitizeForPublicListPayloadArr(arr) {
   return arr.map((x) => sanitizeForPublicListPayload(x));
 }
 
-/** 히어로 응답만 허용 필드로 고정(잘못된 중간 객체·data URL 유입 방지) */
+/** 히어로 응답만 허용 필드로 고정 — data URI 제외·URL 후보만 */
 export function sanitizeHeroPublicResponseArr(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.map((r) => {
@@ -362,40 +378,35 @@ export function sanitizeHeroPublicResponseArr(arr) {
     const pre = Array.isArray(row.heroImageCandidates)
       ? row.heroImageCandidates.filter((s) => typeof s === 'string' && s.trim())
       : [];
-    const candidates = pre.length > 0 ? pre : listHeroImageCandidates(row);
-    const u = candidates.length ? candidates[0] : '';
+    const rawCands = pre.length > 0 ? pre : listHeroImageCandidates(row);
+    const urlCandidates = rawCands.filter((s) => s && !/^data:/i.test(String(s))).slice(0, 3);
+    const u = urlCandidates[0] || '';
     return {
       id: Number(r.id),
       title: String(r.title ?? '').slice(0, 2000),
       category: String(r.category ?? ''),
       author_name: String(r.author_name ?? ''),
-      created_at: String(r.created_at ?? ''),
       published_at: String(r.published_at ?? ''),
-      submitted_at: String(r.submitted_at ?? ''),
-      status: toApiStatus(r.status),
       thumb: u,
       imageUrl: u,
-      heroImageCandidates: candidates,
+      heroImageCandidates: urlCandidates,
     };
   });
 }
 
-/** 홈 첫 페인트용 — id·제목·분류·날짜·썸네일 URL만 (필드 최소) */
+/** 홈 첫 페인트용 — id·제목·분류·날짜·썸네일 URL만 (data URI 제외) */
 export function mapPublishedListHeroMinimal(a) {
-  const candidates = listHeroImageCandidates(a);
-  const url = candidates.length ? candidates[0] : '';
+  const candidates = listHeroImageCandidates(a).filter((s) => s && !/^data:/i.test(String(s)));
+  const url = candidates[0] || '';
   return {
     id: a.id,
     title: a.title || '',
     category: a.category || '',
     author_name: a.author_name || '',
-    created_at: a.created_at || '',
     published_at: a.published_at || '',
-    submitted_at: a.submitted_at || '',
-    status: toApiStatus(a.status),
     thumb: url,
     imageUrl: url,
-    heroImageCandidates: candidates,
+    heroImageCandidates: candidates.slice(0, 3),
   };
 }
 
@@ -412,7 +423,7 @@ export function mapPublishedListRowForPublicFeed(a) {
     updated_at: a.updated_at || '',
     status: toApiStatus(a.status),
     views: Number(a.views) || 0,
-    thumb: publicListThumb(a),
+    thumb: publicThumbUrlOnly(a),
   };
 }
 
@@ -424,8 +435,35 @@ export function mapPublishedListItem(a) {
     author_name: a.author_name || '',
     published_at: a.published_at || a.updated_at || a.created_at || '',
     views: Number(a.views) || 0,
-    thumb: publicListThumb(a),
+    thumb: publicThumbUrlOnly(a),
   };
+}
+
+/** GET /api/home 번들: 최초 렌더용 최소 필드 (프론트 status 필터 호환) */
+export function toHomeBundleLatestMin(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((x) => ({
+    id: x.id,
+    title: x.title,
+    category: x.category,
+    author_name: x.author_name,
+    published_at: x.published_at,
+    status: x.status,
+    thumb: stripDataUriThumbString(x.thumb),
+  }));
+}
+
+export function toHomeBundlePopularMin(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((x) => ({
+    id: x.id,
+    title: x.title,
+    category: x.category,
+    author_name: x.author_name,
+    published_at: x.published_at,
+    views: Number(x.views) || 0,
+    thumb: stripDataUriThumbString(x.thumb),
+  }));
 }
 
 /** DB/JSON row → API용 표시 문자열(날짜) */

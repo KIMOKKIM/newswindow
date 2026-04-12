@@ -7,9 +7,15 @@ export const authRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
 
 authRouter.post('/login', async (req, res) => {
+  const t0 = Date.now();
+  const useridRaw = req.body && req.body.userid != null ? String(req.body.userid) : '';
   try {
     const { userid, password } = req.body;
     if (!userid || !password) {
+      console.log(
+        '[nw/auth/login]',
+        JSON.stringify({ ok: false, reason: 'missing_fields', ms: Date.now() - t0, userid: useridRaw }),
+      );
       return res.status(400).json({ error: 'userid와 password가 필요합니다.' });
     }
     if ((process.env.NODE_ENV || 'development') !== 'production') {
@@ -17,10 +23,18 @@ authRouter.post('/login', async (req, res) => {
     }
     const row = await getUserByUserid(userid);
     if (!row) {
+      console.log(
+        '[nw/auth/login]',
+        JSON.stringify({ ok: false, reason: 'unknown_user', ms: Date.now() - t0, userid: String(userid) }),
+      );
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
     const ok = bcrypt.compareSync(password, row.password_hash);
     if (!ok) {
+      console.log(
+        '[nw/auth/login]',
+        JSON.stringify({ ok: false, reason: 'bad_password', ms: Date.now() - t0, userid: String(userid) }),
+      );
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
     const roleNorm = String(row.role || '').trim().toLowerCase();
@@ -29,8 +43,28 @@ authRouter.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     );
+    console.log(
+      '[nw/auth/login]',
+      JSON.stringify({
+        ok: true,
+        ms: Date.now() - t0,
+        userid: String(userid),
+        role: roleNorm,
+        userId: row.id,
+      }),
+    );
     res.json({ accessToken: token, role: roleNorm, name: row.name, id: row.id });
   } catch (e) {
+    console.error(
+      '[nw/auth/login]',
+      JSON.stringify({
+        ok: false,
+        reason: 'exception',
+        ms: Date.now() - t0,
+        userid: useridRaw,
+        err: String(e && e.message ? e.message : e),
+      }),
+    );
     res.status(500).json({ error: e.message });
   }
 });

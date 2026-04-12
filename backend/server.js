@@ -13,23 +13,12 @@ import { homeRouter } from './routes/home.js';
 import { healthRouter, HEALTH_ROUTE_VERSION } from './routes/health.js';
 import { getUploadsRoot } from './config/dataPaths.js';
 import { logPersistenceOnStartup, exitIfRenderMissingJsonPaths } from './lib/persistenceDiagnostics.js';
-import { assertSupabaseRequiredAtStartup, resolveServiceRoleKey, resolveSupabaseUrl } from './lib/supabaseServer.js';
+import { assertSupabaseRequiredAtStartup } from './lib/supabaseServer.js';
 import { getUserByUserid, createUser, updateUserRoleById } from './db/userStore.js';
+import { bootState } from './lib/bootState.js';
+import { logSupabaseEnvStatus, fatalStartupOneLine } from './lib/startupLog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-/** 기동 시 Vercel/Render 등에서 env 주입 여부 확인 (키 값은 출력하지 않음) */
-function logSupabaseEnvOnStartup() {
-  const url = resolveSupabaseUrl();
-  console.log('현재 연결 주소:', url || '(비어 있음)');
-  const canonical = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const hasCanonical = canonical != null && String(canonical).trim() !== '';
-  const hasResolvedKey = !!resolveServiceRoleKey();
-  console.log(
-    'SUPABASE_SERVICE_ROLE_KEY:',
-    hasCanonical ? 'KEY 존재함 (이름 일치)' : hasResolvedKey ? 'KEY 존재함 (레거시 env 이름)' : 'KEY 누락됨',
-  );
-}
 
 const app = express();
 console.log(
@@ -52,7 +41,7 @@ app.use(
         corsOrigins.includes(origin) ||
         origin.startsWith('http://127.0.0.1:') ||
         origin.startsWith('http://localhost:') ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin) ||
+        /^http:\/\/127\.0.0\.1:\d+$/.test(origin) ||
         /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin) ||
         /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/.test(origin)
       )
@@ -84,11 +73,18 @@ app.use('/api/home', homeRouter);
 app.use((err, req, res, next) => {
   console.error('[api]', err);
   if (res.headersSent) return next(err);
-  const safe =
-    process.env.NODE_ENV === 'production'
-      ? '\uc77c\uc2dc\uc801\uc778 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.'
-      : err.message || '서버 오류';
-  res.status(500).json({ error: safe });
+  const status = Number(err.statusCode || err.status);
+  const httpStatus = Number.isFinite(status) && status >= 400 && status < 600 ? status : 500;
+  const code = err.code && typeof err.code === 'string' ? err.code : 'INTERNAL_ERROR';
+  const isProd = process.env.NODE_ENV === 'production';
+  const defaultMsg =
+    '\uc77c\uc2dc\uc801\uc778 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.';
+  const body = {
+    error: isProd ? (err.publicMessage != null ? err.publicMessage : defaultMsg) : err.message || defaultMsg,
+    code,
+  };
+  if (!isProd && err.message) body.detail = err.message;
+  res.status(httpStatus).json(body);
 });
 
 const adminDist = path.join(__dirname, '..', 'admin', 'dist');
@@ -100,10 +96,7 @@ if (fs.existsSync(adminDist)) {
   });
 }
 
-async function start() {
-  logSupabaseEnvOnStartup();
-  assertSupabaseRequiredAtStartup();
-  exitIfRenderMissingJsonPaths();
+async function seedDefaultUsers() {
   const hash = await bcrypt.hash('teomok$123', 10);
   const t1 = await getUserByUserid('teomok1');
   if (!t1) {
@@ -117,10 +110,10 @@ async function start() {
       phone: '',
       address: '',
     });
-    console.log('Seed: 편집장 teomok1 created');
+    console.log('[nw/boot] seed: 편집장 teomok1 created');
   } else if (t1.role !== 'editor_in_chief') {
     await updateUserRoleById(t1.id, 'editor_in_chief');
-    console.log('Seed: teomok1 role updated to editor_in_chief');
+    console.log('[nw/boot] seed: teomok1 role updated to editor_in_chief');
   }
   const a1 = await getUserByUserid('admin1');
   if (!a1) {
@@ -134,11 +127,63 @@ async function start() {
       phone: '',
       address: '',
     });
-    console.log('Seed: 관리자 admin1 created');
+    console.log('[nw/boot] seed: 관리자 admin1 created');
   }
-  app.listen(PORT, () => {
-    logPersistenceOnStartup();
-    console.log(`Backend running at http://127.0.0.1:${PORT}`);
-  });
 }
-start();
+
+function shortErr(e) {
+  return String(e && e.message ? e.message : e).slice(0, 300);
+}
+
+async function start() {
+  try {
+    console.log('[nw/boot] backend boot started');
+    logSupabaseEnvStatus();
+
+    /** Render에서 레거시 파일 모드 + 경로 미설정 시 process.exit(1) — 여기서는 로그만 */
+    exitIfRenderMissingJsonPaths();
+
+    try {
+      assertSupabaseRequiredAtStartup();
+      bootState.supabaseRequiredEnvOk = true;
+      console.log('[nw/boot] supabase env check: OK (required for production DB)');
+    } catch (e) {
+      bootState.supabaseRequiredEnvOk = false;
+      console.error('[nw/boot] supabase env check: FAILED —', shortErr(e));
+      fatalStartupOneLine(`supabase env missing: ${shortErr(e)}`);
+    }
+
+    await new Promise((resolve, reject) => {
+      const server = app.listen(PORT, () => {
+        bootState.listenAt = new Date().toISOString();
+        console.log(`[nw/boot] app.listen success port=${PORT}`);
+        logPersistenceOnStartup();
+        console.log(`Backend running at http://127.0.0.1:${PORT}`);
+        resolve();
+      });
+      server.on('error', (err) => {
+        fatalStartupOneLine(`listen failed: ${shortErr(err)}`);
+        reject(err);
+      });
+    });
+
+    console.log('[nw/boot] seed: start');
+    try {
+      await seedDefaultUsers();
+      console.log('[nw/boot] seed: success');
+    } catch (e) {
+      console.error('[nw/boot] seed: failure —', shortErr(e));
+      fatalStartupOneLine(`seed failed (non-fatal): ${shortErr(e)}`);
+    }
+  } catch (e) {
+    console.error('[nw/boot] startup aborted:', e);
+    fatalStartupOneLine(shortErr(e));
+    throw e;
+  }
+}
+
+start().catch((err) => {
+  console.error('[nw/boot] unhandled startup rejection:', err);
+  fatalStartupOneLine(`unhandled startup: ${shortErr(err)}`);
+  process.exit(1);
+});

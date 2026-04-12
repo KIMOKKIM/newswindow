@@ -14,6 +14,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { clearHomePublicFeedCaches } from '../lib/headlineMemCache.js';
 import { logPublicFeedAfterPublish } from '../lib/feedConsistencyLog.js';
 import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
+import { getPopularSinceCached } from '../lib/popularMemCache.js';
 
 export const articlesRouter = Router();
 
@@ -187,20 +188,22 @@ articlesRouter.get('/public/popular', async (req, res, next) => {
     const category = req.query.category != null ? String(req.query.category) : '';
     const daysQ = req.query.days;
     const hasDays = daysQ != null && String(daysQ).trim() !== '';
-    let rows;
+    let sinceMs;
     if (hasDays) {
       const days = Math.max(1, Math.min(366, Number(daysQ) || 30));
-      const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
-      rows = await articlesDb.listPublishedPopularSince(sinceMs, limit, category);
-      res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-      if (debug()) console.log('[articles] GET /public/popular days=', days, 'count=', rows.length);
+      sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+      if (debug()) console.log('[articles] GET /public/popular days=', days);
     } else {
       const months = Number(req.query.months) || 3;
-      rows = await articlesDb.listPublishedPopularByMonths(months, limit, category);
-      res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
-      if (debug()) console.log('[articles] GET /public/popular months=', months, 'count=', rows.length);
+      sinceMs = Date.now() - months * 30 * 24 * 60 * 60 * 1000;
+      if (debug()) console.log('[articles] GET /public/popular months=', months);
     }
-    res.json(sanitizeForPublicListPayloadArr(rows));
+    const pr = await getPopularSinceCached(sinceMs, limit, category);
+    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+    res.set('X-NW-Popular-Cache', pr.cacheHit ? 'HIT' : 'MISS');
+    res.set('X-NW-Popular-Db-Ms', String(pr.dbMs));
+    if (debug()) console.log('[articles] GET /public/popular count=', pr.rows.length, 'cache=', pr.cacheHit);
+    res.json(sanitizeForPublicListPayloadArr(pr.rows));
   } catch (e) {
     next(e);
   }

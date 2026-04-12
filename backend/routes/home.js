@@ -4,8 +4,11 @@ import { loadPublicAdsConfig, buildFallbackAdsConfig } from './ads.js';
 import {
   mainFeedArticleCap,
   sanitizeForPublicListPayloadArr,
+  toHomeBundleLatestMin,
+  toHomeBundlePopularMin,
 } from '../db/articles.shared.js';
 import { getHeadlinesRowsCached } from '../lib/headlineMemCache.js';
+import { getPopularSinceCached } from '../lib/popularMemCache.js';
 import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
 
 export const homeRouter = Router();
@@ -96,13 +99,6 @@ homeRouter.get('/', async (req, res, next) => {
   const wall0 = Date.now();
   const sinceMs = Date.now() - POPULAR_DAYS * 24 * 60 * 60 * 1000;
 
-  const unified = await articlesDb.getUnifiedPublicFeedRecords();
-  tracePublicFeedPresence(
-    'pipeline.unifiedPublicFeed',
-    unified.map((r) => ({ id: r.id, title: r.title })),
-    { fullLen: unified.length },
-  );
-
   const rL = await timeSegment('latest', () => articlesDb.listPublishedForMain());
   if (!rL.ok || !Array.isArray(rL.value)) {
     const err = rL.err || new Error('latest failed');
@@ -111,7 +107,22 @@ homeRouter.get('/', async (req, res, next) => {
   }
 
   const [rP, rA] = await Promise.all([
-    timeSegment('popular', () => articlesDb.listPublishedPopularSince(sinceMs, POPULAR_LIMIT)),
+    (async () => {
+      const t0 = Date.now();
+      try {
+        const pr = await getPopularSinceCached(sinceMs, POPULAR_LIMIT, '');
+        return {
+          ok: true,
+          value: pr.rows,
+          ms: Date.now() - t0,
+          err: null,
+          cacheHit: pr.cacheHit,
+          dbMs: pr.dbMs,
+        };
+      } catch (err) {
+        return { ok: false, value: [], ms: Date.now() - t0, err, cacheHit: false, dbMs: 0 };
+      }
+    })(),
     timeSegment('ads', () => loadAdsForHome()),
   ]);
 
@@ -120,9 +131,9 @@ homeRouter.get('/', async (req, res, next) => {
     rL.value.map((r) => ({ id: r.id, title: r.title })),
     { cap: mainFeedArticleCap(), len: rL.value.length },
   );
-  const latestArticles = sanitizeForPublicListPayloadArr(rL.value);
-  const popularArticles = sanitizeForPublicListPayloadArr(
-    rP.ok && Array.isArray(rP.value) ? rP.value : [],
+  const latestArticles = toHomeBundleLatestMin(sanitizeForPublicListPayloadArr(rL.value));
+  const popularArticles = toHomeBundlePopularMin(
+    sanitizeForPublicListPayloadArr(rP.ok && Array.isArray(rP.value) ? rP.value : []),
   );
   const ads = rA.ok && rA.value ? rA.value : buildFallbackAdsConfig();
 
@@ -196,12 +207,15 @@ homeRouter.get('/', async (req, res, next) => {
   res.set('X-NW-Home-Latest-Ok', '1');
   res.set('X-NW-Home-Popular-Ok', rP.ok ? '1' : '0');
   res.set('X-NW-Home-Ads-Ok', rA.ok ? '1' : '0');
+  res.set('X-NW-Home-Popular-Cache', rP.cacheHit ? 'HIT' : 'MISS');
 
   const homeLog = {
     wallMs,
     latestMs: rL.ms,
     popularMs: rP.ms,
     adsMs: rA.ms,
+    popularCacheHit: !!rP.cacheHit,
+    popularDbMs: rP.dbMs,
     jsonBytes,
     latestLen: latestArticles.length,
     popularLen: popularArticles.length,
