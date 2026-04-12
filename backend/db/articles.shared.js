@@ -223,19 +223,44 @@ export function sortTimeMainFeed(a) {
   return Number.isFinite(t) ? t : 0;
 }
 
-/** Public list/home: never ship data:* (incl. base64) — only http(s) or path-like URLs for thumb. */
+/** Normalize a single candidate string to a safe public thumb URL (no data:). */
+function normalizePublicThumbString(s) {
+  if (s == null || s === '') return '';
+  let t = String(s).trim().replace(/^\uFEFF/, '');
+  if (!t) return '';
+  if (/^data:/i.test(t)) return '';
+  if (t.length > 2048) return '';
+  if (/^https?:\/\//i.test(t)) return t;
+  if (t.startsWith('//')) return t;
+  if (t.startsWith('/')) return t;
+  if (/^uploads\//i.test(t)) return '/' + t.replace(/^\/+/, '');
+  return '';
+}
+
+/**
+ * Public list/home: never ship data:* — try imageUrl aliases, then image1–3, thumb.
+ * articles_list_slim can blank image1 when data: was stripped; image2/3 may still hold the URL.
+ */
 export function publicListThumb(a) {
   if (!a || typeof a !== 'object') return '';
-  const im = a.image1 || a.thumb || '';
-  if (!im) return '';
-  let s = String(im).trim().replace(/^\uFEFF/, '');
-  if (!s) return '';
-  if (/^data:/i.test(s)) return '';
-  if (s.length > 2048) return '';
-  if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith('//')) return s;
-  if (s.startsWith('/')) return s;
-  if (/^uploads\//i.test(s)) return '/' + s.replace(/^\/+/, '');
+  const candidates = [
+    a.imageUrl,
+    a.image_url,
+    a.heroImageUrl,
+    a.hero_image_url,
+    a.thumbnailUrl,
+    a.thumbnail_url,
+    a.image1,
+    a.image2,
+    a.image3,
+    a.thumb,
+  ];
+  for (let i = 0; i < candidates.length; i++) {
+    const im = candidates[i];
+    if (im == null || im === '') continue;
+    const out = normalizePublicThumbString(im);
+    if (out) return out;
+  }
   return '';
 }
 
@@ -278,10 +303,8 @@ export function sanitizeForPublicListPayloadArr(arr) {
 export function sanitizeHeroPublicResponseArr(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.map((r) => {
-    const t = publicListThumb({
-      image1: r.image1,
-      thumb: r.thumb,
-    });
+    const t = publicListThumb(r && typeof r === 'object' ? r : {});
+    const u = t || '';
     return {
       id: Number(r.id),
       title: String(r.title ?? '').slice(0, 2000),
@@ -291,13 +314,15 @@ export function sanitizeHeroPublicResponseArr(arr) {
       published_at: String(r.published_at ?? ''),
       submitted_at: String(r.submitted_at ?? ''),
       status: toApiStatus(r.status),
-      thumb: t || '',
+      thumb: u,
+      imageUrl: u,
     };
   });
 }
 
 /** 홈 첫 페인트용 — id·제목·분류·날짜·썸네일 URL만 (필드 최소) */
 export function mapPublishedListHeroMinimal(a) {
+  const url = publicListThumb(a) || '';
   return {
     id: a.id,
     title: a.title || '',
@@ -307,7 +332,8 @@ export function mapPublishedListHeroMinimal(a) {
     published_at: a.published_at || '',
     submitted_at: a.submitted_at || '',
     status: toApiStatus(a.status),
-    thumb: publicListThumb(a),
+    thumb: url,
+    imageUrl: url,
   };
 }
 

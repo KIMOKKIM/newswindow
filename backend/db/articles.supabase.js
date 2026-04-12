@@ -41,9 +41,9 @@ const ARTICLES_LIST_FROM = (() => {
   return v === 'articles' || v === 'articles_list_slim' ? v : 'articles_list_slim';
 })();
 
-/** Hero/top5 only — narrow columns; ORDER published_at DESC + LIMIT (index on status,published_at recommended). */
-const PUBLISHED_HERO_SELECT =
-  'id,title,category,author_name,created_at,published_at,submitted_at,status,image1';
+/** Hero/top5: base `articles` table so image2/image3 exist (articles_list_slim exposes image1 only). */
+const HERO_DIRECT_SELECT =
+  'id,title,category,author_name,created_at,published_at,submitted_at,status,image1,image2,image3';
 
 const POPULAR_WINDOW_SELECT =
   'id,title,category,author_name,published_at,created_at,views,image1';
@@ -106,8 +106,8 @@ export const articlesDb = {
   async listPublishedLatestHero(limit) {
     const lim = Math.min(15, Math.max(1, Number(limit) || 5));
     const { data, error } = await sb()
-      .from(ARTICLES_LIST_FROM)
-      .select(PUBLISHED_HERO_SELECT)
+      .from('articles')
+      .select(HERO_DIRECT_SELECT)
       .in('status', ['published', 'approved'])
       .order('published_at', { ascending: false, nullsFirst: false })
       .limit(lim);

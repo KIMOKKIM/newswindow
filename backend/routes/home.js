@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { articlesDb } from '../db/articles.js';
 import { loadPublicAdsConfig, buildFallbackAdsConfig } from './ads.js';
-import { mainFeedArticleCap, sanitizeForPublicListPayloadArr } from '../db/articles.shared.js';
+import {
+  mainFeedArticleCap,
+  sanitizeForPublicListPayloadArr,
+  sanitizeHeroPublicResponseArr,
+} from '../db/articles.shared.js';
 
 export const homeRouter = Router();
 
@@ -37,7 +41,7 @@ async function getHeadlinesRowsCached(limit) {
     return { rows: headlineMemEntry.rows, cacheHit: true, dbMs: 0 };
   }
   const db0 = Date.now();
-  const rows = await articlesDb.listPublishedLatestHero(limit);
+  const rows = sanitizeHeroPublicResponseArr(await articlesDb.listPublishedLatestHero(limit));
   const dbMs = Date.now() - db0;
   headlineMemEntry = { key, expiresAt: now + HEADLINE_MEM_TTL_MS, rows };
   return { rows, cacheHit: false, dbMs };
