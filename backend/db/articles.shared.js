@@ -223,19 +223,24 @@ export function sortTimeMainFeed(a) {
   return Number.isFinite(t) ? t : 0;
 }
 
+/** Max length for data: URIs in public thumb/hero (env NW_PUBLIC_DATA_IMAGE_MAX_CHARS, hard cap 12MB). */
+export function publicDataUriMaxChars() {
+  const cap = Number(process.env.NW_PUBLIC_DATA_IMAGE_MAX_CHARS);
+  if (Number.isFinite(cap) && cap > 0) return Math.min(12_000_000, cap);
+  return 5_000_000;
+}
+
 /**
  * Normalize a single candidate string for public list/hero thumbs.
  * - http(s), //, /path, uploads/… allowed
- * - data:image/* allowed only up to NW_PUBLIC_DATA_IMAGE_MAX_CHARS (default 400k) so huge pasted PNGs
- *   are skipped and the next candidate (e.g. image2) can be used
+ * - data: allowed up to publicDataUriMaxChars() (default ~5MB) for large single-image articles
  */
 function normalizePublicThumbString(s) {
   if (s == null || s === '') return '';
   let t = String(s).trim().replace(/^\uFEFF/, '');
   if (!t) return '';
   if (/^data:/i.test(t)) {
-    const cap = Number(process.env.NW_PUBLIC_DATA_IMAGE_MAX_CHARS);
-    const max = Number.isFinite(cap) && cap > 0 ? Math.min(2_000_000, cap) : 400_000;
+    const max = publicDataUriMaxChars();
     if (t.length > max) return '';
     return t;
   }
@@ -247,32 +252,46 @@ function normalizePublicThumbString(s) {
   return '';
 }
 
-/**
- * Public list/home: try imageUrl aliases, then image1–3, thumb.
- * Oversized data: URIs are dropped per normalizePublicThumbString so a smaller image2/3 can win.
- * articles_list_slim can blank image1 when data: was stripped; image2/3 may still hold the URL.
- */
-export function publicListThumb(a) {
-  if (!a || typeof a !== 'object') return '';
-  const candidates = [
-    a.imageUrl,
-    a.image_url,
-    a.heroImageUrl,
-    a.hero_image_url,
-    a.thumbnailUrl,
-    a.thumbnail_url,
-    a.image1,
-    a.image2,
-    a.image3,
-    a.thumb,
-  ];
-  for (let i = 0; i < candidates.length; i++) {
-    const im = candidates[i];
-    if (im == null || im === '') continue;
-    const out = normalizePublicThumbString(im);
-    if (out) return out;
+const HERO_RAW_IMAGE_KEYS = [
+  'imageUrl',
+  'image_url',
+  'heroImageUrl',
+  'hero_image_url',
+  'thumbnailUrl',
+  'thumbnail_url',
+  'image1',
+  'image2',
+  'image3',
+  'image4',
+  'thumb',
+];
+
+/* Deduped + normalized: non-data URLs first, then data URIs by ascending length; max 3 for client fallback. */
+export function listHeroImageCandidates(a) {
+  if (!a || typeof a !== 'object') return [];
+  const seen = new Set();
+  const out = [];
+  for (const key of HERO_RAW_IMAGE_KEYS) {
+    const raw = a[key];
+    if (raw == null || raw === '') continue;
+    const norm = normalizePublicThumbString(raw);
+    if (!norm || seen.has(norm)) continue;
+    seen.add(norm);
+    out.push(norm);
   }
-  return '';
+  out.sort((x, y) => {
+    const dx = /^data:/i.test(x);
+    const dy = /^data:/i.test(y);
+    if (dx !== dy) return dx ? 1 : -1;
+    return x.length - y.length;
+  });
+  return out.slice(0, 3);
+}
+
+/** Public list/home: first entry from listHeroImageCandidates (preferred URL or smallest data). */
+export function publicListThumb(a) {
+  const c = listHeroImageCandidates(a);
+  return c.length ? c[0] : '';
 }
 
 const PUBLIC_LIST_DROP_KEYS = new Set([
@@ -302,8 +321,7 @@ export function sanitizeForPublicListPayload(obj) {
   }
   const th = out.thumb != null ? String(out.thumb).trim() : '';
   if (th) {
-    const cap = Number(process.env.NW_PUBLIC_DATA_IMAGE_MAX_CHARS);
-    const dataMax = Number.isFinite(cap) && cap > 0 ? Math.min(2_000_000, cap) : 400_000;
+    const dataMax = publicDataUriMaxChars();
     if (/^data:/i.test(th)) {
       if (th.length > dataMax) delete out.thumb;
     } else if (th.length > 2048) {
@@ -322,8 +340,12 @@ export function sanitizeForPublicListPayloadArr(arr) {
 export function sanitizeHeroPublicResponseArr(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.map((r) => {
-    const t = publicListThumb(r && typeof r === 'object' ? r : {});
-    const u = t || '';
+    const row = r && typeof r === 'object' ? r : {};
+    const pre = Array.isArray(row.heroImageCandidates)
+      ? row.heroImageCandidates.filter((s) => typeof s === 'string' && s.trim())
+      : [];
+    const candidates = pre.length > 0 ? pre : listHeroImageCandidates(row);
+    const u = candidates.length ? candidates[0] : '';
     return {
       id: Number(r.id),
       title: String(r.title ?? '').slice(0, 2000),
@@ -335,13 +357,15 @@ export function sanitizeHeroPublicResponseArr(arr) {
       status: toApiStatus(r.status),
       thumb: u,
       imageUrl: u,
+      heroImageCandidates: candidates,
     };
   });
 }
 
 /** 홈 첫 페인트용 — id·제목·분류·날짜·썸네일 URL만 (필드 최소) */
 export function mapPublishedListHeroMinimal(a) {
-  const url = publicListThumb(a) || '';
+  const candidates = listHeroImageCandidates(a);
+  const url = candidates.length ? candidates[0] : '';
   return {
     id: a.id,
     title: a.title || '',
@@ -353,6 +377,7 @@ export function mapPublishedListHeroMinimal(a) {
     status: toApiStatus(a.status),
     thumb: url,
     imageUrl: url,
+    heroImageCandidates: candidates,
   };
 }
 

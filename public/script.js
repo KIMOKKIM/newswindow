@@ -1077,8 +1077,10 @@ function nwHeroImageDebugEnabled() {
     return false;
 }
 
-function resolveHeroImageUrl(article) {
-    if (!article || typeof article !== 'object') return '';
+var NW_HERO_CLIENT_DATA_MAX = 6000000;
+
+function collectHeroRawFieldValues(article) {
+    if (!article || typeof article !== 'object') return [];
     var order = [
         'imageUrl',
         'heroImageUrl',
@@ -1086,17 +1088,68 @@ function resolveHeroImageUrl(article) {
         'hero_image_url',
         'thumbnailUrl',
         'thumbnail_url',
+        'image1',
+        'image2',
+        'image3',
+        'image4',
         'thumb'
     ];
-    var raw = '';
+    var seen = {};
+    var out = [];
     for (var i = 0; i < order.length; i++) {
         var k = order[i];
-        if (article[k] != null && String(article[k]).trim() !== '') {
-            raw = article[k];
-            break;
-        }
+        var v = article[k];
+        if (v == null || String(v).trim() === '') continue;
+        var s = String(v);
+        if (seen[s]) continue;
+        seen[s] = true;
+        out.push(s);
     }
-    return resolveArticleListThumb(raw);
+    return out;
+}
+
+function sortHeroResolvedCandidates(arr) {
+    return arr.slice().sort(function (a, b) {
+        var da = a.indexOf('data:') === 0;
+        var db = b.indexOf('data:') === 0;
+        if (da !== db) return da ? 1 : -1;
+        return a.length - b.length;
+    });
+}
+
+/** Prefer server heroImageCandidates (order preserved); else build from row fields and sort */
+function resolveHeroImageCandidates(article) {
+    if (!article || typeof article !== 'object') return [];
+    if (Array.isArray(article.heroImageCandidates) && article.heroImageCandidates.length) {
+        var fromApi = [];
+        var seenA = {};
+        for (var i = 0; i < article.heroImageCandidates.length; i++) {
+            var r = resolveArticleListThumb(article.heroImageCandidates[i]);
+            if (!r || seenA[r]) continue;
+            if (r.indexOf('data:') === 0 && r.length > NW_HERO_CLIENT_DATA_MAX) continue;
+            seenA[r] = true;
+            fromApi.push(r);
+        }
+        return fromApi.slice(0, 5);
+    }
+    var resolved = [];
+    var seen = {};
+    function pushRes(x) {
+        if (!x || seen[x]) return;
+        if (x.indexOf('data:') === 0 && x.length > NW_HERO_CLIENT_DATA_MAX) return;
+        seen[x] = true;
+        resolved.push(x);
+    }
+    var raws = collectHeroRawFieldValues(article);
+    for (var j = 0; j < raws.length; j++) {
+        pushRes(resolveArticleListThumb(raws[j]));
+    }
+    return sortHeroResolvedCandidates(resolved).slice(0, 5);
+}
+
+function resolveHeroImageUrl(article) {
+    var c = resolveHeroImageCandidates(article);
+    return c.length ? c[0] : '';
 }
 
 var nwLatestTop5Timer = null;
@@ -1137,6 +1190,9 @@ function nwMergeHeadlineHeroFields(headlineRows, fullArticles) {
         ['imageUrl', 'thumb', 'heroImageUrl', 'image_url', 'thumbnailUrl', 'thumbnail_url'].forEach(function (k) {
             if (h[k] != null && String(h[k]).trim() !== '') o[k] = h[k];
         });
+        if (Array.isArray(h.heroImageCandidates) && h.heroImageCandidates.length) {
+            o.heroImageCandidates = h.heroImageCandidates.slice();
+        }
         return o;
     });
 }
@@ -1293,18 +1349,41 @@ function renderLatestTop5FromList(articles) {
     var idx = 0;
     function applyHeroThumb(row) {
         if (!heroImg || !heroMedia) return;
-        var tsrc = resolveHeroImageUrl(row);
+        var candidates = resolveHeroImageCandidates(row);
         if (nwHeroImageDebugEnabled() && row && row.id != null) {
-            console.info('[nw-main] hero image resolve', { id: row.id, url: tsrc || '(none)' });
+            console.info('[nw-main] hero image candidates', {
+                id: row.id,
+                n: candidates.length,
+                lens: candidates.map(function (u) {
+                    return u.length;
+                }),
+                mime: candidates.map(function (u) {
+                    var m = u.match(/^data:([^;]+)/i);
+                    return m ? m[1] : 'url';
+                })
+            });
         }
-        if (tsrc) {
+        function showPlaceholder() {
+            heroImg.removeAttribute('src');
+            heroImg.hidden = true;
+            heroMedia.classList.add('is-placeholder');
+        }
+        function tryAt(k) {
+            if (k >= candidates.length) {
+                showPlaceholder();
+                return;
+            }
+            var tsrc = candidates[k];
             heroImg.onerror = function () {
-                if (nwHeroImageDebugEnabled()) console.warn('[nw-main] hero image load error', tsrc);
-                heroImg.hidden = true;
-                heroMedia.classList.add('is-placeholder');
+                if (nwHeroImageDebugEnabled()) {
+                    console.warn('[nw-main] hero image onerror, next candidate', row && row.id, k);
+                }
+                tryAt(k + 1);
             };
             heroImg.onload = function () {
-                if (nwHeroImageDebugEnabled()) console.info('[nw-main] hero image load ok', tsrc);
+                if (nwHeroImageDebugEnabled()) {
+                    console.info('[nw-main] hero image load ok', row && row.id, k);
+                }
                 heroImg.hidden = false;
                 heroMedia.classList.remove('is-placeholder');
             };
@@ -1315,10 +1394,11 @@ function renderLatestTop5FromList(articles) {
                 heroImg.hidden = false;
                 heroMedia.classList.remove('is-placeholder');
             }
+        }
+        if (candidates.length === 0) {
+            showPlaceholder();
         } else {
-            heroImg.removeAttribute('src');
-            heroImg.hidden = true;
-            heroMedia.classList.add('is-placeholder');
+            tryAt(0);
         }
     }
 
