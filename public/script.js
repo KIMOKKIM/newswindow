@@ -1077,6 +1077,15 @@ function nwHeroImageDebugEnabled() {
     return false;
 }
 
+function nwPublicFeedDebugEnabled() {
+    try {
+        if (typeof window === 'undefined' || !window.location) return false;
+        if (window.location.search && window.location.search.indexOf('nwfeeddebug=1') !== -1) return true;
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('nwfeeddebug') === '1') return true;
+    } catch (e) {}
+    return false;
+}
+
 var NW_HERO_CLIENT_DATA_MAX = 6000000;
 
 function collectHeroRawFieldValues(article) {
@@ -1766,6 +1775,14 @@ function nwApplyMainArticlesArray(articles) {
     }
     nwMainArticlesSnapshot = articles.slice();
     nwLastArticleFeedLen = articles.length;
+    if (nwPublicFeedDebugEnabled()) {
+        console.info('[nw-main] feed apply', {
+            len: articles.length,
+            ids: articles.slice(0, 40).map(function (a) {
+                return a && a.id;
+            })
+        });
+    }
     renderLatestTop5FromList(articles);
     requestAnimationFrame(function () {
         try {

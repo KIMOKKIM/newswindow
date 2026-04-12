@@ -11,6 +11,7 @@ import {
 import { sanitizeForPublicListPayloadArr, sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
 import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { clearHeadlineMemCache } from '../lib/headlineMemCache.js';
 
 export const articlesRouter = Router();
 
@@ -387,6 +388,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (action === 'approve') {
       const r = await articlesDb.approveFromSubmitted(id);
       if (!r.ok) return res.status(r.http).json({ error: r.error });
+      clearHeadlineMemCache();
       if (debug()) console.log('[articles] approve', { id: r.article?.id, idempotent: r.idempotent });
       return res.json({
         message: r.idempotent ? '이미 게시된 기사입니다.' : '승인되었습니다.',
@@ -434,6 +436,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     const staffUpd = await articlesDb.updateByStaff(id, payload);
     const tStaffDb = Date.now();
     if (!staffUpd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+    if (toApiStatus(staffUpd.article && staffUpd.article.status) === 'published') clearHeadlineMemCache();
     if (saveTiming()) {
       const bodyOut = { message: '저장되었습니다.', article: staffUpd.article };
       console.log(

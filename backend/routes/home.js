@@ -4,13 +4,20 @@ import { loadPublicAdsConfig, buildFallbackAdsConfig } from './ads.js';
 import {
   mainFeedArticleCap,
   sanitizeForPublicListPayloadArr,
-  sanitizeHeroPublicResponseArr,
 } from '../db/articles.shared.js';
+import { getHeadlinesRowsCached } from '../lib/headlineMemCache.js';
 
 export const homeRouter = Router();
 
 const POPULAR_DAYS = 30;
 const POPULAR_LIMIT = 10;
+
+function headlineMemTtlForLog() {
+  if (String(process.env.NW_HEADLINE_CACHE_BYPASS || '').trim() === '1') return 0;
+  const t = Number(process.env.NW_HEADLINE_CACHE_TTL_MS);
+  if (Number.isFinite(t) && t <= 0) return 0;
+  return Math.min(120_000, Math.max(30_000, Number.isFinite(t) && t > 0 ? t : 45_000));
+}
 
 async function timeSegment(_label, fn) {
   const t0 = Date.now();
@@ -24,27 +31,6 @@ async function timeSegment(_label, fn) {
 
 function loadAdsForHome() {
   return loadPublicAdsConfig();
-}
-
-/** In-memory cache for GET /api/home/headlines — reduces duplicate Supabase work under main-page burst. */
-const HEADLINE_MEM_TTL_MS = Math.min(
-  120_000,
-  Math.max(30_000, Number(process.env.NW_HEADLINE_CACHE_TTL_MS) || 45_000),
-);
-/** @type {{ key: string, expiresAt: number, rows: unknown[] } | null} */
-let headlineMemEntry = null;
-
-async function getHeadlinesRowsCached(limit) {
-  const key = `n:${limit}`;
-  const now = Date.now();
-  if (headlineMemEntry && headlineMemEntry.key === key && headlineMemEntry.expiresAt > now) {
-    return { rows: headlineMemEntry.rows, cacheHit: true, dbMs: 0 };
-  }
-  const db0 = Date.now();
-  const rows = sanitizeHeroPublicResponseArr(await articlesDb.listPublishedLatestHero(limit));
-  const dbMs = Date.now() - db0;
-  headlineMemEntry = { key, expiresAt: now + HEADLINE_MEM_TTL_MS, rows };
-  return { rows, cacheHit: false, dbMs };
 }
 
 /** Lightweight first paint: hero rows only (no ads/popular). GET /api/home/headlines?limit=5 */
@@ -62,14 +48,21 @@ homeRouter.get('/headlines', async (req, res, next) => {
       limit,
       rowCount: rows.length,
       concurrentSuspicion,
-      memTtlMs: HEADLINE_MEM_TTL_MS,
+      memTtlMs: headlineMemTtlForLog(),
     };
+    if (String(process.env.NW_PUBLIC_FEED_DEBUG || '').trim() === '1') {
+      logLine.heroIds = rows.map((r) => r && r.id);
+    }
     if (totalMs > 1500 || concurrentSuspicion) {
       console.warn('[nw/home/headlines]', JSON.stringify(logLine));
     } else {
       console.log('[nw/home/headlines]', JSON.stringify(logLine));
     }
-    res.set('Cache-Control', 'public, max-age=30, s-maxage=30, stale-while-revalidate=60');
+    if (String(process.env.NW_PUBLIC_HEADLINES_NO_STORE || '').trim() === '1') {
+      res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+    } else {
+      res.set('Cache-Control', 'public, max-age=30, s-maxage=30, stale-while-revalidate=60');
+    }
     res.set('X-NW-Home-Headlines-Ms', String(totalMs));
     res.set('X-NW-Headlines-Db-Ms', String(dbMs));
     res.set('X-NW-Cache', cacheHit ? 'HIT' : 'MISS');
@@ -160,7 +153,11 @@ homeRouter.get('/', async (req, res, next) => {
 
   const partialTags = [partial.popular && 'popular', partial.ads && 'ads'].filter(Boolean).join(',') || 'none';
 
-  res.set('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+  if (String(process.env.NW_PUBLIC_HOME_BUNDLE_NO_STORE || '').trim() === '1') {
+    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+  } else {
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+  }
   res.set('Vary', 'Accept-Encoding');
   res.set(
     'Server-Timing',
@@ -176,22 +173,23 @@ homeRouter.get('/', async (req, res, next) => {
   res.set('X-NW-Home-Popular-Ok', rP.ok ? '1' : '0');
   res.set('X-NW-Home-Ads-Ok', rA.ok ? '1' : '0');
 
-  console.log(
-    '[nw/home]',
-    JSON.stringify({
-      wallMs,
-      latestMs: rL.ms,
-      popularMs: rP.ms,
-      adsMs: rA.ms,
-      jsonBytes,
-      latestLen: latestArticles.length,
-      popularLen: popularArticles.length,
-      adsHomeCacheHit: false,
-      partial,
-      popularError: rP.ok ? null : rP.err && rP.err.message,
-      adsError: rA.ok ? null : rA.err && rA.err.message,
-    }),
-  );
+  const homeLog = {
+    wallMs,
+    latestMs: rL.ms,
+    popularMs: rP.ms,
+    adsMs: rA.ms,
+    jsonBytes,
+    latestLen: latestArticles.length,
+    popularLen: popularArticles.length,
+    adsHomeCacheHit: false,
+    partial,
+    popularError: rP.ok ? null : rP.err && rP.err.message,
+    adsError: rA.ok ? null : rA.err && rA.err.message,
+  };
+  if (String(process.env.NW_PUBLIC_FEED_DEBUG || '').trim() === '1') {
+    homeLog.latestIds = (rL.value || []).slice(0, 50).map((x) => x && x.id);
+  }
+  console.log('[nw/home]', JSON.stringify(homeLog));
 
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.send(payloadStr);

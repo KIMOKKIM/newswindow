@@ -487,19 +487,34 @@ export const articlesDb = {
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 승인할 수 있습니다.' };
     const now = nowStr();
     const n = Number(id);
+    /** DB에 저장된 status 문자열과 정확히 일치해야 함(.in('submitted',…)은 대소문자 불일치 시 0행 갱신) */
+    const rawStatus = String(a.status ?? '').trim();
     const { data, error } = await sb()
       .from('articles')
       .update({
         status: 'published',
-        published_at: a.published_at || now,
+        published_at: a.published_at && String(a.published_at).trim() ? a.published_at : now,
         updated_at: now,
       })
       .eq('id', n)
-      .in('status', ['submitted', 'pending', 'sent'])
+      .eq('status', rawStatus)
       .select(PATCH_RETURN_COLS)
       .maybeSingle();
     if (error) throw error;
-    if (data) return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(data)) };
+    if (data) {
+      const rec = rowToArticleRecord(data);
+      if (String(process.env.NW_PUBLIC_FEED_DEBUG || '').trim() === '1') {
+        console.log(
+          '[nw/approve]',
+          JSON.stringify({
+            id: n,
+            statusAfter: rec.status,
+            published_at: rec.published_at,
+          }),
+        );
+      }
+      return { ok: true, article: mapArticlePatchSnapshot(rec) };
+    }
     const again = await resolveArticleRecord(id);
     if (again && toApiStatus(again.status) === 'published')
       return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(again) };
@@ -515,15 +530,16 @@ export const articlesDb = {
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 반려할 수 있습니다.' };
     const now = nowStr();
     const n = Number(id);
+    const rawStatus = String(a.status ?? '').trim();
     const { data, error } = await sb()
       .from('articles')
       .update({
         status: 'rejected',
-        rejected_at: a.rejected_at || now,
+        rejected_at: a.rejected_at && String(a.rejected_at).trim() ? a.rejected_at : now,
         updated_at: now,
       })
       .eq('id', n)
-      .in('status', ['submitted', 'pending', 'sent'])
+      .eq('status', rawStatus)
       .select(PATCH_RETURN_COLS)
       .maybeSingle();
     if (error) throw error;
