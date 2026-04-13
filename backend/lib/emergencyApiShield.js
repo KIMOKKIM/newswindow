@@ -34,7 +34,7 @@ export function clearEmergencyApiShieldCache() {
   const n = _cache.size;
   _cache.clear();
   if (n > 0) {
-    console.info('[nw/emergency-shield] hard-purged', n, 'entr' + 'y/entries');
+    console.info('[nw/emergency-shield] hard-purged', n, 'entries');
   }
   return n;
 }
