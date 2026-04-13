@@ -9,7 +9,7 @@ export function emergencyShieldTtlMs() {
   const n = Number(process.env.NW_EMERGENCY_API_CACHE_MS);
   if (Number.isFinite(n) && n === 0) return 0;
   if (Number.isFinite(n) && n > 0) return Math.min(300_000, Math.floor(n));
-  return 2500;
+  return 0;
 }
 
 export function emergencyMinPublicJson() {

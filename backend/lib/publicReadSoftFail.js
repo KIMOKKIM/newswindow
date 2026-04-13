@@ -20,7 +20,7 @@ export function isPublicReadSoftFailEnabled() {
 export function publicReadDeadlineMs() {
   const n = Number(process.env.NW_SUPABASE_READ_DEADLINE_MS);
   if (Number.isFinite(n) && n >= 2000 && n <= 120_000) return Math.floor(n);
-  return 5000;
+  return 12_000;
 }
 
 export function publicSoftFailStaleMs() {

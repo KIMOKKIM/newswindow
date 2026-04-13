@@ -266,15 +266,23 @@ function normalizePublicThumbString(s) {
   if (t.length > 2048) return '';
   if (/^https?:\/\//i.test(t)) return t;
   if (t.startsWith('//')) return t;
+  const supabaseBase = () => String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  // Site-relative Supabase paths (wrong host if left as "/storage/...")
+  if (t.startsWith('/')) {
+    if (/^\/storage\/v1\//i.test(t) || /^\/object\/(public|sign)\//i.test(t)) {
+      const base = supabaseBase();
+      if (base) return `${base}${t}`;
+    }
+    return t;
+  }
   // Supabase Storage path without host (e.g. object/public/bucket/key)
   if (/^object\/(public|sign)\//i.test(t) || /^storage\/v1\//i.test(t)) {
-    const base = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    const base = supabaseBase();
     if (base) {
       const path = t.replace(/^\/+/, '');
       return /^storage\/v1\//i.test(path) ? `${base}/${path}` : `${base}/storage/v1/${path}`;
     }
   }
-  if (t.startsWith('/')) return t;
   if (/^uploads\//i.test(t)) return '/' + t.replace(/^\/+/, '');
   return '';
 }

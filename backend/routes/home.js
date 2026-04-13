@@ -196,7 +196,20 @@ homeRouter.get('/', async (req, res, next) => {
   }
 
   try {
-  const rL = await timeSegment('latest', () => runWithReadDeadline(() => articlesDb.listPublishedForMain()));
+  const readCap = publicReadDeadlineMs();
+  const latestCap = (() => {
+    const n = Number(process.env.NW_HOME_LATEST_DEADLINE_MS);
+    if (Number.isFinite(n) && n >= 3000 && n <= 120_000) return Math.floor(n);
+    return Math.min(45_000, Math.max(readCap, 20_000));
+  })();
+  const auxCap = (() => {
+    const n = Number(process.env.NW_HOME_AUX_DEADLINE_MS);
+    if (Number.isFinite(n) && n >= 3000 && n <= 120_000) return Math.floor(n);
+    return Math.min(45_000, Math.max(readCap, 18_000));
+  })();
+  const rL = await timeSegment('latest', () =>
+    runWithReadDeadline(() => articlesDb.listPublishedForMain(), latestCap),
+  );
   let latestArticles = [];
   let latestDegraded = false;
   try {
@@ -221,12 +234,11 @@ homeRouter.get('/', async (req, res, next) => {
     });
   }
 
-  const readCap = publicReadDeadlineMs();
   const [rP, rA] = await Promise.all([
     (async () => {
       const t0 = Date.now();
       try {
-        const pr = await runWithReadDeadline(() => getPopularSinceCached(sinceMs, POPULAR_LIMIT, ''), readCap);
+        const pr = await runWithReadDeadline(() => getPopularSinceCached(sinceMs, POPULAR_LIMIT, ''), auxCap);
         return {
           ok: true,
           value: pr.rows,
@@ -239,7 +251,7 @@ homeRouter.get('/', async (req, res, next) => {
         return { ok: false, value: [], ms: Date.now() - t0, err, cacheHit: false, dbMs: 0 };
       }
     })(),
-    timeSegment('ads', () => runWithReadDeadline(() => loadAdsForHome(), readCap)),
+    timeSegment('ads', () => runWithReadDeadline(() => loadAdsForHome(), auxCap)),
   ]);
 
   tracePublicFeedPresence(
