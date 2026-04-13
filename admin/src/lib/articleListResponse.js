@@ -12,6 +12,21 @@ export function normalizeArticlesListResponse(data) {
 }
 
 /**
+ * When the response is OK but the JSON looks like an error envelope (error/code) and the normalized list is empty,
+ * dashboards may show the last cached rows instead of a blank table.
+ */
+export function shouldTryStaleArticleList(res, rawData, list) {
+  if (!res || !res.ok) return false;
+  if (res.status === 401 || res.status === 403) return false;
+  if (!Array.isArray(list) || list.length > 0) return false;
+  if (Array.isArray(rawData)) return false;
+  if (!rawData || typeof rawData !== 'object') return false;
+  if (rawData.error != null && rawData.error !== '') return true;
+  if (rawData.code != null && String(rawData.code).trim() !== '') return true;
+  return false;
+}
+
+/**
  * @param {string} label e.g. staff-dashboard
  * @param {{ durationMs?: number }} [opts]
  */

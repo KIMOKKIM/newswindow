@@ -17,6 +17,7 @@ import {
   isPublicReadSoftFailEnabled,
   logPublicSoftfail,
   NW_DEGRADED_REASON_HEADER,
+  publicReadDeadlineMs,
   recordHomeLatestMinSuccess,
   runWithReadDeadline,
   upstreamPrimaryCategory,
@@ -166,11 +167,12 @@ homeRouter.get('/', async (req, res, next) => {
     });
   }
 
+  const readCap = publicReadDeadlineMs();
   const [rP, rA] = await Promise.all([
     (async () => {
       const t0 = Date.now();
       try {
-        const pr = await getPopularSinceCached(sinceMs, POPULAR_LIMIT, '');
+        const pr = await runWithReadDeadline(() => getPopularSinceCached(sinceMs, POPULAR_LIMIT, ''), readCap);
         return {
           ok: true,
           value: pr.rows,
@@ -183,7 +185,7 @@ homeRouter.get('/', async (req, res, next) => {
         return { ok: false, value: [], ms: Date.now() - t0, err, cacheHit: false, dbMs: 0 };
       }
     })(),
-    timeSegment('ads', () => loadAdsForHome()),
+    timeSegment('ads', () => runWithReadDeadline(() => loadAdsForHome(), readCap)),
   ]);
 
   tracePublicFeedPresence(

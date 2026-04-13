@@ -1,8 +1,13 @@
 import { apiFetch, authHeaders, userFacingStaffListErrorMessage } from '../api/client.js';
-import { logArticlesListResponseShape, normalizeArticlesListResponse } from '../lib/articleListResponse.js';
-import { ARTICLE_LIST_CACHE_STAFF, writeCachedArticleList } from '../lib/articleListCache.js';
+import {
+  logArticlesListResponseShape,
+  normalizeArticlesListResponse,
+  shouldTryStaleArticleList,
+} from '../lib/articleListResponse.js';
+import { ARTICLE_LIST_CACHE_STAFF, readCachedArticleList, writeCachedArticleList } from '../lib/articleListCache.js';
+import { dashboardStaleBannerHtml } from '../lib/dashboardStaleBanner.js';
+import { buildStaffDashboardBody, bindStaffDashboardPatchHandlers } from '../lib/staffDashboardTable.js';
 import { classifyStaffListFailure } from '../lib/staffFetchErrors.js';
-import { bumpMainArticleListCache } from '../lib/mainListSync.js';
 import { getSession, requireRole, dashboardPathForRole } from '../auth/session.js';
 import { renderShell, navEditor, navAdmin, bindShell } from '../layout/shell.js';
 
@@ -47,6 +52,30 @@ function statusCellHtml(stRaw) {
   )}</span></div>`;
 }
 
+function tryStaffCacheRender(app, navigate, mode, session, shell, fail, detailInnerHtml) {
+  const cached = readCachedArticleList(ARTICLE_LIST_CACHE_STAFF);
+  if (!Array.isArray(cached) || cached.length === 0) return false;
+  console.info('[nw/loading-state]', JSON.stringify({ where: 'staff-dashboard', fallback: 'session-cache', rows: cached.length }));
+  const banner = dashboardStaleBannerHtml({
+    esc,
+    fail,
+    detailInnerHtml,
+    retryButtonId: 'staffDashRetry',
+  });
+  const refetch = () => renderStaffDashboard(app, { navigate, mode });
+  app.innerHTML = renderShell({
+    title: shell.title,
+    activePath: shell.activePath,
+    navHtml: shell.nav,
+    bodyHtml: banner + buildStaffDashboardBody(cached, mode, { esc, statusCellHtml }),
+    underTitleHtml: shell.adminLead,
+  });
+  bindShell(app, { navigate });
+  app.querySelector('#staffDashRetry')?.addEventListener('click', refetch);
+  bindStaffDashboardPatchHandlers(app, navigate, mode, session, refetch);
+  return true;
+}
+
 /**
  * @param {'editor'|'admin'} mode
  */
@@ -77,6 +106,8 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
       ? '<p class="nw-page-lead">송고·검토 대기 기사를 승인 또는 반려하고, 왼쪽 메뉴에서 광고를 관리할 수 있습니다.</p>'
       : '';
 
+  const shell = { title, activePath, nav, adminLead };
+
   app.innerHTML = renderShell({
     title,
     activePath,
@@ -101,15 +132,18 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
     const fail = classifyStaffListFailure(null, null, e);
     console.warn('[nw/loading-state]', JSON.stringify({ where: 'staff-dashboard', category: fail?.category }));
     const msg = esc(String(e && e.message ? e.message : e));
-    app.innerHTML = renderShell({
-      title,
-      activePath,
-      navHtml: nav,
-      bodyHtml: `<section class="nw-section"><h2>기사 목록</h2><p class="nw-error" role="alert">네트워크 오류로 목록을 불러오지 못했습니다. (로그인은 성공한 상태입니다)</p><p class="nw-muted">유형: ${esc(fail.category)}</p><p class="nw-muted">${msg}</p><p><button type="button" class="nw-btn" id="staffDashRetry">다시 시도</button></p></section>`,
-      underTitleHtml: adminLead,
-    });
-    bindShell(app, { navigate });
-    app.querySelector('#staffDashRetry')?.addEventListener('click', () => renderStaffDashboard(app, { navigate, mode }));
+    const detail = `<p class="nw-muted">${msg}</p>`;
+    if (!tryStaffCacheRender(app, navigate, mode, session, shell, fail, detail)) {
+      app.innerHTML = renderShell({
+        title,
+        activePath,
+        navHtml: nav,
+        bodyHtml: `<section class="nw-section"><h2>기사 목록</h2><p class="nw-error" role="alert">네트워크 오류로 목록을 불러오지 못했습니다. (로그인은 성공한 상태입니다)</p><p class="nw-muted">유형: ${esc(fail.category)}</p><p class="nw-muted">${msg}</p><p><button type="button" class="nw-btn" id="staffDashRetry">다시 시도</button></p></section>`,
+        underTitleHtml: adminLead,
+      });
+      bindShell(app, { navigate });
+      app.querySelector('#staffDashRetry')?.addEventListener('click', () => renderStaffDashboard(app, { navigate, mode }));
+    }
     return;
   }
 
@@ -140,15 +174,18 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
     const fail = classifyStaffListFailure(res, data, null);
     console.warn('[nw/loading-state]', JSON.stringify({ where: 'staff-dashboard', category: fail?.category, status: res.status }));
     const errText = esc(userFacingStaffListErrorMessage(data) || `HTTP ${res.status}`);
-    app.innerHTML = renderShell({
-      title,
-      activePath,
-      navHtml: nav,
-      bodyHtml: `<section class="nw-section"><h2>기사 목록</h2><p class="nw-error" role="alert">서버에서 목록을 반환하지 못했습니다.</p><p class="nw-muted">유형: ${esc(fail.category)}</p><p class="nw-muted">${errText}</p><p><button type="button" class="nw-btn" id="staffDashRetry">다시 시도</button></p></section>`,
-      underTitleHtml: adminLead,
-    });
-    bindShell(app, { navigate });
-    app.querySelector('#staffDashRetry')?.addEventListener('click', () => renderStaffDashboard(app, { navigate, mode }));
+    const detail = `<p class="nw-muted">${errText}</p>`;
+    if (!tryStaffCacheRender(app, navigate, mode, session, shell, fail, detail)) {
+      app.innerHTML = renderShell({
+        title,
+        activePath,
+        navHtml: nav,
+        bodyHtml: `<section class="nw-section"><h2>기사 목록</h2><p class="nw-error" role="alert">서버에서 목록을 반환하지 못했습니다.</p><p class="nw-muted">유형: ${esc(fail.category)}</p><p class="nw-muted">${errText}</p><p><button type="button" class="nw-btn" id="staffDashRetry">다시 시도</button></p></section>`,
+        underTitleHtml: adminLead,
+      });
+      bindShell(app, { navigate });
+      app.querySelector('#staffDashRetry')?.addEventListener('click', () => renderStaffDashboard(app, { navigate, mode }));
+    }
     return;
   }
 
@@ -157,6 +194,12 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
   const listMs =
     typeof performance !== 'undefined' ? Math.round(performance.now() - listT0) : Math.round(Date.now() - listT0);
   logArticlesListResponseShape('staff-dashboard', res, data, list, { durationMs: listMs });
+  if (shouldTryStaleArticleList(res, data, list)) {
+    const fail = { category: 'degraded list response', message: 'Incomplete server response.' };
+    const errText = esc(userFacingStaffListErrorMessage(data) || '목록 데이터를 확인할 수 없습니다.');
+    const detail = `<p class="nw-muted">${errText}</p>`;
+    if (tryStaffCacheRender(app, navigate, mode, session, shell, fail, detail)) return;
+  }
   if (list.length > 0) writeCachedArticleList(ARTICLE_LIST_CACHE_STAFF, list);
 
   const rows = list

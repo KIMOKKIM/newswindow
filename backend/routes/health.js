@@ -11,6 +11,20 @@ import { bootState } from '../lib/bootState.js';
 /** 배포/지원 식별용 — 짧은 JSON만 보이면 이 번들이 아님 */
 export const HEALTH_ROUTE_VERSION = '2-extended';
 
+const HEALTH_PROBE_MS = 4500;
+
+function withDeadline(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(
+        () => reject(Object.assign(new Error('health_probe_deadline'), { code: 'NW_HEALTH_DEADLINE' })),
+        ms,
+      );
+    }),
+  ]);
+}
+
 const router = Router();
 
 router.get('/', async (req, res) => {
@@ -23,9 +37,12 @@ router.get('/', async (req, res) => {
     try {
       const sb = getServiceSupabase();
       if (sb) {
-        const articlesProbe = await sb.from('articles').select('id').limit(1);
+        const articlesProbe = await withDeadline(sb.from('articles').select('id').limit(1), HEALTH_PROBE_MS);
         supabaseConnected = !articlesProbe.error;
-        const adsProbe = await sb.from('ad_site_config').select('id').eq('id', 1).maybeSingle();
+        const adsProbe = await withDeadline(
+          sb.from('ad_site_config').select('id').eq('id', 1).maybeSingle(),
+          HEALTH_PROBE_MS,
+        );
         adsConfigConnected = !adsProbe.error;
       }
     } catch {

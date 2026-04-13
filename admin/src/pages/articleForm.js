@@ -17,6 +17,12 @@ import {
 const NW_SAVE_SLOW_MSG =
   '\uc800\uc7a5 \ucc98\ub9ac \uc2dc\uac04\uc774 \uae38\uc5b4\uc9c0\uace0 \uc788\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.';
 
+const NW_SAVE_LONG_WAIT_MS = 700;
+
+/** Shown after NW_SAVE_LONG_WAIT_MS while save request is in flight */
+const NW_FORM_LONG_WAIT_HINT =
+  '\uc800\uc7a5 \uc694\uccad\uc774 \uc624\ub798 \uac78\ub9ac\uace0 \uc788\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc\ub9cc \uae30\ub2e4\ub824 \uc8fc\uc138\uc694. \uac19\uc740 \ubb38\uc81c\uac00 \ubc18\ubcf5\ub418\uba74 \ub124\ud2b8\uc6cc\ud06c\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694.';
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -131,6 +137,7 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         )
         .join('')}
       <p id="formErr" class="nw-error" style="display:none;"></p>
+      <p id="formSaveLongWait" class="nw-muted nw-dash-longwait" hidden role="status">${NW_FORM_LONG_WAIT_HINT}</p>
       <p id="formSaveBusy" class="nw-form-busy" hidden aria-live="polite">
         <span class="nw-spinner" aria-hidden="true"></span> 등록·저장 중…
       </p>
@@ -163,10 +170,12 @@ export async function renderArticleForm(app, { navigate, articleId }) {
   const form = app.querySelector('#artForm');
   const errEl = app.querySelector('#formErr');
   const busyEl = app.querySelector('#formSaveBusy');
+  const longWaitEl = app.querySelector('#formSaveLongWait');
 
   function setFormBusy(busy) {
     form.setAttribute('aria-busy', busy ? 'true' : 'false');
     if (busyEl) busyEl.hidden = !busy;
+    if (longWaitEl && !busy) longWaitEl.hidden = true;
     app.querySelectorAll('.nw-btn-row button').forEach((b) => {
       b.disabled = !!busy;
     });
@@ -206,6 +215,9 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     const url = isNew ? '/api/articles' : '/api/articles/' + articleId;
     const method = isNew ? 'POST' : 'PATCH';
     setFormBusy(true);
+    const longTimerRep = setTimeout(() => {
+      if (longWaitEl) longWaitEl.hidden = false;
+    }, NW_SAVE_LONG_WAIT_MS);
     try {
       const { res, data } = await apiFetch(url, {
         method,
@@ -220,9 +232,11 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       if (!res.ok) {
         const rawErr = (data && data.error) || '저장 실패';
         const slow =
+          res.status === 502 ||
+          res.status === 503 ||
           res.status === 504 ||
           res.status === 408 ||
-          /timeout|ETIMEDOUT|Gateway/i.test(String(rawErr));
+          /timeout|ETIMEDOUT|Gateway|unavailable/i.test(String(rawErr));
         errEl.textContent = slow ? NW_SAVE_SLOW_MSG : rawErr;
         errEl.style.display = 'block';
         return;
@@ -242,7 +256,12 @@ export async function renderArticleForm(app, { navigate, articleId }) {
             ? Object.assign({}, article, patch)
             : patch || article;
       }
+    } catch (_e) {
+      errEl.textContent = NW_SAVE_SLOW_MSG;
+      errEl.style.display = 'block';
     } finally {
+      clearTimeout(longTimerRep);
+      if (longWaitEl) longWaitEl.hidden = true;
       setFormBusy(false);
     }
   }
@@ -251,6 +270,9 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     errEl.style.display = 'none';
     const payload = await gatherPayload();
     setFormBusy(true);
+    const longTimerStaff = setTimeout(() => {
+      if (longWaitEl) longWaitEl.hidden = false;
+    }, NW_SAVE_LONG_WAIT_MS);
     try {
       const { res, data } = await apiFetch('/api/articles/' + articleId, {
         method: 'PATCH',
@@ -265,9 +287,11 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       if (!res.ok) {
         const rawErr = (data && data.error) || '저장 실패';
         const slow =
+          res.status === 502 ||
+          res.status === 503 ||
           res.status === 504 ||
           res.status === 408 ||
-          /timeout|ETIMEDOUT|Gateway/i.test(String(rawErr));
+          /timeout|ETIMEDOUT|Gateway|unavailable/i.test(String(rawErr));
         errEl.textContent = slow ? NW_SAVE_SLOW_MSG : rawErr;
         errEl.style.display = 'block';
         return;
@@ -279,7 +303,12 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       } else if (data && data.article) {
         article = data.article;
       }
+    } catch (_e) {
+      errEl.textContent = NW_SAVE_SLOW_MSG;
+      errEl.style.display = 'block';
     } finally {
+      clearTimeout(longTimerStaff);
+      if (longWaitEl) longWaitEl.hidden = true;
       setFormBusy(false);
     }
   }

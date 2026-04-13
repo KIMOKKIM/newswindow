@@ -2,7 +2,7 @@ import { clearHomePublicFeedCaches } from './headlineMemCache.js';
 
 /**
  * After article create/update/approve/reject: clear in-memory public feed caches
- * (headlines, unified feed slice, popular) so the next read sees fresh DB rows.
+ * (hero/headlines, unified public-list slice, most-viewed/popular) so the next read sees fresh DB rows.
  */
 export function invalidateArticleDerivedCaches(meta = {}) {
   clearHomePublicFeedCaches();
