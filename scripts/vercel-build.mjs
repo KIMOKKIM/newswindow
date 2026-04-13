@@ -133,6 +133,15 @@ if (existsSync(join(sharedDir, 'seo.json'))) {
   cpSync(join(sharedDir, 'seo.json'), join(publicSharedDir, 'seo.json'), { force: true });
   console.log('vercel-build: shared/seo.json → public/shared/ …');
 }
+if (existsSync(join(sharedDir, 'nwArticlePreviewBuild.core.js'))) {
+  mkdirSync(publicSharedDir, { recursive: true });
+  cpSync(
+    join(sharedDir, 'nwArticlePreviewBuild.core.js'),
+    join(publicSharedDir, 'nwArticlePreviewBuild.core.js'),
+    { force: true },
+  );
+  console.log('vercel-build: shared/nwArticlePreviewBuild.core.js → public/shared/ …');
+}
 
 const genMap = join(root, 'scripts', 'generate-sitemap.mjs');
 if (existsSync(genMap)) {

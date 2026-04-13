@@ -131,39 +131,45 @@
           view.innerHTML = '<h1 class="article-title">모듈 로드 실패</h1>';
           return;
         }
-        showLoadingDetail();
-        var detailUrl = API + '/api/articles/public/' + encodeURIComponent(id);
-        NW_ARTICLE_RENDER.fetchJsonGetWithRetry(detailUrl)
-          .then(function (out) {
-            var res = out.res;
-            var data = out.data || {};
-            if (!res.ok) {
-              throw new Error((data && data.error) || '기사를 불러오지 못했습니다.');
-            }
-            return data;
-          })
-          .then(function (a) {
-            try {
-              sessionStorage.removeItem(STORAGE_KEY);
-            } catch (e) {}
-            if (window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.buildDetailHtml) {
-              view.className = 'nw-article-detail__inner';
-              view.innerHTML = NW_ARTICLE_RENDER.buildDetailHtml(a, {
-                categoryLabel: a.category || '뉴스',
-                uploadOrigin: NW_PUBLIC_UPLOAD_ORIGIN,
-                apiOrigin: API,
-              });
-              runSeoAndRelated(a);
-              return;
-            }
-            view.innerHTML = '<h1 class="article-title">모듈 로드 실패</h1>';
-          })
-          .catch(function (e) {
-            try {
-              sessionStorage.removeItem(STORAGE_KEY);
-            } catch (err) {}
-            showErrorDetail(e && e.message ? e.message : e);
-          });
+        var runFetch = function () {
+          showLoadingDetail();
+          var detailUrl = API + '/api/articles/public/' + encodeURIComponent(id);
+          NW_ARTICLE_RENDER.fetchJsonGetWithRetry(detailUrl)
+            .then(function (out) {
+              var res = out.res;
+              var data = out.data || {};
+              if (!res.ok) {
+                throw new Error((data && data.error) || '기사를 불러오지 못했습니다.');
+              }
+              return data;
+            })
+            .then(function (a) {
+              try {
+                sessionStorage.removeItem(STORAGE_KEY);
+              } catch (e) {}
+              if (window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.buildDetailHtml) {
+                view.className = 'nw-article-detail__inner';
+                view.innerHTML = NW_ARTICLE_RENDER.buildDetailHtml(a, {
+                  uploadOrigin: NW_PUBLIC_UPLOAD_ORIGIN,
+                  apiOrigin: API,
+                });
+                runSeoAndRelated(a);
+                return;
+              }
+              view.innerHTML = '<h1 class="article-title">모듈 로드 실패</h1>';
+            })
+            .catch(function (e) {
+              try {
+                sessionStorage.removeItem(STORAGE_KEY);
+              } catch (err) {}
+              showErrorDetail(e && e.message ? e.message : e);
+            });
+        };
+        if (NW_ARTICLE_RENDER.ensurePublicCategoryMap) {
+          NW_ARTICLE_RENDER.ensurePublicCategoryMap().then(runFetch).catch(runFetch);
+        } else {
+          runFetch();
+        }
       }
 
       loadArticleDetail();

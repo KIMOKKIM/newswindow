@@ -1,6 +1,6 @@
 /**
- * Article body HTML shared by home modal and article.html (load with nw-seo.js optional).
- * Single-column flow: title → meta → lead image (image1-first via resolveArticlePrimaryImage) → body.
+ * Article HTML shared by home modal and article.html.
+ * Detail markup matches admin article preview (shared/nwArticlePreviewBuild.core.js).
  */
 (function (global) {
   function esc(s) {
@@ -13,8 +13,12 @@
   function escAttr(s) {
     return esc(s).replace(/"/g, '&quot;');
   }
-  function para(t) {
-    return esc(t).replace(/\n/g, '</p><p>');
+  /** Preview body text: same as admin esc (no quote escape in text nodes). */
+  function escPlain(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
   function reporterDisplayName(name) {
     var n = name == null ? '' : String(name).trim();
@@ -26,13 +30,6 @@
     var n = displayNameRaw == null ? '' : String(displayNameRaw).trim();
     if (!n) return '';
     return 'author.html?name=' + encodeURIComponent(n);
-  }
-  function authorBylineHtml(displayNameRaw) {
-    var n = displayNameRaw == null ? '' : String(displayNameRaw).trim();
-    var label = reporterDisplayName(n);
-    var href = authorProfileHref(n);
-    if (!href) return esc(label);
-    return '<a class="nw-article-detail__author-link" href="' + escAttr(href) + '">' + esc(label) + '</a>';
   }
   function formatArticleMetaDateYmd(raw) {
     if (raw == null || String(raw).trim() === '') return '\u2014';
@@ -65,131 +62,132 @@
     return articleMainImageSrc(raw, uploadOrigin, apiOrigin);
   }
 
-  function isProbablyHtml(str) {
-    if (str == null || typeof str !== 'string') return false;
-    var t = str.trim();
-    if (!t) return false;
-    return /<\/[a-z][a-z0-9]*\s*>/i.test(t) || (/<[a-z][a-z0-9]*[^>]*\/?>/i.test(t) && t.length > 24);
+  function nwCategoryLabelForValue(value) {
+    var v = String(value || '').trim();
+    if (!v) return '';
+    try {
+      var m = global.NW_CATEGORY_VALUE_TO_LABEL;
+      if (m && typeof m === 'object' && m[v]) return m[v];
+    } catch (e0) {}
+    return v;
   }
 
-  var NW_DETAIL_PLACEHOLDER_SRC = '/images/logo-header-tight.png';
+  /**
+   * Keep in sync with shared/nwArticlePreviewBuild.core.js
+   */
+  function buildNwPreviewArticleInnerHtml(a, deps, options) {
+    var escB = deps.esc;
+    var escA = deps.escAttr;
+    var categoryLabelForValue = deps.categoryLabelForValue;
+    var reporterDN = deps.reporterDisplayName;
+    var formatDate = deps.formatArticleMetaDateYmd;
+    var opts = options || {};
+    var toolbarHtml = opts.toolbarHtml || '';
+    var resolveImgSrc =
+      opts.resolveImgSrc ||
+      function (src) {
+        return escA(String(src == null ? '' : src));
+      };
+    var includeNwCard = opts.includeNwCard !== false;
+    var wrapClass = 'nw-preview-article' + (includeNwCard ? ' nw-card' : '');
 
-  function blockParts(parts, img, cap, content, uploadOrigin, apiOrigin, titleForAlt) {
-    if (content) parts.push('<p>' + para(content) + '</p>');
-    if (img) {
-      var src = detailImgUrl(img, uploadOrigin, apiOrigin);
-      if (src) {
-        var alt = '';
-        if (cap && String(cap).trim()) alt = String(cap).trim();
-        else if (titleForAlt && String(titleForAlt).trim()) alt = String(titleForAlt).trim();
-        parts.push(
-          '<img class="nw-article-detail__img nw-article-img" src="' +
-            escAttr(src) +
-            '" alt="' +
-            escAttr(alt || '\uae30\uc0ac \uc774\ubbf8\uc9c0') +
-            '" onerror="this.onerror=null;this.src=\'' +
-            NW_DETAIL_PLACEHOLDER_SRC +
-            '\'">'
-        );
-      }
-    }
-    if (cap) parts.push('<p class="nw-article-detail__cap">' + esc(cap) + '</p>');
-  }
-
-  function buildMastheadHtml(a, categoryLabel, mastOpts) {
-    mastOpts = mastOpts || {};
-    var mast = [];
-    mast.push('<div class="nw-article-detail__masthead">');
-    mast.push(
-      '<h1 id="nwArticleDetailTitle" class="nw-article-detail__title">' +
-        esc(a.title || '(\uc81c\ubaa9 \uc5c6\uc74c)') +
-        '</h1>'
-    );
-    if (a.subtitle) mast.push('<p class="nw-article-detail__subtitle">' + esc(a.subtitle) + '</p>');
-    var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
-    var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
-    var catShown = categoryLabel || '\u2014';
+    var catShown = categoryLabelForValue(a.category || '') || '\u2014';
     var byline =
-      authorBylineHtml(a.author_name) +
+      reporterDN(a.author_name) +
       ' \xb7 \ubc1c\ud589\uc77c ' +
-      formatArticleMetaDateYmd(pubRaw) +
+      formatDate(a.published_at || a.created_at) +
       ' \xb7 \uc218\uc815\uc77c ' +
-      formatArticleMetaDateYmd(updRaw);
-    mast.push('<p class="nw-article-detail__meta nw-article-detail__meta--preview">');
-    mast.push('<span class="nw-article-detail__meta-cat">' + esc(catShown) + '</span> ');
-    mast.push('<span class="nw-article-detail__meta-byline">' + byline + '</span>');
-    mast.push('</p>');
-    var catVal = String(a.category || '').trim();
-    if (catVal) {
-      mast.push(
-        '<nav class="nw-article-detail__section-nav" aria-label="\uc139\uc158">' +
-          '<a href="section.html?category=' +
-          encodeURIComponent(catVal) +
-          '">' +
-          esc(catShown) +
-          ' \uc139\uc158 \ub354\ubcf4\uae30</a></nav>'
-      );
-    }
-    mast.push('</div>');
-    return mast.join('');
-  }
+      formatDate(a.updated_at || a.created_at);
 
-  function buildLeadFigureHtml(leadSrc, titleForAlt) {
-    if (!leadSrc) return '';
-    var altLead = esc(titleForAlt || '\uae30\uc0ac \uc774\ubbf8\uc9c0');
+    var blocks = '';
+    var n;
+    for (n = 1; n <= 4; n++) {
+      var src = a['image' + n];
+      var cap = a['image' + n + '_caption'];
+      var cx = a['content' + n];
+      if (cx) {
+        blocks += '<div class="nw-prev-body">' + escB(cx).replace(/\n/g, '<br/>') + '</div>';
+      }
+      if (src) {
+        blocks +=
+          '<figure class="nw-prev-fig"><img src="' +
+          resolveImgSrc(src) +
+          '" alt="" class="nw-prev-img" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\'/images/logo-header-tight.png\'"/></figure>';
+      }
+      if (cap) blocks += '<p class="nw-prev-cap">' + escB(cap) + '</p>';
+    }
+    var fallbackBody = (a.content || '').trim();
+    if (!blocks && fallbackBody) {
+      blocks = '<div class="nw-prev-body">' + escB(fallbackBody).replace(/\n/g, '<br/>') + '</div>';
+    }
+
+    var metaBar =
+      '<div class="nw-prev-meta-bar">' +
+      '<span class="nw-prev-meta-cat">' +
+      escB(catShown) +
+      '</span>' +
+      '<span class="nw-prev-meta-byline">' +
+      escB(byline) +
+      '</span></div>';
+
     return (
-      '<figure class="nw-article-detail__lead">' +
-        '<img class="nw-article-detail__lead-img nw-article-img" src="' +
-        escAttr(leadSrc) +
-        '" alt="' +
-        altLead +
-        '" onerror="this.onerror=null;this.src=\'' +
-        NW_DETAIL_PLACEHOLDER_SRC +
-        '\'">' +
-        '</figure>'
+      toolbarHtml +
+      '<article class="' +
+      wrapClass +
+      '">' +
+      '<h2 class="nw-prev-title" id="nwArticleDetailTitle">' +
+      escB(a.title || '(\uc81c\ubaa9 \uc5c6\uc74c)') +
+      '</h2>' +
+      (a.subtitle ? '<p class="nw-prev-sub">' + escB(a.subtitle) + '</p>' : '') +
+      metaBar +
+      '<div class="nw-prev-content">' +
+      (blocks || '<p class="nw-muted">\ubcf8\ubb38 \uc5c6\uc74c</p>') +
+      '</div>' +
+      '<p class="nw-prev-legal">\uc800\uc791\uad8c\uc790 \xa9 \ub274\uc2a4\uc758\ucc3d \ubb34\ub2e8\uc804\uc7ac \ubc0f \uc7ac\ubc30\ud3ec \uae08\uc9c0</p>' +
+      '</article>'
     );
-  }
-
-  function buildArticleFlowHtml(a, uploadOrigin, apiOrigin, leadAbsNorm) {
-    var titleForAlt = a.title || '';
-    var parts = [];
-    parts.push('<div class="nw-article-detail__article-body nw-article-detail__article-body--single">');
-    var hasBlocks = [a.content1, a.content2, a.content3, a.content4].some(function (x) {
-      return x && String(x).trim();
-    });
-    var rich = String(a.html || a.body || '').trim();
-    if (!hasBlocks && rich && isProbablyHtml(rich)) {
-      parts.push('<div class="nw-article-detail__rich">' + rich + '</div>');
-    } else if (!hasBlocks && a.content && String(a.content).trim()) {
-      var c = String(a.content).trim();
-      if (isProbablyHtml(c)) {
-        parts.push('<div class="nw-article-detail__rich">' + c + '</div>');
-      } else {
-        parts.push('<p>' + para(c) + '</p>');
-      }
-    } else {
-      var img1Abs = a.image1 ? detailImgUrl(a.image1, uploadOrigin, apiOrigin) : '';
-      var skipFirstImg = !!(leadAbsNorm && img1Abs && leadAbsNorm === img1Abs);
-      var firstImg = skipFirstImg ? '' : a.image1;
-      blockParts(parts, firstImg, a.image1_caption, a.content1, uploadOrigin, apiOrigin, titleForAlt);
-      blockParts(parts, a.image2, a.image2_caption, a.content2, uploadOrigin, apiOrigin, titleForAlt);
-      blockParts(parts, a.image3, a.image3_caption, a.content3, uploadOrigin, apiOrigin, titleForAlt);
-      blockParts(parts, a.image4, a.image4_caption, a.content4, uploadOrigin, apiOrigin, titleForAlt);
-      if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
-        parts.push('<p>' + para(a.content) + '</p>');
-      }
-    }
-    parts.push('</div>');
-    parts.push(
-      '<section class="nw-related-articles" id="nwRelatedMount" aria-label="\uad00\ub828 \uae30\uc0ac"><h2 class="nw-related-title">\ube44\uc2b7\ud55c \ubd84\uc57c\uc758 \ub2e4\ub978 \uae30\uc0ac</h2><p class="nw-related-loading" role="status">\uad00\ub828 \uae30\uc0ac\ub97c \ubd88\ub7ec\uc624\ub294 \uc911\u2026</p></section>'
-    );
-    parts.push(
-      '<p class="nw-article-detail__legal">\uc800\uc791\uad8c\uc790 \xa9 \ub274\uc2a4\uc758\ucc3d \ubb34\ub2e8\uc804\uc7ac \ubc0f \uc7ac\ubc30\ud3ec \uae08\uc9c0</p>'
-    );
-    return parts.join('');
   }
 
   var NW_FETCH_TIMEOUT_MS = 20000;
+  var NW_RENDER_CAT_PROMISE = null;
+
+  function ensurePublicCategoryMap() {
+    if (global.NW_CATEGORY_VALUE_TO_LABEL && Object.keys(global.NW_CATEGORY_VALUE_TO_LABEL).length) {
+      return Promise.resolve();
+    }
+    if (NW_RENDER_CAT_PROMISE) return NW_RENDER_CAT_PROMISE;
+    var url;
+    try {
+      url = new URL('shared/articleCategories.json', global.location.href).href;
+    } catch (eU) {
+      url = 'shared/articleCategories.json';
+    }
+    NW_RENDER_CAT_PROMISE = fetch(url, { cache: 'force-cache' })
+      .then(function (res) {
+        return res.ok ? res.json() : Promise.reject();
+      })
+      .then(function (data) {
+        var m = {};
+        var gr = data.groups || [];
+        var i;
+        var j;
+        for (i = 0; i < gr.length; i++) {
+          var items = gr[i].items || [];
+          for (j = 0; j < items.length; j++) {
+            m[items[j].value] = items[j].label;
+          }
+        }
+        var top = data.topLevel || [];
+        for (i = 0; i < top.length; i++) {
+          m[top[i].value] = top[i].label;
+        }
+        global.NW_CATEGORY_VALUE_TO_LABEL = m;
+      })
+      .catch(function () {
+        global.NW_CATEGORY_VALUE_TO_LABEL = global.NW_CATEGORY_VALUE_TO_LABEL || {};
+      });
+    return NW_RENDER_CAT_PROMISE;
+  }
 
   function fetchJsonGetWithRetry(url) {
     function inner(isRetry) {
@@ -234,14 +232,33 @@
     opts = opts || {};
     var uploadOrigin = opts.uploadOrigin || '';
     var apiOrigin = opts.apiOrigin || '';
-    var categoryLabel = opts.categoryLabel || a.category || '\u2014';
-    var mastHtml = buildMastheadHtml(a, categoryLabel, { uploadOrigin: uploadOrigin, apiOrigin: apiOrigin });
-    var leadNorm =
-      typeof global.resolveArticlePrimaryImage === 'function' ? global.resolveArticlePrimaryImage(a) : '';
-    var leadSrc = leadNorm ? detailImgUrl(leadNorm, uploadOrigin, apiOrigin) : '';
-    var leadHtml = buildLeadFigureHtml(leadSrc, a.title || '');
-    var flowHtml = buildArticleFlowHtml(a, uploadOrigin, apiOrigin, leadSrc);
-    return '<div class="nw-article-detail nw-article-detail--single">' + mastHtml + leadHtml + flowHtml + '</div>';
+    var categoryLabelGetter = function (catVal) {
+      if (opts.categoryLabel != null && String(opts.categoryLabel).trim() !== '') {
+        return String(opts.categoryLabel).trim();
+      }
+      var mapped = nwCategoryLabelForValue(catVal);
+      return mapped || '\u2014';
+    };
+    var inner = buildNwPreviewArticleInnerHtml(
+      a,
+      {
+        esc: escPlain,
+        escAttr: escAttr,
+        categoryLabelForValue: categoryLabelGetter,
+        reporterDisplayName: reporterDisplayName,
+        formatArticleMetaDateYmd: formatArticleMetaDateYmd,
+      },
+      {
+        toolbarHtml: '',
+        resolveImgSrc: function (src) {
+          return escAttr(detailImgUrl(src, uploadOrigin, apiOrigin));
+        },
+        includeNwCard: false,
+      }
+    );
+    var related =
+      '<section class="nw-related-articles" id="nwRelatedMount" aria-label="\uad00\ub828 \uae30\uc0ac"><h2 class="nw-related-title">\ube44\uc2b7\ud55c \ubd84\uc57c\uc758 \ub2e4\ub978 \uae30\uc0ac</h2><p class="nw-related-loading" role="status">\uad00\ub828 \uae30\uc0ac\ub97c \ubd88\ub7ec\uc624\ub294 \uc911\u2026</p></section>';
+    return '<div class="nw-article-detail nw-article-detail--preview">' + inner + related + '</div>';
   }
 
   function fetchRelatedArticles(apiBase, articleId, category, mountEl) {
@@ -275,7 +292,7 @@
             '<li><a href="article.html?id=' +
             escAttr(String(it.id)) +
             '">' +
-            esc(it.title || '') +
+            escPlain(it.title || '') +
             '</a></li>';
         });
         html += '</ul>';
@@ -286,10 +303,13 @@
           '<h2 class="nw-related-title">\ube44\uc2b7\ud55c \ubd84\uc57c\uc758 \ub2e4\ub978 \uae30\uc0ac</h2><p class="nw-related-empty">\uad00\ub828 \uae30\uc0ac\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.</p>';
       });
   }
+
   global.NW_ARTICLE_RENDER = {
     buildDetailHtml: buildDetailHtml,
+    buildNwPreviewArticleInnerHtml: buildNwPreviewArticleInnerHtml,
     fetchJsonGetWithRetry: fetchJsonGetWithRetry,
     fetchRelatedArticles: fetchRelatedArticles,
+    ensurePublicCategoryMap: ensurePublicCategoryMap,
     articleMainImageSrc: articleMainImageSrc,
     reporterDisplayName: reporterDisplayName,
     authorProfileHref: authorProfileHref,

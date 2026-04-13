@@ -2122,6 +2122,80 @@ body:has(#nwLatestTop5) .headline-section {
     line-height: 1.5;
 }
 
+/* Preview-parity layout (article.html / modal — same markup as admin articlePreview) */
+.nw-article-detail--preview .nw-preview-article {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+.nw-article-detail--preview .nw-prev-title {
+    margin: 0 0 8px;
+    font-size: 1.5rem;
+    font-family: var(--font-serif);
+    line-height: 1.35;
+    color: var(--color-heading);
+}
+.nw-article-detail--preview .nw-prev-sub {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0 0 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+}
+.nw-article-detail--preview .nw-prev-meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px 16px;
+    margin: 0 0 20px;
+    font-size: 0.9rem;
+}
+.nw-article-detail--preview .nw-prev-meta-cat {
+    font-weight: 600;
+    color: var(--color-text);
+}
+.nw-article-detail--preview .nw-prev-meta-byline {
+    color: var(--color-muted);
+    text-align: right;
+    flex: 1;
+    min-width: 220px;
+}
+.nw-article-detail--preview .nw-prev-content {
+    margin: 0 0 8px;
+}
+.nw-article-detail--preview .nw-prev-body {
+    line-height: 1.6;
+    margin-bottom: 20px;
+    color: var(--color-text);
+}
+.nw-article-detail--preview .nw-prev-fig {
+    margin: 0 0 16px;
+}
+.nw-article-detail--preview .nw-prev-img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+}
+.nw-article-detail--preview .nw-prev-cap {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin: 8px 0 4px;
+}
+.nw-article-detail--preview .nw-prev-legal {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    text-align: center;
+    line-height: 1.5;
+}
+
 .nw-article-detail__loading,
 .nw-article-detail__error {
     margin: 8px 0;
