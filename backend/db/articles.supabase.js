@@ -14,7 +14,6 @@ import {
   mapPublishedListItem,
   mapPublishedListRowForPublicFeed,
   mapPublishedListHeroMinimal,
-  useUnifiedFeedForMainPublicApi,
   rowToArticleRecord,
   normalizeTitleDedupeKey,
   dedupeWindowMs,
@@ -38,14 +37,9 @@ function sb() {
 const PUBLISHED_LIST_SELECT =
   'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1';
 
-const ARTICLES_LIST_FROM = (() => {
-  const v = String(process.env.NW_ARTICLES_TABLE_LIST || 'articles_list_slim').trim();
-  return v === 'articles' || v === 'articles_list_slim' ? v : 'articles_list_slim';
-})();
 
 /**
- * 통합 공개 피드 — 본문 제외, 썸네일용 image1~4.
- * 정렬은 전부 JS compareUnifiedPublicFeedDesc (published_at → updated_at → created_at).
+ * Public list columns (no body). Main paths: bounded table articles only (never articles_list_slim).
  */
 const MERGED_PUBLIC_FEED_SELECT =
   'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1,image2,image3,image4';
@@ -110,13 +104,14 @@ async function loadUnifiedPublicFeedRecordsFromDatabase() {
   return filtered;
 }
 
-/** 메인 공개 API용: 전량 페이지 루프 없이 published 상한만 조회 후 통합 정렬과 동일 규칙으로 정렬 */
-async function slimPublishedRecordsForMainSort(maxFetch) {
+/** Bounded rows from table articles + same JS sort as unified feed. */
+async function mainPublicFeedSliceFromArticlesTable(maxFetch) {
   const max = Math.min(5000, Math.max(50, Number(maxFetch) || 2000));
   const { data, error } = await sb()
     .from('articles')
     .select(MERGED_PUBLIC_FEED_SELECT)
-    .eq('status', 'published')
+    .in('status', ['published', 'approved'])
+    .order('id', { ascending: false })
     .limit(max);
   if (error) throw error;
   const rows = (data || []).map(rowToArticleRecord).filter((a) => isPublicFeedReadableStatus(a.status));
@@ -147,20 +142,17 @@ export const articlesDb = {
   },
 
   /**
-   * 공개 피드 단일 소스 (정렬 완료). list / home / headlines / 전체기사 페이지 모두 이 배열을 슬라이스·필터.
+   * Full merged feed (cached). For /public/page etc. Not used for /public/latest or headlines.
    */
   async getUnifiedPublicFeedRecords() {
     return getUnifiedPublicFeedCached(() => loadUnifiedPublicFeedRecordsFromDatabase());
   },
 
-  /** 홈 첫 화면 전용 — 통합 피드 앞쪽만 */
+  /** Headlines: bounded query on table articles only. */
   async listPublishedLatestHero(limit) {
     const lim = Math.min(15, Math.max(1, Number(limit) || 5));
-    if (!useUnifiedFeedForMainPublicApi()) {
-      const all = await slimPublishedRecordsForMainSort(Math.min(2000, lim * 200 + 100));
-      return all.slice(0, lim).map((a) => mapPublishedListHeroMinimal(a));
-    }
-    const all = await this.getUnifiedPublicFeedRecords();
+    const fetchCap = Math.min(2000, Math.max(120, lim * 80));
+    const all = await mainPublicFeedSliceFromArticlesTable(fetchCap);
     return all.slice(0, lim).map((a) => mapPublishedListHeroMinimal(a));
   },
 
@@ -168,11 +160,8 @@ export const articlesDb = {
   async listPublishedLatest(limit) {
     const cap = mainFeedArticleCap();
     const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
-    if (!useUnifiedFeedForMainPublicApi()) {
-      const all = await slimPublishedRecordsForMainSort(2000);
-      return all.slice(0, lim).map((a) => mapPublishedListRowForPublicFeed(a));
-    }
-    const all = await this.getUnifiedPublicFeedRecords();
+    const fetchCap = Math.min(2000, Math.max(200, cap + 120));
+    const all = await mainPublicFeedSliceFromArticlesTable(fetchCap);
     return all.slice(0, lim).map((a) => mapPublishedListRowForPublicFeed(a));
   },
 
@@ -249,6 +238,7 @@ export const articlesDb = {
       .in('status', ['published', 'approved'])
       .gte('published_at', sinceIso)
       .order('views', { ascending: false })
+      .order('published_at', { ascending: false })
       .limit(fetchCap);
     const { data, error } = await q;
     if (error) throw error;
@@ -261,6 +251,7 @@ export const articlesDb = {
         .is('published_at', null)
         .gte('created_at', sinceIso)
         .order('views', { ascending: false })
+        .order('published_at', { ascending: false })
         .limit(24);
       if (!e2 && d2 && d2.length) {
         const seen = new Set(rows.map((r) => r.id));

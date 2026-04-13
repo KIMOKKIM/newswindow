@@ -92,3 +92,60 @@ export async function apiFetch(path, opts = {}) {
 export function authHeaders(token, extra = {}) {
   return { Authorization: 'Bearer ' + token, ...extra };
 }
+
+/** Matches backend authUpstreamUserFacingError — never show PostgREST/HTML/522 to users. */
+const AUTH_GENERIC_DELAY =
+  '\uc778\uc99d \uc11c\ubc84 \uc751\ub2f5\uc774 \uc9c0\uc5f0\ub418\uace0 \uc788\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.';
+
+const STAFF_LIST_GENERIC =
+  '\uc77c\uc2dc\uc801\uc73c\ub85c \ubaa9\ub85d\uc744 \ubd88\ub7ec\uc62c \uc218 \uc5c6\uc2b5\ub2c8\ub2e4. \ub85c\uadf8\uc778\uc740 \uc720\uc9c0\ub418\uc5b4 \uc788\uc73c\ub2c8 \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.';
+
+function looksLikeUpstreamLeak(t) {
+  if (!t || typeof t !== 'string') return true;
+  const s = t.trim();
+  if (!s) return true;
+  if (/<\s*html[\s>]/i.test(s) || /<\s*body[\s>]/i.test(s) || s.length > 400) return true;
+  if (
+    /cloudflare|\b522\b|connection timed out|headers timeout|und_err|fetch failed|stack:/i.test(s) ||
+    /schema cache|could not query the database|for the schema|retrying\.?$/im.test(s) ||
+    /pgrst|postgrest|postgresterror/i.test(s)
+  )
+    return true;
+  return false;
+}
+
+function responseHasUpstreamLeak(data) {
+  if (!data || typeof data !== 'object') return false;
+  for (const k of ['error', 'message', 'detail', 'description', 'hint', 'details']) {
+    const v = data[k];
+    if (typeof v === 'string' && looksLikeUpstreamLeak(v)) return true;
+  }
+  const raw = data._raw;
+  if (typeof raw === 'string' && raw && looksLikeUpstreamLeak(raw)) return true;
+  return false;
+}
+
+/**
+ * @param {unknown} data Parsed JSON from apiFetch (may include _raw on parse failure)
+ * @param {Error|unknown} [networkErr] Set when fetch threw (timeout, CORS, etc.)
+ */
+export function userFacingAuthErrorMessage(data, networkErr) {
+  if (networkErr != null) return AUTH_GENERIC_DELAY;
+  if (!data || typeof data !== 'object') return AUTH_GENERIC_DELAY;
+  if (responseHasUpstreamLeak(data)) return AUTH_GENERIC_DELAY;
+  const e = data.error;
+  if (typeof e === 'string' && e.trim() && !looksLikeUpstreamLeak(e)) return e.trim();
+  return AUTH_GENERIC_DELAY;
+}
+
+/**
+ * Staff dashboard list errors: keep login vs list failure separate; never show raw upstream HTML.
+ * @param {unknown} data
+ */
+export function userFacingStaffListErrorMessage(data) {
+  if (data == null || typeof data !== 'object' || Array.isArray(data)) return STAFF_LIST_GENERIC;
+  const e = data.error;
+  if (typeof e === 'string' && e.trim() && !looksLikeUpstreamLeak(e)) return e.trim();
+  if (data._raw && typeof data._raw === 'string' && /<\s*html[\s>]/i.test(data._raw)) return STAFF_LIST_GENERIC;
+  return STAFF_LIST_GENERIC;
+}

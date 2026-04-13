@@ -34,6 +34,23 @@ const corsOrigins = (process.env.CORS_ORIGIN ||
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
+
+/** Ensure JSON error responses still get Access-Control-Allow-Origin when Origin is allowed. */
+function nwReflectCorsHeadersOnError(req, res) {
+  const origin = req.headers.origin;
+  if (!origin || typeof origin !== 'string') return;
+  if (
+    corsOrigins.includes(origin) ||
+    origin.startsWith('http://127.0.0.1:') ||
+    origin.startsWith('http://localhost:') ||
+    /^http:\/\/127\.0\.0\.1:\d+$/.test(origin) ||
+    /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin) ||
+    /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/.test(origin)
+  ) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+}
 app.use(
   cors({
     origin: (origin, cb) => {
@@ -50,6 +67,22 @@ app.use(
       return cb(null, false);
     },
     credentials: true,
+    exposedHeaders: [
+      'X-Request-Id',
+      'X-NW-Degraded',
+      'X-NW-Degraded-Reason',
+      'X-NW-Soft-Fail',
+      'X-NW-Home-Headlines-Ms',
+      'X-NW-Headlines-Db-Ms',
+      'X-NW-Cache',
+      'X-NW-Public-Latest-Hero',
+      'X-NW-Public-Latest-Timing-Ms',
+      'X-NW-Public-Latest-Json-Bytes',
+      'X-NW-Public-Main-Slim',
+      'X-NW-Home-Timing-Wall-Ms',
+      'X-NW-Home-Latest-Ok',
+      'X-NW-Home-Partial',
+    ],
   })
 );
 app.use(requestLogMiddleware);
@@ -75,17 +108,24 @@ app.use('/api/home', homeRouter);
 app.use((err, req, res, next) => {
   console.error('[api]', err);
   if (res.headersSent) return next(err);
+  nwReflectCorsHeadersOnError(req, res);
   const status = Number(err.statusCode || err.status);
   const httpStatus = Number.isFinite(status) && status >= 400 && status < 600 ? status : 500;
   const code = err.code && typeof err.code === 'string' ? err.code : 'INTERNAL_ERROR';
-  const isProd = process.env.NODE_ENV === 'production';
   const defaultMsg =
     '\uc77c\uc2dc\uc801\uc778 \uc624\ub958\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.';
-  const body = {
-    error: isProd ? (err.publicMessage != null ? err.publicMessage : defaultMsg) : err.message || defaultMsg,
-    code,
-  };
-  if (!isProd && err.message) body.detail = err.message;
+  if (err && err.message && String(err.message).length < 800) {
+    console.error('[api] err.message (not sent to client):', String(err.message).slice(0, 500));
+  }
+  const url = String(req.originalUrl || req.url || '');
+  const authApi = url.startsWith('/api/auth');
+  // Never forward raw DB/PostgREST/timeout strings to clients (dev or prod).
+  const errorOut = authApi
+    ? defaultMsg
+    : err.publicMessage != null
+      ? err.publicMessage
+      : defaultMsg;
+  const body = { error: errorOut, code };
   res.status(httpStatus).json(body);
 });
 

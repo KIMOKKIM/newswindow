@@ -1,4 +1,4 @@
-import { apiFetch } from '../api/client.js';
+import { apiFetch, userFacingAuthErrorMessage } from '../api/client.js';
 import {
   setSessionFromLogin,
   dashboardPathForRole,
@@ -68,13 +68,23 @@ export async function renderRoleLogin(app, { navigate, expectedRole }) {
     err.style.display = 'none';
     const userid = app.querySelector('#uid').value.trim();
     const password = app.querySelector('#pw').value;
-    const { res, data } = await apiFetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userid, password }),
-    });
+    let res;
+    let data;
+    try {
+      const out = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userid, password }),
+      });
+      res = out.res;
+      data = out.data;
+    } catch (networkErr) {
+      err.textContent = userFacingAuthErrorMessage(null, networkErr);
+      err.style.display = 'block';
+      return;
+    }
     if (!res.ok) {
-      err.textContent = (data && data.error) || '로그인 실패';
+      err.textContent = userFacingAuthErrorMessage(data, null);
       err.style.display = 'block';
       return;
     }

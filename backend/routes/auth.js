@@ -2,6 +2,11 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createUser, getUserByUserid, userIdExists } from '../db/userStore.js';
+import {
+  authUpstreamUserFacingError,
+  isLikelyUpstreamFailure,
+  logAuthUpstreamFail,
+} from '../lib/publicReadSoftFail.js';
 
 export const authRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
@@ -73,18 +78,13 @@ authRouter.post('/login', async (req, res) => {
     );
     res.json({ accessToken: token, role: roleNorm, name: row.name, id: row.id });
   } catch (e) {
-    console.error(
-      '[nw/auth/login]',
-      JSON.stringify({
-        reqId: req.nwRequestId,
-        ok: false,
-        reason: 'exception',
-        ms: Date.now() - t0,
-        userid: useridRaw,
-        err: String(e && e.message ? e.message : e),
-      }),
-    );
-    res.status(500).json({ error: e.message });
+    logAuthUpstreamFail(req.nwRequestId, e, { route: 'POST /login', userid: useridRaw });
+    const upstream = isLikelyUpstreamFailure(e);
+    const status = upstream ? 503 : 500;
+    res.status(status).json({
+      error: authUpstreamUserFacingError(),
+      code: upstream ? 'UPSTREAM_UNAVAILABLE' : 'INTERNAL_ERROR',
+    });
   }
 });
 
@@ -121,6 +121,12 @@ authRouter.post('/signup', async (req, res) => {
           : null,
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    logAuthUpstreamFail(req.nwRequestId, e, { route: 'POST /signup' });
+    const upstream = isLikelyUpstreamFailure(e);
+    const status = upstream ? 503 : 500;
+    res.status(status).json({
+      error: authUpstreamUserFacingError(),
+      code: upstream ? 'UPSTREAM_UNAVAILABLE' : 'INTERNAL_ERROR',
+    });
   }
 });

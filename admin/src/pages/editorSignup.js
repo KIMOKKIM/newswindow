@@ -1,4 +1,4 @@
-import { apiFetch } from '../api/client.js';
+import { apiFetch, userFacingAuthErrorMessage } from '../api/client.js';
 import { getSession, dashboardPathForRole } from '../auth/session.js';
 import { renderShell, GUEST_ROLE_EDITOR, bindShell } from '../layout/shell.js';
 
@@ -62,7 +62,7 @@ export async function renderEditorSignup(app, { navigate }) {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      err.textContent = (data && data.error) || '가입 실패';
+      err.textContent = userFacingAuthErrorMessage(data, null);
       err.style.display = 'block';
       return;
     }

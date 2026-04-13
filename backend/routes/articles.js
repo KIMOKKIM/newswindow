@@ -8,17 +8,23 @@ import {
   normalizeTitleDedupeKey,
   dedupeWindowMs,
 } from '../db/articles.js';
-import {
-  sanitizeForPublicListPayloadArr,
-  sanitizeHeroPublicResponseArr,
-  useUnifiedFeedForMainPublicApi,
-} from '../db/articles.shared.js';
+import { sanitizeForPublicListPayloadArr, sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
 import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { clearHomePublicFeedCaches } from '../lib/headlineMemCache.js';
+import { invalidateArticleDerivedCaches } from '../lib/articleDerivedCache.js';
 import { logPublicFeedAfterPublish } from '../lib/feedConsistencyLog.js';
 import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
 import { getPopularSinceCached } from '../lib/popularMemCache.js';
+import {
+  classifyUpstreamError,
+  fallbackPublicLatest,
+  isPublicReadSoftFailEnabled,
+  logPublicSoftfail,
+  NW_DEGRADED_REASON_HEADER,
+  recordPublicLatestSuccess,
+  runWithReadDeadline,
+  upstreamPrimaryCategory,
+} from '../lib/publicReadSoftFail.js';
 
 export const articlesRouter = Router();
 
@@ -77,6 +83,7 @@ function isDupConflict(e) {
 
 // GET /api/articles/public/list — 메인 노출용 공개 기사 목록 (승인·게시 published 만, 최신순)
 articlesRouter.get('/public/list', async (req, res, next) => {
+  const t0 = Date.now();
   try {
     /** listPublishedForMain 내부에서만 피드 조회 — 통합 피드 이중 로드 제거 */
     const rows = await articlesDb.listPublishedForMain();
@@ -92,7 +99,17 @@ articlesRouter.get('/public/list', async (req, res, next) => {
         JSON.stringify({ ids: (rows || []).slice(0, 50).map((r) => r && r.id) }),
       );
     }
-    res.json(sanitizeForPublicListPayloadArr(rows));
+    const out = sanitizeForPublicListPayloadArr(rows);
+    console.info(
+      '[nw/public-list]',
+      JSON.stringify({
+        route: 'GET /api/articles/public/list',
+        reqId: req.nwRequestId,
+        count: out.length,
+        ms: Date.now() - t0,
+      }),
+    );
+    res.json(out);
   } catch (e) {
     next(e);
   }
@@ -111,25 +128,45 @@ articlesRouter.get('/public/latest', async (req, res, next) => {
       hq === true ||
       (Array.isArray(hq) && hq.some((x) => String(x).trim() === '1')) ||
       String(hq || '').trim() === '1';
-    const limit = hero
+       const limit = hero
       ? Math.min(15, Math.max(1, Number(req.query.limit) || 5))
       : Math.min(50, Math.max(1, Number(req.query.limit) || 10));
     const t0 = Date.now();
-    const rows = hero
-      ? await articlesDb.listPublishedLatestHero(limit)
-      : await articlesDb.listPublishedLatest(limit);
+    let rows;
+    let degraded = false;
+    try {
+      rows = hero
+        ? await runWithReadDeadline(() => articlesDb.listPublishedLatestHero(limit))
+        : await runWithReadDeadline(() => articlesDb.listPublishedLatest(limit));
+    } catch (err) {
+      if (!isPublicReadSoftFailEnabled()) throw err;
+      rows = fallbackPublicLatest(limit, hero);
+      degraded = true;
+      const fallbackSource = rows.length ? 'last_success_cache' : 'empty';
+      logPublicSoftfail('GET /api/articles/public/latest', err, {
+        hero,
+        limit,
+        reqId: req.nwRequestId,
+        ms: Date.now() - t0,
+        fallbackSource,
+      });
+    }
     const serverMs = Date.now() - t0;
     const payload = hero ? sanitizeHeroPublicResponseArr(rows) : sanitizeForPublicListPayloadArr(rows);
+    if (!degraded) recordPublicLatestSuccess(payload);
     const jsonBytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
     res.set('X-NW-Public-Latest-Hero', hero ? '1' : '0');
-    if (!useUnifiedFeedForMainPublicApi()) {
-      res.set('X-NW-Public-Main-Slim', '1');
+    res.set('X-NW-Public-Main-Slim', '1');
+    if (degraded) {
+      res.set('X-NW-Degraded', '1');
+      res.set('X-NW-Degraded-Reason', NW_DEGRADED_REASON_HEADER);
+      res.set('X-NW-Soft-Fail', 'public-latest');
     }
     res.set('X-NW-Public-Latest-Timing-Ms', String(serverMs));
     res.set('X-NW-Public-Latest-Json-Bytes', String(jsonBytes));
     res.set(
       'Access-Control-Expose-Headers',
-      'X-NW-Public-Latest-Hero, X-NW-Public-Latest-Timing-Ms, X-NW-Public-Latest-Json-Bytes, X-NW-Public-Main-Slim',
+      'X-NW-Public-Latest-Hero, X-NW-Public-Latest-Timing-Ms, X-NW-Public-Latest-Json-Bytes, X-NW-Public-Main-Slim, X-NW-Degraded, X-NW-Degraded-Reason, X-NW-Soft-Fail',
     );
     res.set(
       'Cache-Control',
@@ -144,6 +181,17 @@ articlesRouter.get('/public/latest', async (req, res, next) => {
         JSON.stringify({ hero, limit, serverMs, count: rows.length, bytes: jsonBytes }),
       );
     }
+    console.info(
+      '[nw/home-feed]',
+      JSON.stringify({
+        route: 'GET /api/articles/public/latest',
+        reqId: req.nwRequestId,
+        hero: !!hero,
+        count: payload.length,
+        degraded,
+        ms: serverMs,
+      }),
+    );
     res.json(payload);
   } catch (e) {
     next(e);
@@ -186,6 +234,7 @@ articlesRouter.get('/public/sitemap-entries', async (req, res, next) => {
   }
 });
 articlesRouter.get('/public/popular', async (req, res, next) => {
+  const t0Popular = Date.now();
   try {
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
     const category = req.query.category != null ? String(req.query.category) : '';
@@ -206,14 +255,40 @@ articlesRouter.get('/public/popular', async (req, res, next) => {
     res.set('X-NW-Popular-Cache', pr.cacheHit ? 'HIT' : 'MISS');
     res.set('X-NW-Popular-Db-Ms', String(pr.dbMs));
     if (debug()) console.log('[articles] GET /public/popular count=', pr.rows.length, 'cache=', pr.cacheHit);
-    res.json(sanitizeForPublicListPayloadArr(pr.rows));
+    const popOut = sanitizeForPublicListPayloadArr(pr.rows);
+    console.info(
+      '[nw/most-viewed]',
+      JSON.stringify({
+        route: 'GET /api/articles/public/popular',
+        reqId: req.nwRequestId,
+        count: popOut.length,
+        cacheHit: !!pr.cacheHit,
+        dbMs: pr.dbMs,
+        ms: Date.now() - t0Popular,
+        degraded: false,
+      }),
+    );
+    res.json(popOut);
   } catch (e) {
-    next(e);
+    logPublicSoftfail('GET /api/articles/public/popular', e, {
+      reqId: req.nwRequestId,
+      ms: Date.now() - t0Popular,
+      status: 200,
+      fallbackSource: 'empty-array',
+    });
+    res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+    res.set('X-NW-Degraded', '1');
+    res.set('X-NW-Degraded-Reason', NW_DEGRADED_REASON_HEADER);
+    res.set('X-NW-Soft-Fail', 'popular');
+    res.set('X-NW-Popular-Cache', 'MISS');
+    res.set('X-NW-Popular-Db-Ms', '0');
+    res.status(200).json([]);
   }
 });
 
 // GET /api/articles/public/:id — 공개 기사 상세 (published 만; 조회수 증가는 published)
 articlesRouter.get('/public/:id(\\d+)', async (req, res, next) => {
+  const t0 = Date.now();
   try {
     const raw = await articlesDb.rawRecord(req.params.id);
     if (!raw) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
@@ -229,17 +304,42 @@ articlesRouter.get('/public/:id(\\d+)', async (req, res, next) => {
     if (!row) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
     res.json(row);
   } catch (e) {
+    const ms = Date.now() - t0;
+    const tags = classifyUpstreamError(e);
+    const upstreamCategory = upstreamPrimaryCategory(tags);
+    console.error(
+      '[nw/article-detail]',
+      JSON.stringify({
+        route: 'GET /api/articles/public/:id',
+        reqId: req.nwRequestId,
+        articleId: req.params.id,
+        ms,
+        upstreamCategory,
+        tags,
+      }),
+    );
     next(e);
   }
 });
 
 // GET /api/articles — 관리자/편집장: 전체 목록, 기자: 자신의 기사
 articlesRouter.get('/', authMiddleware, async (req, res, next) => {
+  const t0Dash = Date.now();
   try {
     const role = req.user.role;
     if (role === 'reporter') {
       const rows = await articlesDb.findByAuthor(req.user.id, req.user.name);
       if (debug()) console.log('[articles] GET / reporter', { userId: req.user.id, count: rows.length });
+      console.info(
+        '[nw/dashboard-list]',
+        JSON.stringify({
+          route: 'GET /api/articles',
+          reqId: req.nwRequestId,
+          role: 'reporter',
+          count: rows.length,
+          ms: Date.now() - t0Dash,
+        }),
+      );
       return res.json(rows);
     }
     if (role !== 'admin' && role !== 'editor_in_chief') {
@@ -247,6 +347,16 @@ articlesRouter.get('/', authMiddleware, async (req, res, next) => {
     }
     const rows = await articlesDb.all();
     if (debug()) console.log('[articles] GET / staff', { userId: req.user.id, role, count: rows.length });
+    console.info(
+      '[nw/dashboard-list]',
+      JSON.stringify({
+        route: 'GET /api/articles',
+        reqId: req.nwRequestId,
+        role,
+        count: rows.length,
+        ms: Date.now() - t0Dash,
+      }),
+    );
     res.json(rows);
   } catch (e) {
     next(e);
@@ -283,6 +393,7 @@ articlesRouter.get('/:id', authMiddleware, async (req, res, next) => {
 
 // POST /api/articles — 기자: 기사 작성
 articlesRouter.post('/', authMiddleware, async (req, res, next) => {
+  const tSave = Date.now();
   try {
     if (req.user.role !== 'reporter') {
       return res.status(403).json({ error: '기자만 기사를 작성할 수 있습니다.' });
@@ -326,6 +437,25 @@ articlesRouter.post('/', authMiddleware, async (req, res, next) => {
       authorName: req.user.name || '',
     });
     if (debug()) console.log('[articles] POST', { id: row.id, status: row.status, authorId: req.user.id });
+    invalidateArticleDerivedCaches({
+      reason: 'POST /api/articles',
+      reqId: req.nwRequestId,
+      articleId: row.id,
+      status: row.status,
+      role: 'reporter',
+    });
+    console.info(
+      '[nw/article-save]',
+      JSON.stringify({
+        route: 'POST /api/articles',
+        reqId: req.nwRequestId,
+        articleId: row.id,
+        status: row.status,
+        count: null,
+        ms: Date.now() - tSave,
+        role: 'reporter',
+      }),
+    );
     res.status(201).json(row);
   } catch (e) {
     if (isDupConflict(e)) {
@@ -390,10 +520,28 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
       );
       const tAfterDb = Date.now();
       if (!upd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+      invalidateArticleDerivedCaches({
+        reason: 'PATCH /api/articles/:id reporter',
+        reqId: req.nwRequestId,
+        articleId: upd.article?.id,
+        status: upd.article?.status,
+        role: 'reporter',
+      });
       if (toApiStatus(upd.article && upd.article.status) === 'published') {
-        clearHomePublicFeedCaches();
         await logPublicFeedAfterPublish('reporter-patch', upd.article?.id, upd.article?.title);
       }
+      console.info(
+        '[nw/article-save]',
+        JSON.stringify({
+          route: 'PATCH /api/articles/:id',
+          reqId: req.nwRequestId,
+          articleId: upd.article?.id,
+          status: upd.article?.status,
+          count: null,
+          ms: Date.now() - t0,
+          role: 'reporter',
+        }),
+      );
       if (debug()) console.log('[articles] PATCH reporter', { id: upd.article?.id, status: upd.article?.status });
       if (saveTiming()) {
         console.log(
@@ -419,8 +567,26 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (action === 'approve') {
       const r = await articlesDb.approveFromSubmitted(id);
       if (!r.ok) return res.status(r.http).json({ error: r.error });
-      clearHomePublicFeedCaches();
+      invalidateArticleDerivedCaches({
+        reason: 'approve',
+        reqId: req.nwRequestId,
+        articleId: r.article?.id,
+        status: 'published',
+        role: req.user.role,
+      });
       await logPublicFeedAfterPublish('approve', r.article?.id, r.article?.title);
+      console.info(
+        '[nw/article-save]',
+        JSON.stringify({
+          route: 'PATCH /api/articles/:id approve',
+          reqId: req.nwRequestId,
+          articleId: r.article?.id,
+          status: 'published',
+          count: null,
+          ms: Date.now() - t0,
+          role: String(req.user.role),
+        }),
+      );
       if (debug()) console.log('[articles] approve', { id: r.article?.id, idempotent: r.idempotent });
       return res.json({
         message: r.idempotent ? '이미 게시된 기사입니다.' : '승인되었습니다.',
@@ -432,6 +598,13 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (action === 'reject') {
       const r = await articlesDb.rejectFromSubmitted(id);
       if (!r.ok) return res.status(r.http).json({ error: r.error });
+      invalidateArticleDerivedCaches({
+        reason: 'reject',
+        reqId: req.nwRequestId,
+        articleId: r.article?.id,
+        status: 'rejected',
+        role: req.user.role,
+      });
       if (debug()) console.log('[articles] reject', { id: r.article?.id, idempotent: r.idempotent });
       return res.json({
         message: r.idempotent ? '이미 반려된 기사입니다.' : '반려되었습니다.',
@@ -468,10 +641,28 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     const staffUpd = await articlesDb.updateByStaff(id, payload);
     const tStaffDb = Date.now();
     if (!staffUpd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
+    invalidateArticleDerivedCaches({
+      reason: 'PATCH /api/articles/:id staff',
+      reqId: req.nwRequestId,
+      articleId: staffUpd.article?.id,
+      status: staffUpd.article?.status,
+      role: req.user.role,
+    });
     if (toApiStatus(staffUpd.article && staffUpd.article.status) === 'published') {
-      clearHomePublicFeedCaches();
       await logPublicFeedAfterPublish('staff-patch', staffUpd.article?.id, staffUpd.article?.title);
     }
+    console.info(
+      '[nw/article-save]',
+      JSON.stringify({
+        route: 'PATCH /api/articles/:id',
+        reqId: req.nwRequestId,
+        articleId: staffUpd.article?.id,
+        status: staffUpd.article?.status,
+        count: null,
+        ms: Date.now() - t0,
+        role: String(req.user.role),
+      }),
+    );
     if (saveTiming()) {
       const bodyOut = { message: '저장되었습니다.', article: staffUpd.article };
       console.log(

@@ -2,6 +2,7 @@ import { articlesDb } from '../db/articles.js';
 import { sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
 import { clearUnifiedPublicFeedCache } from './unifiedPublicFeedCache.js';
 import { clearPopularMemCache } from './popularMemCache.js';
+import { recordHeadlinesHeroSuccess, runWithReadDeadline } from './publicReadSoftFail.js';
 
 /** @type {{ key: string, expiresAt: number, rows: unknown[] } | null} */
 let headlineMemEntry = null;
@@ -36,8 +37,10 @@ export async function getHeadlinesRowsCached(limit) {
     return { rows: headlineMemEntry.rows, cacheHit: true, dbMs: 0 };
   }
   const db0 = Date.now();
-  const rows = sanitizeHeroPublicResponseArr(await articlesDb.listPublishedLatestHero(limit));
+  const raw = await runWithReadDeadline(() => articlesDb.listPublishedLatestHero(limit));
+  const rows = sanitizeHeroPublicResponseArr(raw);
   const dbMs = Date.now() - db0;
+  recordHeadlinesHeroSuccess(rows);
   if (ttl > 0) {
     headlineMemEntry = { key, expiresAt: now + ttl, rows };
   } else {

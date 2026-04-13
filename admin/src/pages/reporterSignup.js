@@ -1,4 +1,4 @@
-import { apiFetch } from '../api/client.js';
+import { apiFetch, userFacingAuthErrorMessage } from '../api/client.js';
 import { getSession, dashboardPathForRole } from '../auth/session.js';
 import { renderShell, GUEST_ROLE_REPORTER, bindShell } from '../layout/shell.js';
 
@@ -199,7 +199,7 @@ export async function renderReporterSignup(app, { navigate }) {
       '/api/users/check?' + new URLSearchParams({ userid: uid }).toString()
     );
     if (!res.ok) {
-      msg.textContent = (data && data.error) || '확인 실패';
+      msg.textContent = userFacingAuthErrorMessage(data, null);
       msg.className = 'nw-chk-msg nw-error';
       useridChecked = false;
       lastCheckedUserid = '';
@@ -322,7 +322,7 @@ export async function renderReporterSignup(app, { navigate }) {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      err.textContent = (data && data.error) || '가입 실패';
+      err.textContent = userFacingAuthErrorMessage(data, null);
       err.style.display = 'block';
       return;
     }

@@ -465,6 +465,16 @@ function nwApplyAdImgEl(img, rawSrc) {
     } else {
         img.decoding = 'async';
     }
+    img.addEventListener(
+        'error',
+        function () {
+            try {
+                img.removeAttribute('src');
+                img.hidden = true;
+            } catch (eI) {}
+        },
+        { once: true }
+    );
     img.src = resolved;
 }
 
@@ -1956,7 +1966,7 @@ function nwRenderMostViewedRows(rows) {
     var el = document.getElementById('nwMostViewedList');
     if (!el) return;
     if (!Array.isArray(rows) || rows.length === 0) {
-        el.innerHTML = '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
+        el.innerHTML = '<li class="nw-most-viewed-empty">아직 집계된 인기 기사가 없거나, 목록을 불러오지 못했습니다. (최근 조회 기준)</li>';
         return;
     }
     var html = '';
@@ -1968,7 +1978,7 @@ function nwRenderMostViewedRows(rows) {
         html += '<li><a' + publicArticleAnchorAttrs(a.id) + '>' + t + '</a></li>';
     }
     el.innerHTML =
-        html || '<li class="nw-most-viewed-empty">최근 30일 내 표시할 기사가 없습니다.</li>';
+        html || '<li class="nw-most-viewed-empty">아직 집계된 인기 기사가 없거나, 목록을 불러오지 못했습니다.</li>';
 }
 
 /**
@@ -2148,6 +2158,17 @@ function nwFetchNetworkHeadlinesWithTimeout(hadCachePaint, onSettled) {
     }
     perf.headlineTimeout = false;
     perf.headlineFetchStartMs = Math.round(nwPerfNow());
+    if (!hadCachePaint && !nwLatestTop5AlreadyPopulated()) {
+        var secLoad = getNwLatestTop5Section();
+        if (secLoad) {
+            secLoad.classList.add('nw-latest-top5--loading');
+            secLoad.classList.remove('nw-latest-top5--empty');
+        }
+        var htLoad = document.getElementById('nwLatestHeroTitle');
+        if (htLoad && !String(htLoad.textContent || '').trim()) {
+            htLoad.textContent = '\ucd5c\uc2e0 \uae30\uc0ac\ub97c \ubd88\ub7ec\uc624\ub294 \uc911\u2026';
+        }
+    }
     if (nwHomePerfReportingEnabled()) {
         console.info('[nw-home-perf] headline fetch started', { hadCachePaint: !!hadCachePaint });
     }
@@ -2343,6 +2364,7 @@ function nwApplyMainFromHomePayload(payload) {
         nwMainUiLog('home-bundle', 'skip empty latestArticles (ads/popular still applied)', {
             populated: nwLatestTop5AlreadyPopulated(),
             partial: !!(payload._homePartial && typeof payload._homePartial === 'object'),
+            preserveHero: nwMainUiPreserveHeroOnEmptyApply(),
         });
     }
     if (Array.isArray(payload.popularArticles)) nwRenderMostViewedRows(payload.popularArticles);

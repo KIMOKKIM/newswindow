@@ -1,4 +1,5 @@
 import { apiFetch, authHeaders } from '../api/client.js';
+import { logArticlesListResponseShape, normalizeArticlesListResponse } from '../lib/articleListResponse.js';
 import {
   getSession,
   requireRole,
@@ -45,13 +46,17 @@ export async function renderReporter(app, { navigate }) {
     navigate(session ? dashboardPathForRole(session.role) : '/admin');
     return;
   }
+  const repT0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const { res, data } = await apiFetch('/api/articles', { headers: authHeaders(session.token) });
   if (res.status === 401) {
     alert('세션이 만료되었습니다.');
     navigate(loginPathForRole('reporter'));
     return;
   }
-  const list = Array.isArray(data) ? data : [];
+  const list = normalizeArticlesListResponse(data);
+  const listMs =
+    typeof performance !== 'undefined' ? Math.round(performance.now() - repT0) : Math.round(Date.now() - repT0);
+  logArticlesListResponseShape('reporter-dashboard', res, data, list, { durationMs: listMs });
 
   const rows = list
     .map(
