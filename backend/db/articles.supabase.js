@@ -37,6 +37,8 @@ function sb() {
 const PUBLISHED_LIST_SELECT =
   'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1';
 
+const STAFF_LIST_SELECT =
+  'id,title,subtitle,category,author_id,author_name,summary,status,created_at,updated_at,submitted_at,published_at,rejected_at,views';
 
 /**
  * Public list columns (no body). Main paths: bounded table articles only (never articles_list_slim).
@@ -53,8 +55,13 @@ const ROW_LIGHT_SELECT =
 const PATCH_RETURN_COLS =
   'id,title,subtitle,summary,author_name,author_id,category,status,created_at,updated_at,submitted_at,published_at,rejected_at,views';
 
-async function selectAll() {
-  const { data, error } = await sb().from('articles').select('*');
+const FULL_ARTICLE_SELECT =
+  'id,title,subtitle,author_id,author_name,category,content,content1,content2,content3,content4,image1,image2,image3,image4,image1_caption,image2_caption,image3_caption,image4_caption,summary,status,created_at,updated_at,submitted_at,published_at,rejected_at,views';
+
+const RAW_GATE_SELECT = 'id,author_id,author_name,status';
+
+async function selectAllListRows() {
+  const { data, error } = await sb().from('articles').select(STAFF_LIST_SELECT).order('id', { ascending: false });
   if (error) throw error;
   return (data || []).map(rowToArticleRecord);
 }
@@ -63,7 +70,7 @@ async function resolveArticleRecord(id) {
   if (id == null || id === '') return null;
   const n = Number(id);
   if (Number.isFinite(n)) {
-    const { data, error } = await sb().from('articles').select('*').eq('id', n).maybeSingle();
+    const { data, error } = await sb().from('articles').select(FULL_ARTICLE_SELECT).eq('id', n).maybeSingle();
     if (error) throw error;
     return rowToArticleRecord(data);
   }
@@ -121,7 +128,7 @@ async function mainPublicFeedSliceFromArticlesTable(maxFetch) {
 
 export const articlesDb = {
   async count() {
-    const { count, error } = await sb().from('articles').select('*', { count: 'exact', head: true });
+    const { count, error } = await sb().from('articles').select('id', { count: 'exact', head: true });
     if (error) throw error;
     return count || 0;
   },
@@ -137,8 +144,8 @@ export const articlesDb = {
   },
 
   async all() {
-    const rows = await selectAll();
-    return [...rows].sort((a, b) => b.id - a.id).map((a) => mapListFields(a));
+    const rows = await selectAllListRows();
+    return rows.map((a) => mapListFields(a));
   },
 
   /**
@@ -285,34 +292,33 @@ export const articlesDb = {
     const want = authorIdNorm(authorId);
     if (want == null) return [];
     const nameWant = reporterDisplayName == null ? '' : String(reporterDisplayName).trim();
-    const rows = await selectAll();
-    return rows
-      .filter((a) => reporterOwnsArticleRecord(a, want, nameWant))
-      .sort((a, b) => b.id - a.id)
-      .map((a) => ({
-        id: a.id,
-        title: a.title || '',
-        subtitle: a.subtitle || '',
-        author_name: a.author_name || '',
-        category: a.category || '',
-        content: a.content || '',
-        content1: a.content1,
-        content2: a.content2,
-        content3: a.content3,
-        content4: a.content4,
-        image1: a.image1,
-        image2: a.image2,
-        image3: a.image3,
-        image4: a.image4,
-        summary: a.summary || '',
-        status: toApiStatus(a.status),
-        created_at: a.created_at || '',
-        updated_at: a.updated_at || a.created_at || '',
-        submitted_at: a.submitted_at || '',
-        published_at: a.published_at || '',
-        rejected_at: a.rejected_at || '',
-        views: Number(a.views) || 0,
-      }));
+    const { data, error } = await sb()
+      .from('articles')
+      .select(STAFF_LIST_SELECT)
+      .eq('author_id', want)
+      .order('id', { ascending: false });
+    if (error) throw error;
+    let rows = (data || []).map(rowToArticleRecord);
+    if (nameWant) {
+      const { data: d2, error: e2 } = await sb()
+        .from('articles')
+        .select(STAFF_LIST_SELECT)
+        .is('author_id', null)
+        .eq('author_name', nameWant)
+        .order('id', { ascending: false });
+      if (!e2 && d2 && d2.length) {
+        const seen = new Set(rows.map((r) => r.id));
+        for (const r of d2) {
+          const rec = rowToArticleRecord(r);
+          if (!seen.has(rec.id)) {
+            rows.push(rec);
+            seen.add(rec.id);
+          }
+        }
+        rows.sort((a, b) => b.id - a.id);
+      }
+    }
+    return rows.filter((a) => reporterOwnsArticleRecord(a, want, nameWant)).map((a) => mapListFields(a));
   },
 
   async insert(data) {
@@ -347,7 +353,7 @@ export const articlesDb = {
       rejected_at: st === 'rejected' ? now : null,
       views: 0,
     };
-    const { data: inserted, error } = await sb().from('articles').insert(row).select().single();
+    const { data: inserted, error } = await sb().from('articles').insert(row).select(FULL_ARTICLE_SELECT).single();
     if (error) throw error;
     const rec = rowToArticleRecord(inserted);
     if (process.env.NW_DEBUG === '1') console.log('[articlesDb] supabase insert id=', rec.id);
@@ -355,16 +361,28 @@ export const articlesDb = {
   },
 
   async authorIdForArticle(id) {
-    const a = await resolveArticleRecord(id);
-    return a ? a.author_id : null;
+    const n = Number(id);
+    if (!Number.isFinite(n)) return null;
+    const { data, error } = await sb().from('articles').select('author_id').eq('id', n).maybeSingle();
+    if (error) throw error;
+    return data && data.author_id != null ? data.author_id : null;
   },
 
   async incrementPublicViews(id) {
-    const a = await resolveArticleRecord(id);
-    if (!a || toApiStatus(a.status) !== 'published') return null;
+    const n = Number(id);
+    if (!Number.isFinite(n)) return null;
+    const { data: row0, error: e0 } = await sb()
+      .from('articles')
+      .select('id,status,views')
+      .eq('id', n)
+      .maybeSingle();
+    if (e0) throw e0;
+    if (!row0) return null;
+    const a = rowToArticleRecord(row0);
+    if (toApiStatus(a.status) !== 'published') return null;
     const views = Number(a.views || 0) + 1;
     const upd = { views, updated_at: nowStr() };
-    const { data, error } = await sb().from('articles').update(upd).eq('id', a.id).select().single();
+    const { data, error } = await sb().from('articles').update(upd).eq('id', n).select(FULL_ARTICLE_SELECT).single();
     if (error) throw error;
     return mapDetail(rowToArticleRecord(data));
   },
@@ -378,7 +396,12 @@ export const articlesDb = {
   },
 
   async rawRecord(id) {
-    return resolveArticleRecord(id);
+    if (id == null || id === '') return null;
+    const n = Number(id);
+    if (!Number.isFinite(n)) return null;
+    const { data, error } = await sb().from('articles').select(RAW_GATE_SELECT).eq('id', n).maybeSingle();
+    if (error) throw error;
+    return data ? rowToArticleRecord(data) : null;
   },
 
   async recordLightForPatch(id) {
@@ -466,7 +489,7 @@ export const articlesDb = {
   },
 
   async updateStatus(id, status) {
-    const a = await resolveArticleRecord(id);
+    const a = await resolveArticleRowLight(id);
     if (!a) return false;
     const now = nowStr();
     const next = canonicalStoreStatus(status);
@@ -507,14 +530,17 @@ export const articlesDb = {
   },
 
   async approveFromSubmitted(id) {
-    const a = await resolveArticleRecord(id);
+    const n = Number(id);
+    if (!Number.isFinite(n)) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
+    const { data: rowA, error: errA } = await sb().from('articles').select(PATCH_RETURN_COLS).eq('id', n).maybeSingle();
+    if (errA) throw errA;
+    const a = rowA ? rowToArticleRecord(rowA) : null;
     if (!a) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
     const st = toApiStatus(a.status);
     if (st === 'published') return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(a) };
     if (st !== 'submitted')
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 승인할 수 있습니다.' };
     const now = nowStr();
-    const n = Number(id);
     /** DB에 저장된 status 문자열과 정확히 일치해야 함(.in('submitted',…)은 대소문자 불일치 시 0행 갱신) */
     const rawStatus = String(a.status ?? '').trim();
     const { data, error } = await sb()
@@ -550,21 +576,31 @@ export const articlesDb = {
       }
       return { ok: true, article: mapArticlePatchSnapshot(rec) };
     }
-    const again = await resolveArticleRecord(id);
-    if (again && toApiStatus(again.status) === 'published')
-      return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(again) };
+    const { data: rowAgainA, error: errAgainA } = await sb()
+      .from('articles')
+      .select(PATCH_RETURN_COLS)
+      .eq('id', n)
+      .maybeSingle();
+    if (!errAgainA && rowAgainA) {
+      const again = rowToArticleRecord(rowAgainA);
+      if (again && toApiStatus(again.status) === 'published')
+        return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(again) };
+    }
     return { ok: false, http: 409, error: '이미 처리되었거나 승인할 수 없는 상태입니다.' };
   },
 
   async rejectFromSubmitted(id) {
-    const a = await resolveArticleRecord(id);
+    const n = Number(id);
+    if (!Number.isFinite(n)) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
+    const { data: rowA, error: errA } = await sb().from('articles').select(PATCH_RETURN_COLS).eq('id', n).maybeSingle();
+    if (errA) throw errA;
+    const a = rowA ? rowToArticleRecord(rowA) : null;
     if (!a) return { ok: false, http: 404, error: '기사를 찾을 수 없습니다.' };
     const st = toApiStatus(a.status);
     if (st === 'rejected') return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(a) };
     if (st !== 'submitted')
       return { ok: false, http: 400, error: '송고·검토 대기 상태의 기사만 반려할 수 있습니다.' };
     const now = nowStr();
-    const n = Number(id);
     const rawStatus = String(a.status ?? '').trim();
     const { data, error } = await sb()
       .from('articles')
@@ -579,9 +615,16 @@ export const articlesDb = {
       .maybeSingle();
     if (error) throw error;
     if (data) return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(data)) };
-    const again = await resolveArticleRecord(id);
-    if (again && toApiStatus(again.status) === 'rejected')
-      return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(again) };
+    const { data: rowAgain, error: errAgain } = await sb()
+      .from('articles')
+      .select(PATCH_RETURN_COLS)
+      .eq('id', n)
+      .maybeSingle();
+    if (!errAgain && rowAgain) {
+      const again = rowToArticleRecord(rowAgain);
+      if (again && toApiStatus(again.status) === 'rejected')
+        return { ok: true, idempotent: true, article: mapArticlePatchSnapshot(again) };
+    }
     return { ok: false, http: 409, error: '이미 처리되었거나 반려할 수 없는 상태입니다.' };
   },
 };

@@ -242,6 +242,14 @@ homeRouter.get('/', async (req, res, next) => {
   }
 
   let payloadStr = JSON.stringify(body);
+  if (!payloadStr || payloadStr === '{}') {
+    payloadStr = JSON.stringify({
+      latestArticles: [],
+      popularArticles: [],
+      ads: buildFallbackAdsConfig(),
+      _homePartial: { latest: true, popular: true, ads: true, degradedReason: NW_DEGRADED_REASON_HEADER },
+    });
+  }
   let jsonBytes = Buffer.byteLength(payloadStr, 'utf8');
   if (diagRequested && body._meta) {
     body._meta.jsonBytes = jsonBytes;

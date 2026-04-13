@@ -4,6 +4,9 @@ function sb() {
   return assertSupabase();
 }
 
+/** Columns required by mapUserRow only; avoids SELECT * for lower Supabase egress. */
+const USER_ROW_SELECT = 'id, userid, password_hash, name, email, role, created_at, ssn, phone, address';
+
 function mapUserRow(r) {
   if (!r) return undefined;
   return {
@@ -23,13 +26,13 @@ function mapUserRow(r) {
 }
 
 export async function findByUserid(userid) {
-  const { data, error } = await sb().from('users').select('*').eq('userid', userid).maybeSingle();
+  const { data, error } = await sb().from('users').select(USER_ROW_SELECT).eq('userid', userid).maybeSingle();
   if (error) throw error;
   return mapUserRow(data);
 }
 
 export async function findById(id) {
-  const { data, error } = await sb().from('users').select('*').eq('id', Number(id)).maybeSingle();
+  const { data, error } = await sb().from('users').select(USER_ROW_SELECT).eq('id', Number(id)).maybeSingle();
   if (error) throw error;
   return mapUserRow(data);
 }
@@ -52,7 +55,7 @@ export async function insertUser({ userid, password_hash, name, email, role, ssn
       phone: phone || '',
       address: address || '',
     })
-    .select()
+    .select(USER_ROW_SELECT)
     .single();
   if (error) throw error;
   return mapUserRow(data);
