@@ -7,6 +7,7 @@ import { clearEmergencyApiShieldCache } from './emergencyApiShield.js';
  * so the next read sees fresh DB rows.
  */
 export function invalidateArticleDerivedCaches(meta = {}) {
+  clearEmergencyApiShieldCache();
   clearHomePublicFeedCaches();
   clearEmergencyApiShieldCache();
   console.info(

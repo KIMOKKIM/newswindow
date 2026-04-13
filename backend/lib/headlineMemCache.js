@@ -43,7 +43,8 @@ export async function getHeadlinesRowsCached(limit) {
   const rows = sanitizeHeroPublicResponseArr(raw);
   const dbMs = Date.now() - db0;
   recordHeadlinesHeroSuccess(rows);
-  if (ttl > 0) {
+  // Do not cache an empty hero list (avoids sticky empty headlines until TTL expires).
+  if (ttl > 0 && Array.isArray(rows) && rows.length > 0) {
     headlineMemEntry = { key, expiresAt: now + ttl, rows };
   } else {
     headlineMemEntry = null;

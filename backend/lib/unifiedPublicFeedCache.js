@@ -1,6 +1,6 @@
 /**
- * 서버 메모리: 통합 공개 피드 행 배열 (정렬 완료).
- * approve/publish 시 clearHomePublicFeedCaches()로 무효화 — 다음 요청에서 DB 재로드.
+ * In-memory unified public feed rows (sorted).
+ * Invalidated on approve/publish via clearHomePublicFeedCaches().
  */
 
 /** @type {unknown[] | null} */
@@ -25,8 +25,12 @@ export async function getUnifiedPublicFeedCached(loader) {
   if (!inFlight) {
     inFlight = loader()
       .then((rows) => {
-        cachedRows = rows;
-        return rows;
+        const arr = Array.isArray(rows) ? rows : [];
+        // Do not cache an empty array (avoids sticky empty after a bad read).
+        if (arr.length > 0) cachedRows = arr;
+        else cachedRows = null;
+        inFlight = null;
+        return arr;
       })
       .catch((e) => {
         inFlight = null;

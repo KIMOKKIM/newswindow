@@ -2490,26 +2490,26 @@ function nwFetchFullLatestWithTimeout(opts) {
 }
 
 function nwApplyMainFromHomePayload(payload) {
-    if (!payload) return;
+    if (!payload || typeof payload !== 'object') return;
     var latest = payload.latestArticles;
     var partial = payload._homePartial && typeof payload._homePartial === 'object' ? payload._homePartial : null;
-    if (Array.isArray(latest) && latest.length > 0) {
+    var latestOk = Array.isArray(latest) && latest.length > 0;
+    if (latestOk) {
         nwApplyMainArticlesArray(latest, { source: 'home.latestArticles' });
     } else {
-        nwMainUiLog('home-bundle', 'skip empty latestArticles (ads/popular still applied)', {
+        nwMainUiLog('home-bundle', 'keep prior feed — empty or missing latestArticles', {
             populated: nwLatestTop5AlreadyPopulated(),
             partial: !!partial,
+            partialLatest: !!(partial && partial.latest),
             preserveHero: nwMainUiPreserveHeroOnEmptyApply(),
         });
     }
-    if (Array.isArray(payload.popularArticles)) {
-        if (payload.popularArticles.length > 0) {
-            nwRenderMostViewedRows(payload.popularArticles);
-        } else if (!partial || !partial.popular) {
-            nwRenderMostViewedRows([]);
-        } else {
-            nwMainUiLog('home-bundle', 'skip empty popularArticles (partial — keep UI)', { partialPopular: true });
-        }
+    if (Array.isArray(payload.popularArticles) && payload.popularArticles.length > 0) {
+        nwRenderMostViewedRows(payload.popularArticles);
+    } else if (partial && partial.popular) {
+        nwMainUiLog('home-bundle', 'skip empty popularArticles (partial — keep UI)', { partialPopular: true });
+    } else if (Array.isArray(payload.popularArticles) && payload.popularArticles.length === 0) {
+        nwMainUiLog('home-bundle', 'keep prior most-viewed — empty popularArticles', {});
     }
     if (payload.ads) {
         applyHeaderAds(payload.ads);

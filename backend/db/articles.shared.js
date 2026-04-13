@@ -270,7 +270,8 @@ function normalizePublicThumbString(s) {
     return 'https://' + t.replace(/^\/+/, '');
   }
   if (t.startsWith('//')) return t;
-  const supabaseBase = () => String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+  const supabaseBase = () =>
+    String(process.env.SUPABASE_URL || process.env.NW_PUBLIC_SUPABASE_URL || '').trim().replace(/\/+$/, '');
   // Site-relative Supabase paths (wrong host if left as "/storage/...")
   if (t.startsWith('/')) {
     if (/^\/storage\/v1\//i.test(t) || /^\/object\/(public|sign)\//i.test(t)) {

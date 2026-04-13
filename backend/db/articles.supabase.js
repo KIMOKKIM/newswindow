@@ -33,6 +33,13 @@ function sb() {
   return assertSupabase();
 }
 
+/**
+ * Public feed SQL filter: PostgREST `.in()` is case-sensitive; `.or()` covers common DB casings.
+ * Rows are still narrowed by isPublicFeedReadableStatus for API consistency.
+ */
+const OR_PUBLIC_FEED_STATUS =
+  'status.eq.published,status.eq.approved,status.eq.Published,status.eq.Approved,status.eq.PUBLISHED,status.eq.APPROVED';
+
 /** 목록·메인 피드용 — 본문/다중 이미지 제외 (SELECT * 금지) */
 const PUBLISHED_LIST_SELECT =
   'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1';
@@ -95,7 +102,7 @@ async function loadUnifiedPublicFeedRecordsFromDatabase() {
     const { data, error } = await sb()
       .from('articles')
       .select(MERGED_PUBLIC_FEED_SELECT)
-      .in('status', ['published', 'approved'])
+      .or(OR_PUBLIC_FEED_STATUS)
       .range(from, from + pageSize - 1);
     if (error) throw error;
     const chunk = data || [];
@@ -117,7 +124,7 @@ async function mainPublicFeedSliceFromArticlesTable(maxFetch) {
   const { data, error } = await sb()
     .from('articles')
     .select(MERGED_PUBLIC_FEED_SELECT)
-    .in('status', ['published', 'approved'])
+    .or(OR_PUBLIC_FEED_STATUS)
     .order('id', { ascending: false })
     .limit(max);
   if (error) throw error;
@@ -242,7 +249,7 @@ export const articlesDb = {
     let q = sb()
       .from('articles')
       .select(POPULAR_WINDOW_SELECT)
-      .in('status', ['published', 'approved'])
+      .or(OR_PUBLIC_FEED_STATUS)
       .gte('published_at', sinceIso)
       .order('views', { ascending: false })
       .order('published_at', { ascending: false })
@@ -254,7 +261,7 @@ export const articlesDb = {
       const { data: d2, error: e2 } = await sb()
         .from('articles')
         .select(POPULAR_WINDOW_SELECT)
-        .in('status', ['published', 'approved'])
+        .or(OR_PUBLIC_FEED_STATUS)
         .is('published_at', null)
         .gte('created_at', sinceIso)
         .order('views', { ascending: false })
