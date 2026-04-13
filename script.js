@@ -604,7 +604,13 @@ function nwBuildArticleDetailHtml(a) {
         if (content) scroll.push('<p>' + nwModalPara(content) + '</p>');
         if (img) {
             var src = nwModalArticleImageSrc(img);
-            if (src) scroll.push('<img class="nw-article-detail__img" src="' + nwModalEscAttr(src) + '" alt="">');
+            if (src) {
+                scroll.push(
+                    '<img class="nw-article-detail__img" src="' +
+                        nwModalEscAttr(src) +
+                        '" alt="" onerror="this.onerror=null;this.src=\'/images/logo-header-tight.png\'">'
+                );
+            }
         }
         if (cap) scroll.push('<p class="nw-article-detail__cap">' + nwModalEscHtml(cap) + '</p>');
     }
@@ -1078,6 +1084,9 @@ function resolveArticleListThumb(src) {
         v = proto + v;
     }
     if (/^https?:\/\//i.test(v)) return v;
+    if (/^[a-z0-9][-a-z0-9.]*\.supabase\.co\/storage\//i.test(v)) {
+        return 'https://' + v.replace(/^\/+/, '');
+    }
     var baseChain = (NW_PUBLIC_UPLOAD_ORIGIN || NW_CONFIG_API_ORIGIN || ADS_API || ARTICLES_API || '').replace(
         /\/+$/,
         ''
@@ -1264,6 +1273,29 @@ var NW_HEADLINE_STALE_SESSION_KEY = 'nw_headline_hero_v1';
 var NW_HEADLINE_STALE_MAX_AGE_MS = 5 * 60 * 1000;
 /** Hero carousel fallback when no article image loads (site asset). */
 var NW_HERO_PLACEHOLDER_SRC = '/images/logo-header-tight.png';
+
+function nwBindHeroImgFallbackOnce(img) {
+    if (!img || img.dataset.nwHeroFallbackBound === '1') return;
+    img.dataset.nwHeroFallbackBound = '1';
+    img.addEventListener(
+        'error',
+        function nwHeroImgErr() {
+            img.removeEventListener('error', nwHeroImgErr);
+            var ph = NW_HERO_PLACEHOLDER_SRC;
+            if (!ph) return;
+            try {
+                var cur = img.getAttribute('src') || '';
+                if (cur.indexOf(ph) !== -1) return;
+            } catch (e) {}
+            img.src = ph;
+            img.alt = '';
+            img.hidden = false;
+            var media = document.getElementById('nwLatestHeroMedia');
+            if (media) media.classList.remove('is-placeholder');
+        },
+        { passive: true }
+    );
+}
 /** Main bundle generation — ignore stale deferred callbacks after a newer bundle run. */
 var nwMainBundleSeq = 0;
 /** Last applied feed length — skip full replace after list (25+) is painted (hero still merges from headlines). */
@@ -1586,6 +1618,8 @@ function renderLatestTop5FromList(articles, emptyDetail) {
         });
         return;
     }
+
+    if (heroImg) nwBindHeroImgFallbackOnce(heroImg);
 
     listEl.innerHTML = '';
 
@@ -1924,12 +1958,25 @@ function nwHomePerfAfterAdsApplied(ads) {
 
 /** Next.js 가 아님: 탭 복귀/승인 시 storage 로 메인 번들 재요청 */
 var NW_MAIN_LIST_LAST_FETCH_AT = 0;
+var NW_ARTICLE_FEED_BC = 'nw_article_feed_v1';
+
 function nwThrottleFetchMainPublicList() {
     var now = Date.now();
     if (now - NW_MAIN_LIST_LAST_FETCH_AT < 1200) return;
     NW_MAIN_LIST_LAST_FETCH_AT = now;
     try {
         sessionStorage.removeItem(NW_HOME_SESSION_KEY);
+    } catch (e) {}
+    nwFetchMainHomeBundle();
+}
+
+function nwRevalidateMainPublicFeedHard() {
+    var now = Date.now();
+    if (now - NW_MAIN_LIST_LAST_FETCH_AT < 1200) return;
+    NW_MAIN_LIST_LAST_FETCH_AT = now;
+    try {
+        sessionStorage.removeItem(NW_HOME_SESSION_KEY);
+        sessionStorage.removeItem(NW_HEADLINE_STALE_SESSION_KEY);
     } catch (e) {}
     nwFetchMainHomeBundle();
 }
@@ -2757,8 +2804,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (ev.persisted) nwThrottleFetchMainPublicList();
     });
     window.addEventListener('storage', function (e) {
-        if (e.key === 'nw_main_articles_invalidate') nwThrottleFetchMainPublicList();
+        if (e.key === 'nw_main_articles_invalidate') nwRevalidateMainPublicFeedHard();
     });
+    try {
+        if (typeof BroadcastChannel !== 'undefined') {
+            var nwFeedBc = new BroadcastChannel(NW_ARTICLE_FEED_BC);
+            nwFeedBc.onmessage = function () {
+                nwRevalidateMainPublicFeedHard();
+            };
+        }
+    } catch (eBc) {}
 
     // 모바일 메뉴 토글
     const menuBtn = document.querySelector('.menu-btn');

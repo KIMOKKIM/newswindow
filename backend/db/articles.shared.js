@@ -265,6 +265,10 @@ function normalizePublicThumbString(s) {
   }
   if (t.length > 2048) return '';
   if (/^https?:\/\//i.test(t)) return t;
+  // Host-relative Supabase URL saved without scheme (e.g. xxx.supabase.co/storage/v1/...)
+  if (/^[a-z0-9][-a-z0-9.]*\.supabase\.co\/storage\//i.test(t)) {
+    return 'https://' + t.replace(/^\/+/, '');
+  }
   if (t.startsWith('//')) return t;
   const supabaseBase = () => String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
   // Site-relative Supabase paths (wrong host if left as "/storage/...")

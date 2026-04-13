@@ -17,6 +17,21 @@ test('publicThumbUrlOnly: absolutizes /storage/v1 path with SUPABASE_URL', () =>
   }
 });
 
+test('publicThumbUrlOnly: scheme-less project.supabase.co/storage path gets https', () => {
+  const prev = process.env.SUPABASE_URL;
+  process.env.SUPABASE_URL = 'https://xyzcompany.supabase.co';
+  try {
+    const u = publicThumbUrlOnly({
+      id: 3,
+      image1: 'xyzcompany.supabase.co/storage/v1/object/public/bucket/key.jpg',
+    });
+    assert.equal(u, 'https://xyzcompany.supabase.co/storage/v1/object/public/bucket/key.jpg');
+  } finally {
+    if (prev === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = prev;
+  }
+});
+
 test('publicThumbUrlOnly: object/public without host still works', () => {
   const prev = process.env.SUPABASE_URL;
   process.env.SUPABASE_URL = 'https://xyzcompany.supabase.co';

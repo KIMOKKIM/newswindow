@@ -1,19 +1,22 @@
 /**
- * Light duplicate-request coalescing (not emergency mode by default).
- * NW_EMERGENCY_API_CACHE_MS=0 disables. NW_EMERGENCY_MIN_HOME_JSON=1 enables tiny list payloads.
+ * Optional duplicate-request coalescing only (TTL capped at 1s when enabled).
+ * Default: off. Full home/list JSON always (emergency ultra-min payloads disabled in code).
+ * NW_EMERGENCY_API_CACHE_MS: 0 = off (default unset). If set > 0, effective TTL = min(value, 1000).
  */
 
 const _cache = new Map();
+const MAX_SHIELD_TTL_MS = 1000;
 
 export function emergencyShieldTtlMs() {
   const n = Number(process.env.NW_EMERGENCY_API_CACHE_MS);
   if (Number.isFinite(n) && n === 0) return 0;
-  if (Number.isFinite(n) && n > 0) return Math.min(300_000, Math.floor(n));
+  if (Number.isFinite(n) && n > 0) return Math.min(MAX_SHIELD_TTL_MS, Math.floor(n));
   return 0;
 }
 
+/** Always full public payloads (summary, category, etc.). Env NW_EMERGENCY_MIN_HOME_JSON is ignored. */
 export function emergencyMinPublicJson() {
-  return String(process.env.NW_EMERGENCY_MIN_HOME_JSON || '0').trim() === '1';
+  return false;
 }
 
 export function clearEmergencyApiShieldCache() {

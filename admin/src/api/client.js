@@ -29,7 +29,7 @@ const API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_ORIGIN) || runtim
 const DEFAULT_TIMEOUT_MS = (() => {
   const n = Number(import.meta.env.VITE_API_TIMEOUT_MS);
   if (Number.isFinite(n) && n >= 3000 && n <= 180000) return Math.floor(n);
-  return 45000;
+  return 60000;
 })();
 
 /**
@@ -43,7 +43,8 @@ export const API_ARTICLES_LIST_TIMEOUT_MS = (() => {
 })();
 
 const MAX_FETCH_TIMEOUT_MS = 180000;
-const RETRY_BACKOFF_MS = 400;
+const GET_MAX_ATTEMPTS = 3;
+const RETRY_BACKOFF_BASE_MS = 450;
 
 export function apiUrl(path) {
   const p = path.startsWith('/') ? path : '/' + path;
@@ -60,10 +61,17 @@ export async function apiFetch(path, opts = {}) {
   const method = String(opts.method || 'GET').toUpperCase();
   const timeoutMs = opts.timeoutMs != null ? opts.timeoutMs : DEFAULT_TIMEOUT_MS;
   const allowRetry = method === 'GET' && opts.retry !== false;
+  const maxAttempts = allowRetry
+    ? Math.min(
+        GET_MAX_ATTEMPTS,
+        Math.max(1, Math.floor(Number(opts.maxAttempts)) || GET_MAX_ATTEMPTS),
+      )
+    : 1;
 
-  async function doOnce(isRetry) {
+  async function doAttempt(attemptIndex) {
+    const isRetry = attemptIndex > 0;
     const attemptTimeout = isRetry
-      ? Math.min(Math.floor(timeoutMs * 1.5), MAX_FETCH_TIMEOUT_MS)
+      ? Math.min(Math.floor(timeoutMs * (1 + 0.35 * attemptIndex)), MAX_FETCH_TIMEOUT_MS)
       : Math.min(timeoutMs, MAX_FETCH_TIMEOUT_MS);
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     let timer = null;
@@ -75,7 +83,7 @@ export async function apiFetch(path, opts = {}) {
     };
     const headers = { Accept: 'application/json', ...opts.headers };
     const cache = opts.cache != null ? opts.cache : 'no-store';
-    const { cache: _c, timeoutMs: _t, retry: _r, ...rest } = opts;
+    const { cache: _c, timeoutMs: _t, retry: _r, maxAttempts: _m, ...rest } = opts;
     try {
       timer = setTimeout(() => {
         if (ctrl) ctrl.abort();
@@ -97,20 +105,28 @@ export async function apiFetch(path, opts = {}) {
       }
       const rid = res.headers.get('X-Request-Id');
       if (rid && typeof console !== 'undefined' && console.info) {
-        console.info('[nw/apiFetch]', path, 'X-Request-Id:', rid, isRetry ? '(retry)' : '');
+        console.info(
+          '[nw/apiFetch]',
+          path,
+          'X-Request-Id:',
+          rid,
+          attemptIndex > 0 ? `(attempt ${attemptIndex + 1})` : '',
+        );
       }
       return { res, data, text };
     } catch (err) {
       clear();
-      if (allowRetry && !isRetry && (err.name === 'AbortError' || err.name === 'TypeError')) {
-        await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
-        return doOnce(true);
+      const retriable = err.name === 'AbortError' || err.name === 'TypeError';
+      if (allowRetry && retriable && attemptIndex + 1 < maxAttempts) {
+        const backoff = RETRY_BACKOFF_BASE_MS * 2 ** attemptIndex;
+        await new Promise((r) => setTimeout(r, backoff));
+        return doAttempt(attemptIndex + 1);
       }
       throw err;
     }
   }
 
-  return doOnce(false);
+  return doAttempt(0);
 }
 
 export function authHeaders(token, extra = {}) {
