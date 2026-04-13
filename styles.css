@@ -1941,29 +1941,48 @@ body:has(#nwLatestTop5) .headline-section {
 }
 
 /* 메인 인라인 기사 상세(#nwArticleDetail): 최신기사 롤링과 별도 컨테이너, 본문만 세로 스크롤 */
-/* Standalone article.html: full-page scroll, no modal height cap */
-html.nw-standalone-article {
-    height: auto;
+/* article.html in site shell (main.nw-article-page) */
+main.main.nw-article-page {
+    padding-top: 8px;
+    padding-bottom: 28px;
 }
-body.nw-standalone-article {
-    min-height: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+.nw-article-page-breadcrumb {
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    margin: 0 0 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
 }
-body.nw-standalone-article .article-wrap {
+.nw-article-page-breadcrumb a {
+    color: #2d7dd2;
+    text-decoration: none;
+}
+.nw-article-page-breadcrumb a:hover {
+    text-decoration: underline;
+}
+.nw-article-page-bc-sep {
+    color: var(--color-border);
+    user-select: none;
+}
+.nw-article-page-bc-current {
+    color: var(--color-text);
+    font-weight: 600;
+}
+.nw-article-page-inner {
+    max-width: 100%;
     overflow: visible;
-    max-height: none;
 }
-body.nw-standalone-article #articleView.nw-article-page__root {
+main.main.nw-article-page #articleView.nw-article-page__root {
     display: block;
     width: 100%;
+    max-width: 100%;
     max-height: none;
     overflow: visible;
-    /* ~300% of prior ~75vh modal inner cap; content grows beyond this */
-    min-height: 225vh;
+    min-height: 0;
 }
-body.nw-standalone-article #articleView .nw-article-detail.nw-article-detail--preview {
+main.main.nw-article-page #articleView .nw-article-detail.nw-article-detail--preview {
     overflow: visible;
     max-height: none;
     margin: 0;
@@ -1972,12 +1991,26 @@ body.nw-standalone-article #articleView .nw-article-detail.nw-article-detail--pr
     border-radius: 0;
     background: transparent;
 }
-body.nw-standalone-article #articleView .nw-article-detail--preview .nw-preview-article,
-body.nw-standalone-article #articleView .nw-prev-content {
+main.main.nw-article-page #articleView .nw-article-detail--preview .nw-preview-article,
+main.main.nw-article-page #articleView .nw-prev-content {
     overflow: visible;
     max-height: none;
 }
-
+.nw-article-page .nw-article-load-status {
+    color: #555;
+    margin: 8px 0 0;
+    font-size: 0.95rem;
+}
+.nw-article-page .nw-article-retry {
+    margin-top: 12px;
+    padding: 8px 16px;
+    border: 1px solid #2d7dd2;
+    border-radius: 6px;
+    background: #fff;
+    color: #2d7dd2;
+    cursor: pointer;
+    font-size: 1rem;
+}
 .nw-article-detail {
     margin: 4px 0 28px;
     border: 1px solid var(--color-border);

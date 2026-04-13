@@ -1,31 +1,164 @@
-<!doctype html>
-<html lang="ko" class="nw-standalone-article">
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>기사 보기 - 뉴스의 창</title>
-  <meta name="description" content="뉴스의 창 공개 기사 상세 페이지입니다.">
-  <link rel="canonical" href="https://www.newswindow.kr/article.html">
-  <link rel="stylesheet" href="styles.css">
-  <style>
-    .article-wrap { max-width: 960px; margin: 24px auto 48px; background:#fff; padding: 24px; border:1px solid #e6e6e6; border-radius: 8px; overflow: visible; min-height: auto; }
-    .article-top-link { display:inline-block; margin-bottom: 12px; color:#2d7dd2; text-decoration:none; }
-    .article-top-link:hover { text-decoration:underline; }
-    .nw-article-load-status { color:#555; margin: 8px 0 0; font-size: 0.95rem; }
-    .nw-article-retry { margin-top: 12px; padding: 8px 16px; border: 1px solid #2d7dd2; border-radius: 6px; background: #fff; color: #2d7dd2; cursor: pointer; font-size: 1rem; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기사 보기 - 뉴스의 창</title>
+
+    <meta name="description" content="뉴스의 창 공개 기사 상세 페이지입니다.">
+    <link rel="canonical" href="https://www.newswindow.kr/article.html">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
 </head>
-<body class="nw-standalone-article">
-  <div class="article-wrap">
-    <a class="article-top-link" href="/index.html">← 메인으로</a>
-    <article id="articleView">
-      <h1 class="article-title">기사 불러오는 중...</h1>
-    </article>
-  </div>
-  <script src="article-primary-image.js"></script>
-  <script src="nw-article-render.js"></script>
-  <script src="nw-seo.js"></script>
-  <script>
+<body class="nw-article-shell">
+    <!-- 최상위: 좌 사이드광고 | 중앙 콘텐츠 | 우 사이드광고 -->
+    <div class="page-wrapper">
+        <!-- 좌측 세로 광고 스택 4칸 (데스크톱만, sticky) — 포털형 레이아웃 -->
+        <aside class="side-ad side-ad-left" aria-label="좌측 광고">
+            <div class="side-ad-stack">
+                <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 1</span></a></div>
+                <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a1" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img1" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 2</span></a></div>
+                <div class="side-ad-card side-ad-card--rect"><a href="#" id="sideAdL_a2" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img2" class="side-ad-img side-ad-img--stack" alt="" width="160" height="120" decoding="async" hidden><span class="side-ad-ph">광고 3</span></a></div>
+                <div class="side-ad-card side-ad-card--tall"><a href="#" id="sideAdL_a3" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdL_img3" class="side-ad-img side-ad-img--stack" alt="" width="160" height="220" decoding="async" hidden><span class="side-ad-ph">광고 4</span></a></div>
+            </div>
+        </aside>
+
+        <!-- 중앙: 기존 헤더·메뉴·메인·푸터 (max-width 유지) -->
+        <div class="page-center">
+    <!-- 상단 헤더바: 업데이트 시간 + 글로벌 링크 -->
+    <div class="top-header-bar">
+        <div class="container top-header-inner">
+            <span class="top-header-date" id="topHeaderDate">UPDATED: 2026-02-27 10:01 (금)</span>
+            <nav class="top-header-links">
+                <a href="index.html">HOME</a>
+                <span class="top-header-sep">|</span>
+                <a href="all-articles.html">전체기사</a>
+                <span class="top-header-sep">|</span>
+                <a href="login.html">로그인</a>
+                <span class="top-header-sep">|</span>
+                <a href="signup.html">회원가입</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 헤더: 좌측 광고 | 로고(뉴스의 창) | 우측 광고 -->
+    <div class="logo-section">
+        <div class="container logo-section-inner">
+            <!-- 좌측 광고 -->
+            <a id="headerAdLeftLink" href="https://www.nonghyup.com/main/psniMain.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-left" title="NH농협 - 아침밥이 보약!">
+                <img id="headerAdLeftImg" src="./images/nonghyup-banner.png" alt="NH농협 아침밥이 보약! 아침부터 활약!" class="partner-banner-img" width="250" height="101">
+            </a>
+            <!-- 중앙 로고 -->
+            <a href="index.html" class="logo-block">
+                <img src="./images/logo-header-tight.png" alt="뉴스의 창 - 정론 · 직필 · 신속 KOREA PRESS" class="logo-img">
+            </a>
+            <!-- 우측 광고 -->
+            <a id="headerAdRightLink" href="https://council.chungbuk.kr/kr/main.do" target="_blank" rel="noopener noreferrer" class="header-partner-banner ad-logo-right" title="충청북도의회 - 함께하는 충청북도의회">
+                <img id="headerAdRightImg" src="./images/chungbuk-council-banner.png" alt="충청북도의회 - 165만 도민의 오늘을 담고 내일을 만들어 가겠습니다" class="partner-banner-img" width="250" height="101">
+            </a>
+        </div>
+    </div>
+
+    <!-- 네비게이션 바 -->
+    <header class="header nav-bar">
+        <div class="nav-mega-host">
+        <div class="container header-inner">
+            <button class="menu-btn nav-menu-btn" aria-label="메뉴 열기" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <nav class="nav" aria-label="주 메뉴">
+                <ul class="nav-list" id="nwNavListRoot"></ul>
+            </nav>
+            <div class="header-actions">
+                <button type="button" class="search-icon-btn" aria-label="기사 검색">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="nav-mega-panel" id="nwNavMegaPanel" role="region" aria-label="전체 카테고리" aria-hidden="true">
+            <div class="container nav-mega-inner">
+                <div id="nwNavMegaGrid" class="nav-mega-grid"></div>
+            </div>
+        </div>
+        </div>
+    </header>
+
+    <!-- Article detail (center column) -->
+    <main class="main container nw-article-page">
+        <nav class="nw-article-page-breadcrumb" aria-label="Breadcrumb">
+            <a href="index.html">HOME</a>
+            <span class="nw-article-page-bc-sep" aria-hidden="true">/</span>
+            <a href="all-articles.html">전체기사</a>
+            <span class="nw-article-page-bc-sep" aria-hidden="true">/</span>
+            <span class="nw-article-page-bc-current">기사 보기</span>
+        </nav>
+        <div class="nw-article-page-inner">
+            <article id="articleView">
+                <h1 class="article-title">기사 불러오는 중...</h1>
+            </article>
+        </div>
+    </main>
+    <section class="footer-ad-section" aria-label="스폰서 배너">
+        <div class="footer-ad-wrap">
+            <div class="footer-ad-track" id="footerAdTrack"></div>
+        </div>
+    </section>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+        <div class="footer-links">
+            <div class="container" style="display:flex;gap:18px;flex-wrap:wrap;">
+                <a href="info.html?page=company">신문사소개</a>
+                <a href="info.html?page=report">기사제보</a>
+                <a href="info.html?page=ads">광고문의</a>
+                <a href="info.html?page=complaint">불편신고</a>
+                <a href="info.html?page=privacy">개인정보취급방침</a>
+                <a href="info.html?page=youth">청소년보호정책</a>
+                <a href="info.html?page=email">이메일무단수집거부</a>
+                <a href="https://www.newswindow.kr/admin/">스태프(기자/편집장/관리자) 로그인</a>
+            </div>
+        </div>
+        <div class="footer-info container">
+            <div class="footer-logo-wrap">
+                <img src="./images/logo-header-tight.png" alt="뉴스의 창 로고" class="footer-company-logo" width="250" height="100">
+            </div>
+            <div class="footer-text-wrap">
+                <p class="footer-brand">뉴스의 창 회사소개</p>
+                <address>
+                    서울시 서초구 양재대로2길 22-16 호반파크1관<br>
+                    대표전화 : 02-2168-9200<br>
+                    등록번호 : 서울 아04494 | 등록일자 : 2017년 04월 27일<br>
+                    사업자명 : 전자신문인터넷 | 사업자번호 : 107-81-80959<br>
+                    발행인·편집인 : 장경욱 | 청소년보호책임자 : 김태권
+                </address>
+                <p class="footer-copyright-notice">뉴스의 창의 모든 기사(콘텐츠)는 저작권법의 보호를 받습니다. 또한 무단 배포 복사 전재 등을 금지합니다.</p>
+                <p class="copyright">Copyright by 뉴스의 창 All rights reserved.</p>
+                <p class="footer-note">본지는 신문윤리강령 및 그 실천 요강을 준수하며, 제휴기사 등 일부 내용은 본지의 공식 견해와 다를 수 있습니다.</p>
+            </div>
+        </div>
+    </footer>
+
+        </div>
+        <!-- /.page-center -->
+
+        <!-- 우측 세로 광고 스택 3칸 (상단 스카이스크래퍼형) -->
+        <aside class="side-ad side-ad-right" aria-label="우측 광고">
+            <div class="side-ad-stack">
+                <div class="side-ad-card side-ad-card--sky"><a href="#" id="sideAdR_a0" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img0" class="side-ad-img side-ad-img--stack" alt="" width="160" height="400" decoding="async" hidden><span class="side-ad-ph">스카이 배너</span></a></div>
+                <div class="side-ad-card side-ad-card--short"><a href="#" id="sideAdR_a1" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img1" class="side-ad-img side-ad-img--stack" alt="" width="160" height="90" decoding="async" hidden><span class="side-ad-ph">광고</span></a></div>
+                <div class="side-ad-card side-ad-card--short"><a href="#" id="sideAdR_a2" class="side-ad-link" target="_blank" rel="noopener noreferrer"><img id="sideAdR_img2" class="side-ad-img side-ad-img--stack" alt="" width="160" height="90" decoding="async" hidden><span class="side-ad-ph">광고</span></a></div>
+            </div>
+        </aside>
+    </div>
+    <!-- /.page-wrapper -->
+
+    <script src="article-primary-image.js"></script>
+    <script src="nw-article-render.js"></script>
+    <script src="nw-seo.js" defer></script>
+    <script src="script.js"></script>
+    <script>
     (function () {
       const NW_PRODUCTION_API_ORIGIN = 'https://newswindow-backend.onrender.com';
       function nwIsProductionNewswindowHost(hostname) {
@@ -174,6 +307,7 @@
 
       loadArticleDetail();
     })();
-  </script>
+  
+    </script>
 </body>
 </html>

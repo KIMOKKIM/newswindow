@@ -534,6 +534,15 @@ function nwIsHomeModalPage() {
     }
 }
 
+/** article.html shares index shell (header, side ads, footer strip) — skip home feed bundle */
+function nwIsArticleShellPage() {
+    try {
+        return document.body && document.body.classList.contains('nw-article-shell');
+    } catch (e) {
+        return false;
+    }
+}
+
 /** Home article links navigate to article.html; inline modal removed. */
 function nwBindMainArticleDetail() {}
 
@@ -1751,6 +1760,7 @@ var NW_MAIN_LIST_LAST_FETCH_AT = 0;
 var NW_ARTICLE_FEED_BC = 'nw_article_feed_v1';
 
 function nwThrottleFetchMainPublicList() {
+    if (nwIsArticleShellPage()) return;
     var now = Date.now();
     if (now - NW_MAIN_LIST_LAST_FETCH_AT < 1200) return;
     NW_MAIN_LIST_LAST_FETCH_AT = now;
@@ -1761,6 +1771,7 @@ function nwThrottleFetchMainPublicList() {
 }
 
 function nwRevalidateMainPublicFeedHard() {
+    if (nwIsArticleShellPage()) return;
     var now = Date.now();
     if (now - NW_MAIN_LIST_LAST_FETCH_AT < 1200) return;
     NW_MAIN_LIST_LAST_FETCH_AT = now;
@@ -2706,8 +2717,12 @@ document.addEventListener('DOMContentLoaded', function () {
     bindPublicArticleLinkStorage();
     nwBindMainArticleDetail();
 
-    // 메인 데이터: /api/home (최신+인기+광고 1회) → 실패 시 레거시 병렬 요청
-    nwFetchMainHomeBundle();
+    if (nwIsArticleShellPage()) {
+        nwFetchAdsOnly();
+    } else {
+        // 메인 데이터: /api/home (최신+인기+광고 1회) → 실패 시 레거시 병렬 요청
+        nwFetchMainHomeBundle();
+    }
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') nwThrottleFetchMainPublicList();
     });
