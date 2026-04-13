@@ -1672,6 +1672,37 @@ body:has(#nwLatestTop5) .headline-section {
     animation: nw-latest-shimmer 1.2s ease-in-out infinite;
 }
 
+/* After ~500ms wait: skeleton blocks before showing long "loading" copy */
+.nw-latest-top5--skeleton .nw-latest-hero__title {
+    min-height: 1.35em;
+    border-radius: 4px;
+    color: transparent;
+    background: linear-gradient(
+        90deg,
+        var(--color-border) 0%,
+        rgba(0, 0, 0, 0.05) 50%,
+        var(--color-border) 100%
+    );
+    background-size: 200% 100%;
+    animation: nw-skeleton-slide 1.2s ease-in-out infinite;
+}
+
+.nw-latest-top5--skeleton .nw-latest-hero__media {
+    min-height: 200px;
+    border-radius: 8px;
+    background: var(--color-border);
+    animation: nw-latest-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes nw-skeleton-slide {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
 @keyframes nw-latest-shimmer {
     0%,
     100% {

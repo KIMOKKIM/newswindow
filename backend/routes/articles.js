@@ -488,7 +488,7 @@ articlesRouter.post('/', authMiddleware, async (req, res, next) => {
       authorName: req.user.name || '',
     });
     if (debug()) console.log('[articles] POST', { id: row.id, status: row.status, authorId: req.user.id });
-    invalidateArticleDerivedCaches({
+    await invalidateArticleDerivedCaches({
       reason: 'POST /api/articles',
       reqId: req.nwRequestId,
       articleId: row.id,
@@ -571,7 +571,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
       );
       const tAfterDb = Date.now();
       if (!upd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-      invalidateArticleDerivedCaches({
+      await invalidateArticleDerivedCaches({
         reason: 'PATCH /api/articles/:id reporter',
         reqId: req.nwRequestId,
         articleId: upd.article?.id,
@@ -618,7 +618,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (action === 'approve') {
       const r = await articlesDb.approveFromSubmitted(id);
       if (!r.ok) return res.status(r.http).json({ error: r.error });
-      invalidateArticleDerivedCaches({
+      await invalidateArticleDerivedCaches({
         reason: 'approve',
         reqId: req.nwRequestId,
         articleId: r.article?.id,
@@ -649,7 +649,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (action === 'reject') {
       const r = await articlesDb.rejectFromSubmitted(id);
       if (!r.ok) return res.status(r.http).json({ error: r.error });
-      invalidateArticleDerivedCaches({
+      await invalidateArticleDerivedCaches({
         reason: 'reject',
         reqId: req.nwRequestId,
         articleId: r.article?.id,
@@ -692,7 +692,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     const staffUpd = await articlesDb.updateByStaff(id, payload);
     const tStaffDb = Date.now();
     if (!staffUpd.ok) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });
-    invalidateArticleDerivedCaches({
+    await invalidateArticleDerivedCaches({
       reason: 'PATCH /api/articles/:id staff',
       reqId: req.nwRequestId,
       articleId: staffUpd.article?.id,

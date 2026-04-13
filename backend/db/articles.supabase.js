@@ -244,7 +244,7 @@ export const articlesDb = {
     const catRaw = sectionCategory != null ? String(sectionCategory).trim() : '';
     if (catRaw && !isKnownSectionCategoryParam(catRaw)) return [];
     const sinceIso = new Date(since).toISOString();
-    /* 직접 articles 테이블 — 뷰 지연 회피, 상한 축소로 타임아웃 완화 */
+    /* Direct articles; DB pre-sort views desc then published_at desc; JS comparePopularArticlesDesc is authoritative */
     const fetchCap = Math.min(80, Math.max(lim * 4, 32));
     let q = sb()
       .from('articles')

@@ -6,7 +6,7 @@ import { clearEmergencyApiShieldCache } from './emergencyApiShield.js';
  * (hero/headlines, unified public-list slice, most-viewed/popular, emergency route coalescing)
  * so the next read sees fresh DB rows.
  */
-export function invalidateArticleDerivedCaches(meta = {}) {
+export async function invalidateArticleDerivedCaches(meta = {}) {
   clearEmergencyApiShieldCache();
   clearHomePublicFeedCaches();
   clearEmergencyApiShieldCache();
@@ -20,4 +20,5 @@ export function invalidateArticleDerivedCaches(meta = {}) {
       role: meta.role,
     }),
   );
+  await Promise.resolve();
 }

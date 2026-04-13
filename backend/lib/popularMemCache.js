@@ -28,7 +28,8 @@ export async function getPopularSinceCached(sinceMs, limit, category) {
   const db0 = Date.now();
   const rows = await articlesDb.listPublishedPopularSince(sinceMs, limit, cat || undefined);
   const dbMs = Date.now() - db0;
-  if (ttl > 0) {
+  // Do not cache an empty list (avoids sticky empty popular until TTL).
+  if (ttl > 0 && Array.isArray(rows) && rows.length > 0) {
     popularMemEntry = { key, expiresAt: now + ttl, rows };
   } else {
     popularMemEntry = null;

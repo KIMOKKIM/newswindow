@@ -259,7 +259,22 @@ homeRouter.get('/', async (req, res, next) => {
     (rL.ok && rL.value ? rL.value : []).map((r) => ({ id: r.id, title: r.title })),
     { cap: mainFeedArticleCap(), len: (rL.value && rL.value.length) || 0, latestDegraded },
   );
-  const popSan = sanitizeForPublicListPayloadArr(rP.ok && Array.isArray(rP.value) ? rP.value : []);
+  let popRowsRaw = rP.ok && Array.isArray(rP.value) ? rP.value : [];
+  if (rP.ok && popRowsRaw.length === 0) {
+    try {
+      const fb = await runWithReadDeadline(
+        () => articlesDb.listPublishedPopularSince(0, POPULAR_LIMIT, ''),
+        Math.min(auxCap, 25_000),
+      );
+      if (Array.isArray(fb) && fb.length > 0) popRowsRaw = fb;
+    } catch (e) {
+      /* keep empty — next fallback */
+    }
+  }
+  if (rP.ok && popRowsRaw.length === 0 && rL.ok && Array.isArray(rL.value) && rL.value.length > 0) {
+    popRowsRaw = sanitizeForPublicListPayloadArr(rL.value.slice(0, POPULAR_LIMIT));
+  }
+  const popSan = sanitizeForPublicListPayloadArr(popRowsRaw);
   const popularArticles = emergencyMinPublicJson() ? toUltraHomePopular(popSan) : toHomeBundlePopularMin(popSan);
   const ads = rA.ok && rA.value ? rA.value : buildFallbackAdsConfig();
 
