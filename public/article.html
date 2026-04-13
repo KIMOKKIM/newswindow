@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" class="nw-standalone-article">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -8,14 +8,14 @@
   <link rel="canonical" href="https://www.newswindow.kr/article.html">
   <link rel="stylesheet" href="styles.css">
   <style>
-    .article-wrap { max-width: 960px; margin: 24px auto 48px; background:#fff; padding: 24px; border:1px solid #e6e6e6; border-radius: 8px; }
+    .article-wrap { max-width: 960px; margin: 24px auto 48px; background:#fff; padding: 24px; border:1px solid #e6e6e6; border-radius: 8px; overflow: visible; min-height: auto; }
     .article-top-link { display:inline-block; margin-bottom: 12px; color:#2d7dd2; text-decoration:none; }
     .article-top-link:hover { text-decoration:underline; }
     .nw-article-load-status { color:#555; margin: 8px 0 0; font-size: 0.95rem; }
     .nw-article-retry { margin-top: 12px; padding: 8px 16px; border: 1px solid #2d7dd2; border-radius: 6px; background: #fff; color: #2d7dd2; cursor: pointer; font-size: 1rem; }
   </style>
 </head>
-<body>
+<body class="nw-standalone-article">
   <div class="article-wrap">
     <a class="article-top-link" href="/index.html">← 메인으로</a>
     <article id="articleView">
@@ -148,7 +148,7 @@
                 sessionStorage.removeItem(STORAGE_KEY);
               } catch (e) {}
               if (window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.buildDetailHtml) {
-                view.className = 'nw-article-detail__inner';
+                view.className = 'nw-article-page__root';
                 view.innerHTML = NW_ARTICLE_RENDER.buildDetailHtml(a, {
                   uploadOrigin: NW_PUBLIC_UPLOAD_ORIGIN,
                   apiOrigin: API,

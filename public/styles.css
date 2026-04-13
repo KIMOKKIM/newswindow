@@ -1941,6 +1941,43 @@ body:has(#nwLatestTop5) .headline-section {
 }
 
 /* 메인 인라인 기사 상세(#nwArticleDetail): 최신기사 롤링과 별도 컨테이너, 본문만 세로 스크롤 */
+/* Standalone article.html: full-page scroll, no modal height cap */
+html.nw-standalone-article {
+    height: auto;
+}
+body.nw-standalone-article {
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+body.nw-standalone-article .article-wrap {
+    overflow: visible;
+    max-height: none;
+}
+body.nw-standalone-article #articleView.nw-article-page__root {
+    display: block;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    /* ~300% of prior ~75vh modal inner cap; content grows beyond this */
+    min-height: 225vh;
+}
+body.nw-standalone-article #articleView .nw-article-detail.nw-article-detail--preview {
+    overflow: visible;
+    max-height: none;
+    margin: 0;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    background: transparent;
+}
+body.nw-standalone-article #articleView .nw-article-detail--preview .nw-preview-article,
+body.nw-standalone-article #articleView .nw-prev-content {
+    overflow: visible;
+    max-height: none;
+}
+
 .nw-article-detail {
     margin: 4px 0 28px;
     border: 1px solid var(--color-border);
