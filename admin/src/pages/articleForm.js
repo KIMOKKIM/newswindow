@@ -17,8 +17,18 @@ import {
 const NW_SAVE_SLOW_MSG =
   '\uc800\uc7a5 \ucc98\ub9ac \uc2dc\uac04\uc774 \uae38\uc5b4\uc9c0\uace0 \uc788\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud574 \uc8fc\uc138\uc694.';
 
-/** Reveal long-wait copy only after ~4s in-flight (typical slow-network threshold). */
-const NW_SAVE_LONG_WAIT_MS = 4000;
+/** Optional Vite env (build-safe default if unset): VITE_SAVE_LONG_WAIT_MS */
+function resolveSaveLongWaitMs() {
+  try {
+    const raw = import.meta.env?.VITE_SAVE_LONG_WAIT_MS;
+    const n = raw != null && String(raw).trim() !== '' ? Number(raw) : NaN;
+    if (Number.isFinite(n) && n >= 500 && n <= 120_000) return Math.floor(n);
+  } catch (_) {
+    /* ignore */
+  }
+  return 4000;
+}
+const NW_SAVE_LONG_WAIT_MS = resolveSaveLongWaitMs();
 
 /** Shown after NW_SAVE_LONG_WAIT_MS while save request is in flight */
 const NW_FORM_LONG_WAIT_HINT =

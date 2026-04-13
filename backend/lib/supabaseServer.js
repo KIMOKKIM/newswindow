@@ -60,6 +60,13 @@ export function getServiceSupabase() {
   const url = resolveSupabaseUrl();
   const key = resolveServiceRoleKey();
   if (!url || !key) return null;
+  /**
+   * Single shared REST client (PostgREST over HTTPS). It does not open raw Postgres :5432
+   * sockets from this process, so there is no per-request TCP "close" to call. Pool
+   * exhaustion on Supabase is configured in the project (max connections / pooler).
+   * For psql, migrations, or ORMs, use the pooler host with port 6543 (transaction mode),
+   * not direct session mode on :5432, when many short-lived clients exist.
+   */
   _client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });

@@ -1145,6 +1145,12 @@ a.nw-btn.nw-btn-primary {
   color: #b71c1c;
 }
 
+.nw-admin-alert--warn {
+  background: #fff8e1;
+  border-color: #ffe082;
+  color: #5d4037;
+}
+
 .nw-dash-longwait {
   margin: 6px 0;
 }
