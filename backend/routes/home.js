@@ -14,6 +14,7 @@ import {
   emergencyCacheSet,
   emergencyMinPublicJson,
   emergencyShieldTtlMs,
+  homeBundleStrictFullFromDb,
 } from '../lib/emergencyApiShield.js';
 import { getHeadlinesRowsCached } from '../lib/headlineMemCache.js';
 import { getPopularSinceCached } from '../lib/popularMemCache.js';
@@ -180,7 +181,8 @@ homeRouter.get('/', async (req, res, next) => {
   const wall0 = Date.now();
   const sinceMs = Date.now() - POPULAR_DAYS * 24 * 60 * 60 * 1000;
   const shieldKeyHome = 'GET /api/home';
-  const cachedHome = emergencyCacheGet(shieldKeyHome);
+  const strictHomeFullDb = homeBundleStrictFullFromDb();
+  const cachedHome = strictHomeFullDb ? null : emergencyCacheGet(shieldKeyHome);
   if (cachedHome != null) {
     try {
       const payloadStr = JSON.stringify(cachedHome);
@@ -208,7 +210,9 @@ homeRouter.get('/', async (req, res, next) => {
     return Math.min(45_000, Math.max(readCap, 18_000));
   })();
   const rL = await timeSegment('latest', () =>
-    runWithReadDeadline(() => articlesDb.listPublishedForMain(), latestCap),
+    strictHomeFullDb
+      ? articlesDb.listPublishedForMain()
+      : runWithReadDeadline(() => articlesDb.listPublishedForMain(), latestCap),
   );
   let latestArticles = [];
   let latestDegraded = false;
@@ -223,15 +227,27 @@ homeRouter.get('/', async (req, res, next) => {
       throw rL.err || new Error('latest failed');
     }
   } catch (err) {
-    latestArticles = emergencyMinPublicJson() ? [] : fallbackHomeLatestMin();
-    latestDegraded = true;
-    const fallbackSource = latestArticles.length ? 'last_success_cache' : 'empty';
-    logPublicSoftfail('GET /api/home', err, {
-      bundle: true,
-      reqId: req.nwRequestId,
-      ms: rL.ms,
-      fallbackSource,
-    });
+    if (strictHomeFullDb) {
+      latestArticles = [];
+      latestDegraded = true;
+      logPublicSoftfail('GET /api/home', err, {
+        bundle: true,
+        reqId: req.nwRequestId,
+        ms: rL.ms,
+        fallbackSource: 'strict-no-soft-fail',
+        strictFullDb: true,
+      });
+    } else {
+      latestArticles = emergencyMinPublicJson() ? [] : fallbackHomeLatestMin();
+      latestDegraded = true;
+      const fallbackSource = latestArticles.length ? 'last_success_cache' : 'empty';
+      logPublicSoftfail('GET /api/home', err, {
+        bundle: true,
+        reqId: req.nwRequestId,
+        ms: rL.ms,
+        fallbackSource,
+      });
+    }
   }
 
   const [rP, rA] = await Promise.all([
@@ -407,10 +423,12 @@ homeRouter.get('/', async (req, res, next) => {
     }),
   );
 
-  try {
-    emergencyCacheSet(shieldKeyHome, JSON.parse(payloadStr));
-  } catch (_) {
-    emergencyCacheSet(shieldKeyHome, body);
+  if (!strictHomeFullDb) {
+    try {
+      emergencyCacheSet(shieldKeyHome, JSON.parse(payloadStr));
+    } catch (_) {
+      emergencyCacheSet(shieldKeyHome, body);
+    }
   }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.send(payloadStr);
@@ -424,7 +442,11 @@ homeRouter.get('/', async (req, res, next) => {
         degradedReason: NW_DEGRADED_REASON_HEADER,
       };
       const body = {
-        latestArticles: emergencyMinPublicJson() ? [] : fallbackHomeLatestMin(),
+        latestArticles: emergencyMinPublicJson()
+          ? []
+          : homeBundleStrictFullFromDb()
+            ? []
+            : fallbackHomeLatestMin(),
         popularArticles: [],
         ads: buildFallbackAdsConfig(),
         _homePartial: partial,

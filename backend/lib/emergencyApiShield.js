@@ -14,13 +14,29 @@ export function emergencyShieldTtlMs() {
   return 0;
 }
 
-/** Always full public payloads (summary, category, etc.). Env NW_EMERGENCY_MIN_HOME_JSON is ignored. */
+/**
+ * Ultra-min home/list JSON (id, title, thumb only where applicable). Set NW_EMERGENCY_MIN_HOME_JSON=1 to enable.
+ */
 export function emergencyMinPublicJson() {
-  return false;
+  return String(process.env.NW_EMERGENCY_MIN_HOME_JSON || '').trim() === '1';
 }
 
+/**
+ * NW_EMERGENCY_MIN_HOME_JSON=0: full home bundle from DB (summary, thumb, etc.), no read-deadline shortcut,
+ * no stale-memory fallback for latest, and skip emergency shield cache read/write on GET /api/home.
+ */
+export function homeBundleStrictFullFromDb() {
+  return String(process.env.NW_EMERGENCY_MIN_HOME_JSON ?? '').trim() === '0';
+}
+
+/** Clear in-memory duplicate-response shield (sub-second TTL when enabled). Logs when entries were present. */
 export function clearEmergencyApiShieldCache() {
+  const n = _cache.size;
   _cache.clear();
+  if (n > 0) {
+    console.info('[nw/emergency-shield] hard-purged', n, 'entr' + 'y/entries');
+  }
+  return n;
 }
 
 export function emergencyCacheGet(key) {

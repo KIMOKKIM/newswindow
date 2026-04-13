@@ -7,6 +7,7 @@ import { clearEmergencyApiShieldCache } from './emergencyApiShield.js';
  * so the next read sees fresh DB rows.
  */
 export async function invalidateArticleDerivedCaches(meta = {}) {
+  /* Purge emergency shield before/after home caches so no stale shield HIT after mutation (e.g. Render emergency cache). */
   clearEmergencyApiShieldCache();
   clearHomePublicFeedCaches();
   clearEmergencyApiShieldCache();
