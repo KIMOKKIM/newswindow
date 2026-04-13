@@ -3,6 +3,7 @@ import { sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
 import { clearUnifiedPublicFeedCache } from './unifiedPublicFeedCache.js';
 import { clearPopularMemCache } from './popularMemCache.js';
 import { recordHeadlinesHeroSuccess, runWithReadDeadline } from './publicReadSoftFail.js';
+import { clearEmergencyApiShieldCache } from './emergencyApiShield.js';
 
 /** @type {{ key: string, expiresAt: number, rows: unknown[] } | null} */
 let headlineMemEntry = null;
@@ -20,6 +21,7 @@ export function clearHomePublicFeedCaches() {
   clearHeadlineMemCache();
   clearUnifiedPublicFeedCache();
   clearPopularMemCache();
+  clearEmergencyApiShieldCache();
 }
 
 function headlineTtlMs() {

@@ -44,7 +44,7 @@ const STAFF_LIST_SELECT =
  * Public list columns (no body). Main paths: bounded table articles only (never articles_list_slim).
  */
 const MERGED_PUBLIC_FEED_SELECT =
-  'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1,image2,image3,image4';
+  'id,title,category,author_name,summary,created_at,published_at,submitted_at,updated_at,status,views,image1,image2,image3,image4';
 
 const POPULAR_WINDOW_SELECT =
   'id,title,category,author_name,published_at,created_at,views,image1';

@@ -266,6 +266,14 @@ function normalizePublicThumbString(s) {
   if (t.length > 2048) return '';
   if (/^https?:\/\//i.test(t)) return t;
   if (t.startsWith('//')) return t;
+  // Supabase Storage path without host (e.g. object/public/bucket/key)
+  if (/^object\/(public|sign)\//i.test(t) || /^storage\/v1\//i.test(t)) {
+    const base = String(process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    if (base) {
+      const path = t.replace(/^\/+/, '');
+      return /^storage\/v1\//i.test(path) ? `${base}/${path}` : `${base}/storage/v1/${path}`;
+    }
+  }
   if (t.startsWith('/')) return t;
   if (/^uploads\//i.test(t)) return '/' + t.replace(/^\/+/, '');
   return '';
@@ -336,7 +344,6 @@ const PUBLIC_LIST_DROP_KEYS = new Set([
   'content2',
   'content3',
   'content4',
-  'summary',
   'subtitle',
   'image1',
   'image2',
@@ -418,6 +425,7 @@ export function mapPublishedListRowForPublicFeed(a) {
     title: a.title || '',
     category: a.category || '',
     author_name: a.author_name || '',
+    summary: a.summary || '',
     created_at: a.created_at || '',
     published_at: a.published_at || '',
     submitted_at: a.submitted_at || '',
@@ -434,6 +442,7 @@ export function mapPublishedListItem(a) {
     title: a.title || '',
     category: a.category || '',
     author_name: a.author_name || '',
+    summary: a.summary || '',
     published_at: a.published_at || a.updated_at || a.created_at || '',
     views: Number(a.views) || 0,
     thumb: publicThumbUrlOnly(a),
@@ -448,6 +457,7 @@ export function toHomeBundleLatestMin(arr) {
     title: x.title,
     category: x.category,
     author_name: x.author_name,
+    summary: x.summary,
     published_at: x.published_at,
     status: x.status,
     thumb: stripDataUriThumbString(x.thumb),

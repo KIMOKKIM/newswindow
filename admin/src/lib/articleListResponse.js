@@ -8,6 +8,15 @@ export function normalizeArticlesListResponse(data) {
   if (Array.isArray(data.items)) return data.items;
   if (Array.isArray(data.data)) return data.data;
   if (Array.isArray(data.results)) return data.results;
+  if (Array.isArray(data.rows)) return data.rows;
+  if (Array.isArray(data.list)) return data.list;
+  if (Array.isArray(data.records)) return data.records;
+  const inner = data.body;
+  if (inner && typeof inner === 'object') {
+    if (Array.isArray(inner.articles)) return inner.articles;
+    if (Array.isArray(inner.items)) return inner.items;
+    if (Array.isArray(inner.data)) return inner.data;
+  }
   return [];
 }
 

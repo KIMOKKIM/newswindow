@@ -1,6 +1,6 @@
 /**
- * Public API shield under DB stress: in-memory TTL cache + optional tiny JSON.
- * NW_EMERGENCY_API_CACHE_MS=0 disables cache. NW_EMERGENCY_MIN_HOME_JSON=0 keeps fuller list fields.
+ * Light duplicate-request coalescing (not emergency mode by default).
+ * NW_EMERGENCY_API_CACHE_MS=0 disables. NW_EMERGENCY_MIN_HOME_JSON=1 enables tiny list payloads.
  */
 
 const _cache = new Map();
@@ -9,11 +9,15 @@ export function emergencyShieldTtlMs() {
   const n = Number(process.env.NW_EMERGENCY_API_CACHE_MS);
   if (Number.isFinite(n) && n === 0) return 0;
   if (Number.isFinite(n) && n > 0) return Math.min(300_000, Math.floor(n));
-  return 10_000;
+  return 2500;
 }
 
 export function emergencyMinPublicJson() {
-  return String(process.env.NW_EMERGENCY_MIN_HOME_JSON || '1').trim() !== '0';
+  return String(process.env.NW_EMERGENCY_MIN_HOME_JSON || '0').trim() === '1';
+}
+
+export function clearEmergencyApiShieldCache() {
+  _cache.clear();
 }
 
 export function emergencyCacheGet(key) {

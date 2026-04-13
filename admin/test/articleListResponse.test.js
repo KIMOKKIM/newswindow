@@ -14,3 +14,11 @@ test('normalizeArticlesListResponse: { articles: [] }', () => {
 test('normalizeArticlesListResponse: unknown shape → []', () => {
   assert.deepEqual(normalizeArticlesListResponse({ foo: 1 }), []);
 });
+
+test('normalizeArticlesListResponse: { rows: [...] }', () => {
+  assert.deepEqual(normalizeArticlesListResponse({ rows: [{ id: 3 }] }), [{ id: 3 }]);
+});
+
+test('normalizeArticlesListResponse: { body: { articles } }', () => {
+  assert.deepEqual(normalizeArticlesListResponse({ body: { articles: [{ id: 4 }] } }), [{ id: 4 }]);
+});
