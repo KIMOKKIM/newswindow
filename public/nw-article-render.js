@@ -105,12 +105,19 @@
     }
     if (cap) parts.push('<p class="nw-article-detail__cap">' + esc(cap) + '</p>');
   }
-  function buildArticleBodyScrollHtml(a, uploadOrigin, apiOrigin) {
+  function buildArticleBodyScrollHtml(a, uploadOrigin, apiOrigin, bodyOpts) {
+    bodyOpts = bodyOpts || {};
     var titleForAlt = a.title || '';
     var parts = [];
     parts.push('<div class="nw-article-detail__article-scroll">');
     parts.push('<div class="nw-article-detail__article-body">');
-    blockParts(parts, a.image1, a.image1_caption, a.content1, uploadOrigin, apiOrigin, titleForAlt);
+    var primaryRaw =
+      typeof global.resolveArticlePrimaryImage === 'function' ? global.resolveArticlePrimaryImage(a) : '';
+    var primaryAbs = primaryRaw ? articleMainImageSrc(primaryRaw, uploadOrigin, apiOrigin) : '';
+    var img1Abs = a.image1 ? articleMainImageSrc(a.image1, uploadOrigin, apiOrigin) : '';
+    var firstImg =
+      bodyOpts.skipDuplicateFirstImage && primaryAbs && img1Abs && primaryAbs === img1Abs ? '' : a.image1;
+    blockParts(parts, firstImg, a.image1_caption, a.content1, uploadOrigin, apiOrigin, titleForAlt);
     blockParts(parts, a.image2, a.image2_caption, a.content2, uploadOrigin, apiOrigin, titleForAlt);
     blockParts(parts, a.image3, a.image3_caption, a.content3, uploadOrigin, apiOrigin, titleForAlt);
     blockParts(parts, a.image4, a.image4_caption, a.content4, uploadOrigin, apiOrigin, titleForAlt);
@@ -127,7 +134,12 @@
     parts.push('</div>');
     return parts.join('');
   }
-  function buildMastheadHtml(a, categoryLabel) {
+  var NW_DETAIL_PLACEHOLDER_SRC = '/images/logo-header-tight.png';
+
+  function buildMastheadHtml(a, categoryLabel, mastOpts) {
+    mastOpts = mastOpts || {};
+    var uploadOrigin = mastOpts.uploadOrigin || '';
+    var apiOrigin = mastOpts.apiOrigin || '';
     var mast = [];
     mast.push('<div class="nw-article-detail__masthead">');
     mast.push(
@@ -136,6 +148,21 @@
         '</h1>'
     );
     if (a.subtitle) mast.push('<p class="nw-article-detail__subtitle">' + esc(a.subtitle) + '</p>');
+    var primaryRaw =
+      typeof global.resolveArticlePrimaryImage === 'function' ? global.resolveArticlePrimaryImage(a) : '';
+    var leadSrc = primaryRaw ? articleMainImageSrc(primaryRaw, uploadOrigin, apiOrigin) : '';
+    if (leadSrc) {
+      var altLead = esc(a.title || '\uae30\uc0ac \uc774\ubbf8\uc9c0');
+      mast.push(
+        '<figure class="nw-article-detail__lead"><img class="nw-article-detail__lead-img nw-article-img" src="' +
+          escAttr(leadSrc) +
+          '" alt="' +
+          altLead +
+          '" onerror="this.onerror=null;this.src=\'' +
+          NW_DETAIL_PLACEHOLDER_SRC +
+          '\'"></figure>'
+      );
+    }
     var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
     var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
     var catShown = categoryLabel || '\u2014';
@@ -210,10 +237,16 @@
     var uploadOrigin = opts.uploadOrigin || '';
     var apiOrigin = opts.apiOrigin || '';
     var categoryLabel = opts.categoryLabel || a.category || '\u2014';
+    var mastHtml = buildMastheadHtml(a, categoryLabel, { uploadOrigin: uploadOrigin, apiOrigin: apiOrigin });
+    var primaryRaw =
+      typeof global.resolveArticlePrimaryImage === 'function' ? global.resolveArticlePrimaryImage(a) : '';
+    var primaryAbs = primaryRaw ? articleMainImageSrc(primaryRaw, uploadOrigin, apiOrigin) : '';
+    var img1Abs = a.image1 ? articleMainImageSrc(a.image1, uploadOrigin, apiOrigin) : '';
+    var skipDup = !!(primaryAbs && img1Abs && primaryAbs === img1Abs);
     return (
-      buildMastheadHtml(a, categoryLabel) +
+      mastHtml +
       buildSummaryHtml(a) +
-      buildArticleBodyScrollHtml(a, uploadOrigin, apiOrigin)
+      buildArticleBodyScrollHtml(a, uploadOrigin, apiOrigin, { skipDuplicateFirstImage: skipDup })
     );
   }
   function fetchRelatedArticles(apiBase, articleId, category, mountEl) {

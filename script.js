@@ -1072,49 +1072,7 @@ function renderTvSectionByCategory(list) {
 }
 
 /** 롤링 썸네일: /uploads 상대 경로는 업로드 호스트 접두 */
-function resolveArticleListThumb(src) {
-    var v = String(src || '').trim();
-    if (!v) return '';
-    if (v.indexOf('data:') === 0) return v;
-    if (v.indexOf('//') === 0) {
-        var proto =
-            typeof window !== 'undefined' && window.location && window.location.protocol
-                ? window.location.protocol
-                : 'https:';
-        v = proto + v;
-    }
-    if (/^https?:\/\//i.test(v)) return v;
-    if (/^[a-z0-9][-a-z0-9.]*\.supabase\.co\/storage\//i.test(v)) {
-        return 'https://' + v.replace(/^\/+/, '');
-    }
-    var baseChain = (NW_PUBLIC_UPLOAD_ORIGIN || NW_CONFIG_API_ORIGIN || ADS_API || ARTICLES_API || '').replace(
-        /\/+$/,
-        ''
-    );
-    if (v.charAt(0) === '/') {
-        if (v.indexOf('/uploads/') === 0) {
-            return baseChain ? baseChain + v : v;
-        }
-        if (/^\/storage\/v1\//i.test(v) || /^\/object\/(public|sign)\//i.test(v)) {
-            var sb = '';
-            try {
-                if (typeof window !== 'undefined' && window.NW_SUPABASE_URL != null) {
-                    sb = String(window.NW_SUPABASE_URL).trim().replace(/\/+$/, '');
-                }
-            } catch (eSb) {}
-            if (sb) return sb + v;
-        }
-        if (typeof window !== 'undefined' && window.location && window.location.origin) {
-            return String(window.location.origin).replace(/\/+$/, '') + v;
-        }
-        return v;
-    }
-    if (/^uploads\//i.test(v)) {
-        var p = '/' + v.replace(/^\/+/, '');
-        return baseChain ? baseChain + p : p;
-    }
-    return v;
-}
+/** Primary image + list thumb: article-primary-image.js (load before this file). */
 
 function nwHeroImageDebugEnabled() {
     try {
@@ -1184,6 +1142,8 @@ var NW_HERO_CLIENT_DATA_MAX = 6000000;
 function collectHeroRawFieldValues(article) {
     if (!article || typeof article !== 'object') return [];
     var order = [
+        'hero_image',
+        'heroImage',
         'imageUrl',
         'heroImageUrl',
         'image_url',
@@ -1219,21 +1179,9 @@ function sortHeroResolvedCandidates(arr) {
     });
 }
 
-/** Prefer server heroImageCandidates (order preserved); else build from row fields and sort */
+/** Primary image first, then API candidates, then remaining row fields (deduped). */
 function resolveHeroImageCandidates(article) {
     if (!article || typeof article !== 'object') return [];
-    if (Array.isArray(article.heroImageCandidates) && article.heroImageCandidates.length) {
-        var fromApi = [];
-        var seenA = {};
-        for (var i = 0; i < article.heroImageCandidates.length; i++) {
-            var r = resolveArticleListThumb(article.heroImageCandidates[i]);
-            if (!r || seenA[r]) continue;
-            if (r.indexOf('data:') === 0 && r.length > NW_HERO_CLIENT_DATA_MAX) continue;
-            seenA[r] = true;
-            fromApi.push(r);
-        }
-        return fromApi.slice(0, 5);
-    }
     var resolved = [];
     var seen = {};
     function pushRes(x) {
@@ -1241,6 +1189,13 @@ function resolveHeroImageCandidates(article) {
         if (x.indexOf('data:') === 0 && x.length > NW_HERO_CLIENT_DATA_MAX) return;
         seen[x] = true;
         resolved.push(x);
+    }
+    pushRes(resolveArticlePrimaryImage(article));
+    if (Array.isArray(article.heroImageCandidates) && article.heroImageCandidates.length) {
+        var i;
+        for (i = 0; i < article.heroImageCandidates.length; i++) {
+            pushRes(resolveArticleListThumb(article.heroImageCandidates[i]));
+        }
     }
     var raws = collectHeroRawFieldValues(article);
     for (var j = 0; j < raws.length; j++) {
@@ -1298,6 +1253,11 @@ function nwBindHeroImgFallbackOnce(img) {
 }
 /** Main bundle generation — ignore stale deferred callbacks after a newer bundle run. */
 var nwMainBundleSeq = 0;
+/** Main hero/list UI: loading | success | empty | error | idle — never show true-empty copy while loading. */
+window.__NW_MAIN_FEED_UI__ = { phase: 'idle' };
+function nwMainFeedSetPhase(phase) {
+    window.__NW_MAIN_FEED_UI__.phase = phase;
+}
 /** Last applied feed length — skip full replace after list (25+) is painted (hero still merges from headlines). */
 var nwLastArticleFeedLen = 0;
 /** Last full main-feed rows — merge /api/home/headlines thumbs when feed length > 5. */
@@ -1562,6 +1522,22 @@ function renderLatestTop5FromList(articles, emptyDetail) {
     }
     try {
     if (!Array.isArray(articles) || articles.length === 0) {
+        var uiPhase = window.__NW_MAIN_FEED_UI__ && window.__NW_MAIN_FEED_UI__.phase;
+        if (uiPhase === 'loading') {
+            sec.classList.add('nw-latest-top5--loading');
+            sec.classList.remove('nw-latest-top5--empty');
+            nwMainUiLog('hero-empty', 'defer — main feed still loading', {});
+            return;
+        }
+        if (uiPhase === 'empty') {
+            nwMainUiMarkHeroEmpty('renderLatestTop5FromList', emptyDetail || { reason: 'feed-confirmed-empty' });
+            setLatestTop5EmptyState(
+                sec,
+                '등록된 공개 기사가 없습니다.',
+                '게시·송고된 기사가 있으면 여기니다.'
+            );
+            return;
+        }
         if (emptyDetail && emptyDetail.reason === 'recover-last-hero') {
             nwMainUiLog('hero-empty', 'recover-last-hero still empty', emptyDetail);
             nwMainUiMarkHeroEmpty('renderLatestTop5FromList', emptyDetail);
@@ -2092,14 +2068,17 @@ function nwFetchPublicLatestRows(limit, rowOpts) {
         });
 }
 
-function nwRenderMostViewedRows(rows) {
+function nwRenderMostViewedRows(rows, opts) {
+    opts = opts || {};
+    var allowEmptyWipe = !!opts.allowEmptyWipe;
     var el = document.getElementById('nwMostViewedList');
     if (!el) return;
     if (!Array.isArray(rows) || rows.length === 0) {
-        if (nwLastSuccessfulMostViewedRows && nwLastSuccessfulMostViewedRows.length > 0) {
+        if (!allowEmptyWipe && nwLastSuccessfulMostViewedRows && nwLastSuccessfulMostViewedRows.length > 0) {
             nwMainUiLog('most-viewed', 'keep stale — empty or missing rows');
             return;
         }
+        if (allowEmptyWipe) nwLastSuccessfulMostViewedRows = [];
         el.innerHTML = '<li class="nw-most-viewed-empty">아직 집계된 인기 기사가 없거나, 목록을 불러오지 못했습니다. (최근 조회 기준)</li>';
         return;
     }
@@ -2262,17 +2241,13 @@ function nwRetryHeadlinesFromNetwork() {
         if (!hadPaint) sec.classList.add('nw-latest-top5--loading');
     }
     if (!hadPaint) {
+        nwMainFeedSetPhase('loading');
         var ht = document.getElementById('nwLatestHeroTitle');
-        if (ht) ht.textContent = '불러오는 중…';
+        if (ht) ht.textContent = '';
         var hm = document.getElementById('nwLatestHeroMeta');
         if (hm) hm.textContent = '';
     }
-    function afterRetryHeadlines() {
-        setTimeout(function () {
-            nwFetchFullLatestWithTimeout({ forceRefresh: true });
-        }, 50);
-    }
-    nwFetchNetworkHeadlinesWithTimeout(hadPaint, afterRetryHeadlines, { forceRefresh: true });
+    nwFetchMainHomeBundle(true);
 }
 
 /**
@@ -2543,11 +2518,14 @@ function nwApplyMainFromHomePayload(payload) {
     if (!payload || typeof payload !== 'object') return;
     var latest = payload.latestArticles;
     var partial = payload._homePartial && typeof payload._homePartial === 'object' ? payload._homePartial : null;
+    var partialLatestFail = !!(partial && partial.latest);
     var latestOk = Array.isArray(latest) && latest.length > 0;
     if (latestOk) {
         nwApplyMainArticlesArray(latest, { source: 'home.latestArticles' });
+    } else if (!partialLatestFail) {
+        nwApplyMainArticlesArray([], { source: 'home:latest-empty-confirmed', allowEmptyWipe: true });
     } else {
-        nwMainUiLog('home-bundle', 'keep prior feed — empty or missing latestArticles', {
+        nwMainUiLog('home-bundle', 'keep prior feed — empty or missing latestArticles (degraded)', {
             populated: nwLatestTop5AlreadyPopulated(),
             partial: !!partial,
             partialLatest: !!(partial && partial.latest),
@@ -2559,7 +2537,11 @@ function nwApplyMainFromHomePayload(payload) {
     } else if (partial && partial.popular) {
         nwMainUiLog('home-bundle', 'skip empty popularArticles (partial — keep UI)', { partialPopular: true });
     } else if (Array.isArray(payload.popularArticles) && payload.popularArticles.length === 0) {
-        nwMainUiLog('home-bundle', 'keep prior most-viewed — empty popularArticles', {});
+        var popWipe = !partialLatestFail;
+        nwRenderMostViewedRows([], { allowEmptyWipe: popWipe });
+        if (!popWipe) {
+            nwMainUiLog('home-bundle', 'keep prior most-viewed — empty popularArticles (latest degraded)', {});
+        }
     }
     if (payload.ads) {
         applyHeaderAds(payload.ads);
@@ -2798,6 +2780,7 @@ function nwFetchMainHomeBundle(forceRefresh) {
     var hadCachePaint = false;
 
     if (hasFull) {
+        nwMainFeedSetPhase('success');
         nwApplyMainArticlesArray(cached.latestArticles, { source: 'sessionCache:full' });
         if (Array.isArray(cached.popularArticles)) nwRenderMostViewedRows(cached.popularArticles);
         if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'cache';
@@ -2812,34 +2795,98 @@ function nwFetchMainHomeBundle(forceRefresh) {
         }, 0);
         if (!hasSideAdData(cached.ads)) nwFetchAdsOnly();
     } else if (hasLatestOnly) {
+        nwMainFeedSetPhase('success');
         nwApplyMainArticlesArray(cached.latestArticles, { source: 'sessionCache:latestOnly' });
         if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'cache';
         hadCachePaint = true;
     } else {
         var staleRows = nwReadStaleHeadlineHero();
         if (staleRows && staleRows.length) {
+            nwMainFeedSetPhase('success');
             nwApplyMainArticlesArray(staleRows, { source: 'sessionStorage:staleHeadlineHero' });
             if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'cache';
             hadCachePaint = true;
             if (nwHomePerfReportingEnabled()) {
                 console.info('[nw-home-perf] stale headline hero painted from sessionStorage', staleRows.length);
             }
+        } else {
+            nwMainFeedSetPhase('loading');
+            var secBoot = getNwLatestTop5Section();
+            if (secBoot) {
+                secBoot.classList.add('nw-latest-top5--loading');
+                secBoot.classList.remove('nw-latest-top5--empty');
+            }
         }
     }
 
-    var ctx = { seq: seq, hasFull: hasFull, t0: t0, forceRefresh: hardRefresh };
-    var needDeferred = !hasFull;
-    nwFetchNetworkHeadlinesWithTimeout(
-        hadCachePaint,
-        needDeferred
-            ? function () {
-                  setTimeout(function () {
-                      nwRunDeferredMainLoads(ctx);
-                  }, 0);
-              }
-            : null,
-        { forceRefresh: hardRefresh },
-    );
+    nwFetchUnifiedHomeFeed({ seq: seq, t0: t0, forceRefresh: hardRefresh, hadSessionPaint: hadCachePaint });
+}
+
+/**
+ * Single network source for main: GET /api/home (latest + popular + ads from one backend feed).
+ */
+function nwFetchUnifiedHomeFeed(ctx) {
+    var seq = ctx.seq;
+    var t0 = ctx.t0 != null ? ctx.t0 : nwPerfNow();
+    var homeUrl = nwArticlesApiFreshUrl('/api/home');
+    var homeInit = {
+        cache: 'no-store',
+        credentials: 'omit',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    };
+    if (ctx.forceRefresh) homeInit.nwForceRefresh = true;
+    nwMainUiLog('request', 'start', { url: '/api/home', unifiedFeed: true });
+    nwFetchJsonWithTimeout(homeUrl, homeInit, NW_API_FETCH_TIMEOUT_MS)
+        .then(function (r) {
+            if (seq !== nwMainBundleSeq) return;
+            var ms = nwPerfNow() - t0;
+            var payload = r.data;
+            var latest = payload && payload.latestArticles;
+            var n = Array.isArray(latest) ? latest.length : -1;
+            var first = n > 0 ? latest[0] : null;
+            var phase =
+                !r.res.ok ? 'error' : n === 0 ? 'empty' : 'success';
+            console.info('[nw/main-feed]', {
+                api: '/api/home',
+                unifiedFeed: true,
+                count: n,
+                firstId: first && first.id,
+                firstStatus: first && first.status,
+                imageSummary: first && first.thumb ? String(first.thumb).slice(0, 96) : '',
+                uiPhase: phase,
+                httpStatus: r.res.status,
+                ms: Math.round(ms),
+            });
+            nwMainUiLog('request', r.res.ok ? 'success' : 'fail', {
+                url: '/api/home',
+                status: r.res.status,
+                ms: ms,
+                unifiedFeed: true,
+            });
+            if (!r.res.ok) return Promise.reject(new Error('HTTP ' + r.res.status));
+            if (!payload || typeof payload !== 'object') return Promise.reject(new Error('home payload'));
+            nwWriteHomeSessionCache(payload);
+            if (window.__NW_HOME_PERF__) window.__NW_HOME_PERF__.headlineSource = 'network';
+            nwMainFeedSetPhase(n > 0 ? 'success' : 'empty');
+            nwApplyMainFromHomePayload(payload);
+            if (!hasSideAdData(payload.ads)) nwFetchAdsOnly();
+            if (nwHomePerfReportingEnabled()) console.info('[nw-perf] unified /api/home ok ~ms', Math.round(nwPerfNow() - t0));
+        })
+        .catch(function (err) {
+            if (seq !== nwMainBundleSeq) return;
+            nwMainFeedSetPhase('error');
+            console.info('[nw/main-feed]', {
+                api: '/api/home',
+                unifiedFeed: true,
+                uiPhase: 'error',
+                err: String(err && err.message ? err.message : err),
+            });
+            nwMainUiLog('request', 'fail', {
+                url: '/api/home',
+                err: String(err && err.message ? err.message : err),
+                unifiedFeed: true,
+            });
+        });
 }
 
 document.addEventListener('DOMContentLoaded', function () {

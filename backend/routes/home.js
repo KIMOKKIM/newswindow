@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { articlesDb } from '../db/articles.js';
 import { loadPublicAdsConfig, buildFallbackAdsConfig } from './ads.js';
 import {
+  comparePopularArticlesDesc,
   mainFeedArticleCap,
+  mapPublishedListItem,
   sanitizeForPublicListPayloadArr,
   toHomeBundleLatestMin,
   toHomeBundlePopularMin,
@@ -17,7 +19,6 @@ import {
   homeBundleStrictFullFromDb,
 } from '../lib/emergencyApiShield.js';
 import { getHeadlinesRowsCached } from '../lib/headlineMemCache.js';
-import { getPopularSinceCached } from '../lib/popularMemCache.js';
 import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
 import {
   classifyUpstreamError,
@@ -34,7 +35,6 @@ import {
 
 export const homeRouter = Router();
 
-const POPULAR_DAYS = 30;
 const POPULAR_LIMIT = 10;
 
 function headlineMemTtlForLog() {
@@ -179,7 +179,6 @@ homeRouter.get('/headlines', async (req, res, next) => {
 /** Main bundle: never 500 on latest alone — fallback + partial; popular/ads may be partial on failure. */
 homeRouter.get('/', async (req, res, next) => {
   const wall0 = Date.now();
-  const sinceMs = Date.now() - POPULAR_DAYS * 24 * 60 * 60 * 1000;
   const shieldKeyHome = 'GET /api/home';
   const strictHomeFullDb = homeBundleStrictFullFromDb();
   const cachedHome = strictHomeFullDb ? null : emergencyCacheGet(shieldKeyHome);
@@ -250,53 +249,34 @@ homeRouter.get('/', async (req, res, next) => {
     }
   }
 
-  const [rP, rA] = await Promise.all([
-    (async () => {
-      const t0 = Date.now();
-      try {
-        const pr = await runWithReadDeadline(() => getPopularSinceCached(sinceMs, POPULAR_LIMIT, ''), auxCap);
-        return {
-          ok: true,
-          value: pr.rows,
-          ms: Date.now() - t0,
-          err: null,
-          cacheHit: pr.cacheHit,
-          dbMs: pr.dbMs,
-        };
-      } catch (err) {
-        return { ok: false, value: [], ms: Date.now() - t0, err, cacheHit: false, dbMs: 0 };
-      }
-    })(),
-    timeSegment('ads', () => runWithReadDeadline(() => loadAdsForHome(), auxCap)),
-  ]);
+  const rA = await timeSegment('ads', () => runWithReadDeadline(() => loadAdsForHome(), auxCap));
+  const tPop0 = Date.now();
+  let popRowsRaw = [];
+  if (rL.ok && Array.isArray(rL.value) && rL.value.length > 0) {
+    popRowsRaw = [...rL.value].sort(comparePopularArticlesDesc).slice(0, POPULAR_LIMIT).map((a) => mapPublishedListItem(a));
+  }
+  const rP = {
+    ok: true,
+    value: popRowsRaw,
+    ms: Date.now() - tPop0,
+    err: null,
+    cacheHit: false,
+    dbMs: 0,
+  };
 
   tracePublicFeedPresence(
     'api/home.latestArticles',
     (rL.ok && rL.value ? rL.value : []).map((r) => ({ id: r.id, title: r.title })),
     { cap: mainFeedArticleCap(), len: (rL.value && rL.value.length) || 0, latestDegraded },
   );
-  let popRowsRaw = rP.ok && Array.isArray(rP.value) ? rP.value : [];
-  if (rP.ok && popRowsRaw.length === 0) {
-    try {
-      const fb = await runWithReadDeadline(
-        () => articlesDb.listPublishedPopularSince(0, POPULAR_LIMIT, ''),
-        Math.min(auxCap, 25_000),
-      );
-      if (Array.isArray(fb) && fb.length > 0) popRowsRaw = fb;
-    } catch (e) {
-      /* keep empty — next fallback */
-    }
-  }
-  if (rP.ok && popRowsRaw.length === 0 && rL.ok && Array.isArray(rL.value) && rL.value.length > 0) {
-    popRowsRaw = sanitizeForPublicListPayloadArr(rL.value.slice(0, POPULAR_LIMIT));
-  }
-  const popSan = sanitizeForPublicListPayloadArr(popRowsRaw);
+  let popRowsForBundle = rP.ok && Array.isArray(rP.value) ? rP.value : [];
+  const popSan = sanitizeForPublicListPayloadArr(popRowsForBundle);
   const popularArticles = emergencyMinPublicJson() ? toUltraHomePopular(popSan) : toHomeBundlePopularMin(popSan);
   const ads = rA.ok && rA.value ? rA.value : buildFallbackAdsConfig();
 
   const partial = {
     latest: latestDegraded,
-    popular: !rP.ok,
+    popular: false,
     ads: !rA.ok,
     ...(latestDegraded ? { degradedReason: NW_DEGRADED_REASON_HEADER } : {}),
   };
@@ -411,13 +391,21 @@ homeRouter.get('/', async (req, res, next) => {
     homeLog.latestIds = (rL.ok && rL.value ? rL.value : []).slice(0, 50).map((x) => x && x.id);
   }
   console.log('[nw/home]', JSON.stringify(homeLog));
+  const firstLatest = latestArticles[0];
   console.info(
     '[nw/home-feed]',
     JSON.stringify({
       route: 'GET /api/home',
+      unifiedPopularFromLatest: true,
       reqId: req.nwRequestId,
       latestLen: latestArticles.length,
       popularLen: popularArticles.length,
+      firstId: firstLatest && firstLatest.id,
+      firstStatus: firstLatest && firstLatest.status,
+      firstThumbSample:
+        firstLatest && firstLatest.thumb ? String(firstLatest.thumb).slice(0, 120) : '',
+      empty: latestArticles.length === 0,
+      degraded: latestDegraded,
       partial,
       ms: wallMs,
     }),

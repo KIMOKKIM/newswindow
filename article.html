@@ -22,6 +22,7 @@
       <h1 class="article-title">기사 불러오는 중...</h1>
     </article>
   </div>
+  <script src="article-primary-image.js"></script>
   <script src="nw-article-render.js"></script>
   <script src="nw-seo.js"></script>
   <script>
@@ -48,6 +49,10 @@
         } catch (eeee) {}
         return '';
       })();
+      try {
+        window.NW_CONFIG_API_ORIGIN = API;
+        if (API) window.NW_PUBLIC_UPLOAD_ORIGIN = window.NW_PUBLIC_UPLOAD_ORIGIN || API;
+      } catch (eW0) {}
       const NW_PUBLIC_UPLOAD_ORIGIN = (function () {
         try {
           if (typeof window === 'undefined' || window.NW_PUBLIC_UPLOAD_ORIGIN == null) return '';

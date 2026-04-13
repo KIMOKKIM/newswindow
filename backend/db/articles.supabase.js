@@ -118,21 +118,6 @@ async function loadUnifiedPublicFeedRecordsFromDatabase() {
   return filtered;
 }
 
-/** Bounded rows from table articles + same JS sort as unified feed. */
-async function mainPublicFeedSliceFromArticlesTable(maxFetch) {
-  const max = Math.min(5000, Math.max(50, Number(maxFetch) || 2000));
-  const { data, error } = await sb()
-    .from('articles')
-    .select(MERGED_PUBLIC_FEED_SELECT)
-    .or(OR_PUBLIC_FEED_STATUS)
-    .order('id', { ascending: false })
-    .limit(max);
-  if (error) throw error;
-  const rows = (data || []).map(rowToArticleRecord).filter((a) => isPublicFeedReadableStatus(a.status));
-  rows.sort((x, y) => compareUnifiedPublicFeedDesc(x, y));
-  return rows;
-}
-
 export const articlesDb = {
   async count() {
     const { count, error } = await sb().from('articles').select('id', { count: 'exact', head: true });
@@ -162,20 +147,18 @@ export const articlesDb = {
     return getUnifiedPublicFeedCached(() => loadUnifiedPublicFeedRecordsFromDatabase());
   },
 
-  /** Headlines: bounded query on table articles only. */
+  /** Headlines: same ordering as unified public feed cache (single source). */
   async listPublishedLatestHero(limit) {
     const lim = Math.min(15, Math.max(1, Number(limit) || 5));
-    const fetchCap = Math.min(2000, Math.max(120, lim * 80));
-    const all = await mainPublicFeedSliceFromArticlesTable(fetchCap);
+    const all = await this.getUnifiedPublicFeedRecords();
     return all.slice(0, lim).map((a) => mapPublishedListHeroMinimal(a));
   },
 
-  /** 메인·GET /api/articles/public/list·GET /api/home */
+  /** 메인·GET /api/articles/public/list·GET /api/home — unified feed slice only */
   async listPublishedLatest(limit) {
     const cap = mainFeedArticleCap();
     const lim = Math.min(cap, Math.max(1, Number(limit) || 10));
-    const fetchCap = Math.min(2000, Math.max(200, cap + 120));
-    const all = await mainPublicFeedSliceFromArticlesTable(fetchCap);
+    const all = await this.getUnifiedPublicFeedRecords();
     return all.slice(0, lim).map((a) => mapPublishedListRowForPublicFeed(a));
   },
 

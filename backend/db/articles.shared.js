@@ -293,6 +293,8 @@ function normalizePublicThumbString(s) {
 }
 
 const HERO_RAW_IMAGE_KEYS = [
+  'hero_image',
+  'heroImage',
   'imageUrl',
   'image_url',
   'heroImageUrl',
