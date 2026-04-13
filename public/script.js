@@ -516,9 +516,9 @@ function bindPublicArticleLinkStorage() {
     }, true);
 }
 
-/** 메인( nw-home )에서는 모달로만 열기 위해 페이지 이동용 URL을 쓰지 않음 — id는 data-public-article-id 로만 전달 */
+/** Same detail URL as all-articles / section: article.html?id= */
 function publicArticleHref(id) {
-    return '#';
+    return 'article.html?id=' + encodeURIComponent(String(id == null ? '' : id).trim());
 }
 
 function publicArticleAnchorAttrs(id) {
@@ -534,241 +534,8 @@ function nwIsHomeModalPage() {
     }
 }
 
-function nwModalEscHtml(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-function nwModalEscAttr(s) {
-    return nwModalEscHtml(s).replace(/"/g, '&quot;');
-}
-
-function nwModalPara(t) {
-    return nwModalEscHtml(t).replace(/\n/g, '</p><p>');
-}
-
-function nwModalArticleImageSrc(img) {
-    var v = String(img || '').trim();
-    if (!v) return '';
-    if (v.indexOf('data:') === 0) return v;
-    if (/^https?:\/\//i.test(v)) return v;
-    if (v.charAt(0) === '/' && v.indexOf('/uploads/') === 0) {
-        var base = (NW_PUBLIC_UPLOAD_ORIGIN || NW_CONFIG_API_ORIGIN || ADS_API || '').replace(/\/+$/, '');
-        return base ? base + v : v;
-    }
-    return 'data:image/jpeg;base64,' + v;
-}
-
-/** 메인 인라인 상세 패널 — GET /api/articles/public/:id 응답만 사용(더미 없음). 메타 줄은 admin 미리보기와 동일 규칙 */
-function nwBuildArticleDetailHtml(a) {
-    if (a == null || typeof a !== 'object' || Array.isArray(a)) {
-        throw new Error('기사 데이터 형식이 올바르지 않습니다.');
-    }
-    var catShown = nwCategoryLabelForValue(cleanBrokenKoreanText(a.category, '뉴스'));
-    if (!catShown) catShown = '—';
-    if (typeof window !== 'undefined' && window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.buildDetailHtml) {
-        return NW_ARTICLE_RENDER.buildDetailHtml(a, {
-            categoryLabel: catShown,
-            uploadOrigin: NW_PUBLIC_UPLOAD_ORIGIN,
-            apiOrigin: ARTICLES_API,
-        });
-    }
-    var mast = [];
-    mast.push('<div class="nw-article-detail__masthead">');
-    mast.push(
-        '<h1 id="nwArticleDetailTitle" class="nw-article-detail__title">' +
-            nwModalEscHtml(a.title || '(제목 없음)') +
-            '</h1>'
-    );
-    if (a.subtitle) mast.push('<p class="nw-article-detail__subtitle">' + nwModalEscHtml(a.subtitle) + '</p>');
-    var pubRaw = a.published_at && String(a.published_at).trim() ? a.published_at : a.created_at;
-    var updRaw = a.updated_at && String(a.updated_at).trim() ? a.updated_at : a.created_at;
-    var byline =
-        nwReporterDisplayName(a.author_name || '') +
-        ' · 발행일 ' +
-        nwFormatArticleMetaDateYmd(pubRaw) +
-        ' · 수정일 ' +
-        nwFormatArticleMetaDateYmd(updRaw);
-    mast.push('<p class="nw-article-detail__meta nw-article-detail__meta--preview">');
-    mast.push('<span class="nw-article-detail__meta-cat">' + nwModalEscHtml(catShown) + '</span> ');
-    mast.push('<span class="nw-article-detail__meta-byline">' + nwModalEscHtml(byline) + '</span>');
-    mast.push('</p>');
-    mast.push('</div>');
-    function nwDetailImgUrl(raw) {
-        if (raw == null || String(raw).trim() === '') return '';
-        if (typeof resolveArticleListThumb === 'function') {
-            var u = resolveArticleListThumb(String(raw));
-            if (u) return u;
-        }
-        return nwModalArticleImageSrc(raw);
-    }
-    function nwModalIsProbablyHtml(str) {
-        if (str == null || typeof str !== 'string') return false;
-        var t = str.trim();
-        if (!t) return false;
-        return /<\/[a-z][a-z0-9]*\s*>/i.test(t) || (/<[a-z][a-z0-9]*[^>]*\/?>/i.test(t) && t.length > 24);
-    }
-    var leadNorm = typeof resolveArticlePrimaryImage === 'function' ? resolveArticlePrimaryImage(a) : '';
-    var leadSrc = leadNorm ? nwDetailImgUrl(leadNorm) : '';
-    var leadHtml = '';
-    if (leadSrc) {
-        leadHtml =
-            '<figure class="nw-article-detail__lead"><img class="nw-article-detail__lead-img" src="' +
-            nwModalEscAttr(leadSrc) +
-            '" alt="' +
-            nwModalEscHtml(a.title || '') +
-            '" onerror="this.onerror=null;this.src=\'/images/logo-header-tight.png\'"></figure>';
-    }
-    var scroll = [];
-    scroll.push('<div class="nw-article-detail__article-body nw-article-detail__article-body--single">');
-    var hasBlocks = [a.content1, a.content2, a.content3, a.content4].some(function (x) {
-        return x && String(x).trim();
-    });
-    var rich = String(a.html || a.body || '').trim();
-    if (!hasBlocks && rich && nwModalIsProbablyHtml(rich)) {
-        scroll.push('<div class="nw-article-detail__rich">' + rich + '</div>');
-    } else if (!hasBlocks && a.content && String(a.content).trim()) {
-        var c0 = String(a.content).trim();
-        if (nwModalIsProbablyHtml(c0)) {
-            scroll.push('<div class="nw-article-detail__rich">' + c0 + '</div>');
-        } else {
-            scroll.push('<p>' + nwModalPara(c0) + '</p>');
-        }
-    } else {
-        var img1Abs = a.image1 ? nwDetailImgUrl(a.image1) : '';
-        var skipFirstImg = !!(leadSrc && img1Abs && leadSrc === img1Abs);
-        function block(img, cap, content) {
-            if (content) scroll.push('<p>' + nwModalPara(content) + '</p>');
-            if (img) {
-                var src = nwDetailImgUrl(img);
-                if (src) {
-                    scroll.push(
-                        '<img class="nw-article-detail__img" src="' +
-                            nwModalEscAttr(src) +
-                            '" alt="" onerror="this.onerror=null;this.src=\'/images/logo-header-tight.png\'">'
-                    );
-                }
-            }
-            if (cap) scroll.push('<p class="nw-article-detail__cap">' + nwModalEscHtml(cap) + '</p>');
-        }
-        block(skipFirstImg ? '' : a.image1, a.image1_caption, a.content1);
-        block(a.image2, a.image2_caption, a.content2);
-        block(a.image3, a.image3_caption, a.content3);
-        block(a.image4, a.image4_caption, a.content4);
-        if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
-            scroll.push('<p>' + nwModalPara(a.content) + '</p>');
-        }
-    }
-    scroll.push('</div>');
-    scroll.push('<p class="nw-article-detail__legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
-    return '<div class="nw-article-detail nw-article-detail--single">' + mast.join('') + leadHtml + scroll.join('') + '</div>';
-}
-
-function nwArticleDetailOnKeydown(e) {
-    if (e.key === 'Escape') {
-        e.preventDefault();
-        nwCloseArticleDetail();
-    }
-}
-
-function nwCloseArticleDetail() {
-    var shell = document.getElementById('nwArticleDetail');
-    if (!shell) return;
-    shell.hidden = true;
-    shell.setAttribute('aria-hidden', 'true');
-    document.removeEventListener('keydown', nwArticleDetailOnKeydown);
-}
-
-function nwSyncLatestTop5UiIfInTop5(articleId) {
-    var j = nwLatestTop5Sync.indexOfId(articleId);
-    if (j >= 0) nwLatestTop5Sync.goTo(j);
-}
-
-function nwOpenArticleDetail(articleId) {
-    if (!nwIsHomeModalPage()) return;
-    var shell = document.getElementById('nwArticleDetail');
-    var innerEl = document.getElementById('nwArticleDetailBody');
-    if (!shell || !innerEl) return;
-    var idTrim = String(articleId).trim();
-    nwSyncLatestTop5UiIfInTop5(idTrim);
-    var url = ARTICLES_API + '/api/articles/public/' + encodeURIComponent(idTrim);
-    innerEl.className = 'nw-article-detail__inner nw-article-detail__inner--plain';
-    innerEl.innerHTML = '<p class="nw-article-detail__loading" role="status">기사를 불러오는 중…</p>';
-    shell.hidden = false;
-    shell.setAttribute('aria-hidden', 'false');
-    document.removeEventListener('keydown', nwArticleDetailOnKeydown);
-    document.addEventListener('keydown', nwArticleDetailOnKeydown);
-    try {
-        shell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } catch (eScroll) {}
-    fetch(url, { cache: 'no-store' })
-        .then(function (res) {
-            return res.text().then(function (t) {
-                var data;
-                try {
-                    data = t ? JSON.parse(t) : null;
-                } catch (eJ) {
-                    throw new Error(
-                        '서버 응답을 JSON으로 해석하지 못했습니다. 네트워크 및 API 주소를 확인해 주세요.'
-                    );
-                }
-                if (!res.ok) throw new Error((data && data.error) || '기사를 불러오지 못했습니다.');
-                return data;
-            });
-        })
-        .then(function (a) {
-            if (a == null || typeof a !== 'object' || Array.isArray(a)) {
-                throw new Error('서버에서 기사 데이터를 받지 못했습니다.');
-            }
-            innerEl.className = 'nw-article-detail__inner';
-            try {
-                innerEl.innerHTML = nwBuildArticleDetailHtml(a);
-            } catch (buildErr) {
-                throw new Error(
-                    (buildErr && buildErr.message) || '기사 본문을 표시하는 중 오류가 발생했습니다.'
-                );
-            }
-            if (window.NW_ARTICLE_RENDER && NW_ARTICLE_RENDER.fetchRelatedArticles) {
-                NW_ARTICLE_RENDER.fetchRelatedArticles(
-                    ARTICLES_API,
-                    idTrim,
-                    a.category,
-                    innerEl.querySelector('#nwRelatedMount')
-                );
-            }
-        })
-        .catch(function (err) {
-            innerEl.className = 'nw-article-detail__inner nw-article-detail__inner--plain';
-            innerEl.innerHTML =
-                '<p class="nw-article-detail__error" role="alert">기사 로드 실패</p><p class="nw-article-detail__errmsg">' +
-                nwModalEscHtml(err.message || '오류') +
-                '</p>';
-        });
-}
-
-function nwBindMainArticleDetail() {
-    if (!nwIsHomeModalPage()) return;
-    var shell = document.getElementById('nwArticleDetail');
-    if (!shell) return;
-    var btnClose = shell.querySelector('[data-nw-article-detail-close]');
-    if (btnClose) btnClose.addEventListener('click', nwCloseArticleDetail);
-    document.addEventListener(
-        'click',
-        function (e) {
-            if (!nwIsHomeModalPage()) return;
-            var a = e.target.closest && e.target.closest('a.public-article-link');
-            if (!a) return;
-            var id = a.getAttribute('data-public-article-id');
-            if (id == null || String(id).trim() === '') return;
-            e.preventDefault();
-            nwOpenArticleDetail(String(id).trim());
-        },
-        true
-    );
-}
+/** Home article links navigate to article.html; inline modal removed. */
+function nwBindMainArticleDetail() {}
 
 function applyHeaderAds(ads) {
     if (!ads) return;
@@ -1251,7 +1018,7 @@ function resolveHeroImageUrl(article) {
 
 var nwLatestTop5Timer = null;
 
-/** 최신기사 Top5: 클릭 시 리스트/히어로 active만 동기화(show). 상세는 nwOpenArticleDetail에서 fetch */
+/** Latest Top5: hero/list active sync on click; article opens via article.html link. */
 var nwLatestTop5Sync = {
     goTo: function () {},
     indexOfId: function () {
