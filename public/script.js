@@ -597,34 +597,74 @@ function nwBuildArticleDetailHtml(a) {
     mast.push('<span class="nw-article-detail__meta-byline">' + nwModalEscHtml(byline) + '</span>');
     mast.push('</p>');
     mast.push('</div>');
-    var scroll = [];
-    scroll.push('<div class="nw-article-detail__article-scroll">');
-    scroll.push('<div class="nw-article-detail__article-body">');
-    function block(img, cap, content) {
-        if (content) scroll.push('<p>' + nwModalPara(content) + '</p>');
-        if (img) {
-            var src = nwModalArticleImageSrc(img);
-            if (src) {
-                scroll.push(
-                    '<img class="nw-article-detail__img" src="' +
-                        nwModalEscAttr(src) +
-                        '" alt="" onerror="this.onerror=null;this.src=\'/images/logo-header-tight.png\'">'
-                );
-            }
+    function nwDetailImgUrl(raw) {
+        if (raw == null || String(raw).trim() === '') return '';
+        if (typeof resolveArticleListThumb === 'function') {
+            var u = resolveArticleListThumb(String(raw));
+            if (u) return u;
         }
-        if (cap) scroll.push('<p class="nw-article-detail__cap">' + nwModalEscHtml(cap) + '</p>');
+        return nwModalArticleImageSrc(raw);
     }
-    block(a.image1, a.image1_caption, a.content1);
-    block(a.image2, a.image2_caption, a.content2);
-    block(a.image3, a.image3_caption, a.content3);
-    block(a.image4, a.image4_caption, a.content4);
-    if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
-        scroll.push('<p>' + nwModalPara(a.content) + '</p>');
+    function nwModalIsProbablyHtml(str) {
+        if (str == null || typeof str !== 'string') return false;
+        var t = str.trim();
+        if (!t) return false;
+        return /<\/[a-z][a-z0-9]*\s*>/i.test(t) || (/<[a-z][a-z0-9]*[^>]*\/?>/i.test(t) && t.length > 24);
+    }
+    var leadNorm = typeof resolveArticlePrimaryImage === 'function' ? resolveArticlePrimaryImage(a) : '';
+    var leadSrc = leadNorm ? nwDetailImgUrl(leadNorm) : '';
+    var leadHtml = '';
+    if (leadSrc) {
+        leadHtml =
+            '<figure class="nw-article-detail__lead"><img class="nw-article-detail__lead-img" src="' +
+            nwModalEscAttr(leadSrc) +
+            '" alt="' +
+            nwModalEscHtml(a.title || '') +
+            '" onerror="this.onerror=null;this.src=\'/images/logo-header-tight.png\'"></figure>';
+    }
+    var scroll = [];
+    scroll.push('<div class="nw-article-detail__article-body nw-article-detail__article-body--single">');
+    var hasBlocks = [a.content1, a.content2, a.content3, a.content4].some(function (x) {
+        return x && String(x).trim();
+    });
+    var rich = String(a.html || a.body || '').trim();
+    if (!hasBlocks && rich && nwModalIsProbablyHtml(rich)) {
+        scroll.push('<div class="nw-article-detail__rich">' + rich + '</div>');
+    } else if (!hasBlocks && a.content && String(a.content).trim()) {
+        var c0 = String(a.content).trim();
+        if (nwModalIsProbablyHtml(c0)) {
+            scroll.push('<div class="nw-article-detail__rich">' + c0 + '</div>');
+        } else {
+            scroll.push('<p>' + nwModalPara(c0) + '</p>');
+        }
+    } else {
+        var img1Abs = a.image1 ? nwDetailImgUrl(a.image1) : '';
+        var skipFirstImg = !!(leadSrc && img1Abs && leadSrc === img1Abs);
+        function block(img, cap, content) {
+            if (content) scroll.push('<p>' + nwModalPara(content) + '</p>');
+            if (img) {
+                var src = nwDetailImgUrl(img);
+                if (src) {
+                    scroll.push(
+                        '<img class="nw-article-detail__img" src="' +
+                            nwModalEscAttr(src) +
+                            '" alt="" onerror="this.onerror=null;this.src=\'/images/logo-header-tight.png\'">'
+                    );
+                }
+            }
+            if (cap) scroll.push('<p class="nw-article-detail__cap">' + nwModalEscHtml(cap) + '</p>');
+        }
+        block(skipFirstImg ? '' : a.image1, a.image1_caption, a.content1);
+        block(a.image2, a.image2_caption, a.content2);
+        block(a.image3, a.image3_caption, a.content3);
+        block(a.image4, a.image4_caption, a.content4);
+        if (!a.content1 && !a.content2 && !a.content3 && !a.content4 && a.content) {
+            scroll.push('<p>' + nwModalPara(a.content) + '</p>');
+        }
     }
     scroll.push('</div>');
     scroll.push('<p class="nw-article-detail__legal">저작권자 © 뉴스의창 무단전재 및 재배포 금지</p>');
-    scroll.push('</div>');
-    return mast.join('') + scroll.join('');
+    return '<div class="nw-article-detail nw-article-detail--single">' + mast.join('') + leadHtml + scroll.join('') + '</div>';
 }
 
 function nwArticleDetailOnKeydown(e) {
@@ -1142,6 +1182,7 @@ var NW_HERO_CLIENT_DATA_MAX = 6000000;
 function collectHeroRawFieldValues(article) {
     if (!article || typeof article !== 'object') return [];
     var order = [
+        'image1',
         'hero_image',
         'heroImage',
         'imageUrl',
@@ -1150,7 +1191,6 @@ function collectHeroRawFieldValues(article) {
         'hero_image_url',
         'thumbnailUrl',
         'thumbnail_url',
-        'image1',
         'image2',
         'image3',
         'image4',

@@ -91,6 +91,31 @@
     return inner(false);
   }
 
+  var AA_CARD_PLACEHOLDER = '/images/logo-header-tight.png';
+
+  function cardThumbUrl(it) {
+    if (!it || typeof it !== 'object') return '';
+    if (typeof resolveArticlePrimaryImage === 'function') {
+      var u = resolveArticlePrimaryImage(it);
+      if (u) return u;
+    }
+    return resolveThumb(it.thumb || it.image_url || it.imageUrl || '');
+  }
+
+  function cardImageHtml(it) {
+    var thumbUrl = cardThumbUrl(it);
+    if (!thumbUrl) return '';
+    return (
+      '<img src="' +
+      esc(thumbUrl) +
+      '" alt="' +
+      esc(it.title || '') +
+      '" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\'' +
+      AA_CARD_PLACEHOLDER +
+      '\'">'
+    );
+  }
+
   var PAGE_SIZE = 5;
   var GROUP = 5;
   var VIEW_KEY = SECTION_MODE ? 'nw_section_articles_view' : 'nw_all_articles_view';
@@ -250,15 +275,7 @@
   function renderCards(items) {
     var html = '<div class="aa-card-grid">';
     items.forEach(function (it) {
-      var rawThumb = it.thumb || '';
-      var thumbUrl = resolveThumb(rawThumb);
-      var thumb = thumbUrl
-        ? '<img src="' +
-          esc(thumbUrl) +
-          '" alt="' +
-          esc(it.title || '') +
-          '" loading="lazy" decoding="async">'
-        : '';
+      var thumb = cardImageHtml(it);
       html +=
         '<article class="aa-card">' +
         '<a href="' +

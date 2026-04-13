@@ -1,7 +1,6 @@
 /**
- * Shared primary image resolution for main hero, lists, and article detail.
- * Loads before script.js / nw-article-render.js. Uses globals at call time:
- * NW_PUBLIC_UPLOAD_ORIGIN, NW_CONFIG_API_ORIGIN, ADS_API, ARTICLES_API, NW_SUPABASE_URL.
+ * Shared primary image resolution for main hero, lists, cards, and article detail.
+ * image1 is always the first choice; other fields only when image1 is missing/invalid.
  */
 (function () {
     function thumbBaseChain() {
@@ -20,7 +19,7 @@
         return String(s).replace(/\/+$/, '');
     }
 
-    function resolveArticleListThumb(src) {
+    function normalizeThumbString(src) {
         var v = String(src || '').trim();
         if (!v) return '';
         if (v.indexOf('data:') === 0) return v;
@@ -61,18 +60,36 @@
         return v;
     }
 
+    /**
+     * Normalize a raw image URL string, or when given an article object, return the same URL as resolveArticlePrimaryImage(article).
+     */
+    function resolveArticleListThumb(srcOrArticle) {
+        if (srcOrArticle != null && typeof srcOrArticle === 'object' && !Array.isArray(srcOrArticle)) {
+            return resolveArticlePrimaryImage(srcOrArticle);
+        }
+        return normalizeThumbString(srcOrArticle);
+    }
+
     function extractFirstImgSrcFromHtml(html) {
         if (html == null || html === '') return '';
         var m = String(html).match(/<img[^>]+src\s*=\s*["']([^"']+)["']/i);
         return m && m[1] ? m[1].trim() : '';
     }
 
+    function normalizedImage1(article) {
+        if (!article || typeof article !== 'object') return '';
+        var v = article.image1;
+        if (v == null || String(v).trim() === '') return '';
+        return normalizeThumbString(v);
+    }
+
     /**
-     * Canonical primary image URL (after resolveArticleListThumb).
-     * Priority: hero_image → heroImage → thumbnails → image_url → image1… → first <img> in body fields.
+     * Representative image: image1 first; then hero/thumb/url fields; then image2–4; then first <img> in body fields.
      */
     function resolveArticlePrimaryImage(article) {
         if (!article || typeof article !== 'object') return '';
+        var r = normalizedImage1(article);
+        if (r) return r;
         var keyOrder = [
             'hero_image',
             'heroImage',
@@ -82,25 +99,24 @@
             'thumbnailUrl',
             'image_url',
             'imageUrl',
-            'image1',
             'image2',
             'image3',
             'image4',
             'thumb',
         ];
-        var k, v, r;
+        var k, v, t;
         for (k = 0; k < keyOrder.length; k++) {
             v = article[keyOrder[k]];
             if (v == null || String(v).trim() === '') continue;
-            r = resolveArticleListThumb(v);
-            if (r) return r;
+            t = normalizeThumbString(v);
+            if (t) return t;
         }
         var bodyKeys = ['content', 'body', 'html', 'content1', 'content2', 'content3', 'content4'];
         for (var b = 0; b < bodyKeys.length; b++) {
             var src = extractFirstImgSrcFromHtml(article[bodyKeys[b]]);
             if (src) {
-                r = resolveArticleListThumb(src);
-                if (r) return r;
+                t = normalizeThumbString(src);
+                if (t) return t;
             }
         }
         return '';

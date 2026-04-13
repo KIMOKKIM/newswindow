@@ -2010,6 +2010,42 @@ body:has(#nwLatestTop5) .headline-section {
     -webkit-overflow-scrolling: touch;
 }
 
+/* Single-column article view (article.html + modal): title → meta → lead → one body flow */
+.nw-article-detail--single {
+    max-width: 100%;
+}
+.nw-article-detail__lead {
+    margin: 0;
+    padding: 0 20px 16px;
+    background: var(--color-bg-alt);
+    border-bottom: 1px solid var(--color-border);
+}
+.nw-article-detail__lead-img {
+    display: block;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    height: auto;
+    border-radius: 6px;
+}
+.nw-article-detail__article-body--single {
+    padding: 16px 20px 24px;
+}
+.nw-article-detail__rich {
+    line-height: 1.85;
+    font-size: 0.9375rem;
+    color: var(--color-text);
+}
+.nw-article-detail__rich p {
+    margin: 0 0 14px;
+}
+.nw-article-detail__rich img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin: 12px 0;
+}
+
 .nw-article-detail__title {
     font-family: var(--font-serif);
     font-size: 1.5rem;
