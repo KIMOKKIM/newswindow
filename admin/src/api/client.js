@@ -53,7 +53,7 @@ export function apiUrl(path) {
 }
 
 /**
- * GET: timeout + 실패 시 1회 재시도(Abort/네트워크). POST/PATCH 등: 재시도 없음.
+ * GET: timeout + Abort/TypeError 시 자동 재시도(기본 3회, exponential backoff). opts.maxAttempts 로 조정.
  * 응답 헤더 X-Request-Id 는 콘솔 [nw/apiFetch]에 출력.
  */
 export async function apiFetch(path, opts = {}) {
