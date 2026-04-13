@@ -70,6 +70,7 @@ export function getServiceSupabase() {
   _client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  /** One process-global instance only; reuse across all requests (no per-request client). */
   return _client;
 }
 

@@ -6,7 +6,15 @@ import {
   sanitizeForPublicListPayloadArr,
   toHomeBundleLatestMin,
   toHomeBundlePopularMin,
+  toUltraHomeLatest,
+  toUltraHomePopular,
 } from '../db/articles.shared.js';
+import {
+  emergencyCacheGet,
+  emergencyCacheSet,
+  emergencyMinPublicJson,
+  emergencyShieldTtlMs,
+} from '../lib/emergencyApiShield.js';
 import { getHeadlinesRowsCached } from '../lib/headlineMemCache.js';
 import { getPopularSinceCached } from '../lib/popularMemCache.js';
 import { tracePublicFeedPresence } from '../lib/publicFeedTrace.js';
@@ -54,6 +62,13 @@ homeRouter.get('/headlines', async (req, res, next) => {
   const wall0 = Date.now();
   try {
     const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 5));
+    const shieldKey = `GET /api/home/headlines?limit=${limit}`;
+    const cachedH = emergencyCacheGet(shieldKey);
+    if (cachedH != null) {
+      res.set('X-NW-Emergency-Cache', 'HIT');
+      res.set('X-NW-Emergency-Shield-Ttl-Ms', String(emergencyShieldTtlMs()));
+      return res.json(cachedH);
+    }
     /** 통합 피드 전량 로드 금지 — headlines는 캐시+listPublishedLatestHero만(이중 전량 조회로 300s 타임아웃 유발하던 경로 제거) */
     let rows;
     let cacheHit;
@@ -121,7 +136,7 @@ homeRouter.get('/headlines', async (req, res, next) => {
       'Access-Control-Expose-Headers',
       'X-NW-Home-Headlines-Ms, X-NW-Headlines-Db-Ms, X-NW-Cache, X-NW-Degraded, X-NW-Degraded-Reason, X-NW-Soft-Fail',
     );
-    res.json({
+    const outHead = {
       latestHero: rows,
       _meta: {
         ms: totalMs,
@@ -133,8 +148,29 @@ homeRouter.get('/headlines', async (req, res, next) => {
         softFail: degraded,
         degradedReason: degraded ? NW_DEGRADED_REASON_HEADER : undefined,
       },
-    });
+    };
+    emergencyCacheSet(shieldKey, outHead);
+    res.json(outHead);
   } catch (e) {
+    if (isPublicReadSoftFailEnabled()) {
+      const empty = {
+        latestHero: [],
+        _meta: {
+          ms: Date.now() - wall0,
+          dbMs: 0,
+          cache: 'MISS',
+          limit: Math.min(10, Math.max(1, Number(req.query.limit) || 5)),
+          rowCount: 0,
+          degraded: true,
+          softFail: true,
+          degradedReason: NW_DEGRADED_REASON_HEADER,
+          emergencyFallback: true,
+        },
+      };
+      res.set('X-NW-Degraded', '1');
+      res.set('X-NW-Soft-Fail', 'headlines-fatal');
+      return res.json(empty);
+    }
     next(e);
   }
 });
@@ -143,6 +179,21 @@ homeRouter.get('/headlines', async (req, res, next) => {
 homeRouter.get('/', async (req, res, next) => {
   const wall0 = Date.now();
   const sinceMs = Date.now() - POPULAR_DAYS * 24 * 60 * 60 * 1000;
+  const shieldKeyHome = 'GET /api/home';
+  const cachedHome = emergencyCacheGet(shieldKeyHome);
+  if (cachedHome != null) {
+    try {
+      const payloadStr = JSON.stringify(cachedHome);
+      res.set('X-NW-Emergency-Cache', 'HIT');
+      res.set('X-NW-Emergency-Shield-Ttl-Ms', String(emergencyShieldTtlMs()));
+      res.set('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+      res.set('X-NW-Home-Json-Bytes', String(Buffer.byteLength(payloadStr, 'utf8')));
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      return res.send(payloadStr);
+    } catch (_) {
+      /* fall through to live build */
+    }
+  }
 
   try {
   const rL = await timeSegment('latest', () => runWithReadDeadline(() => articlesDb.listPublishedForMain()));
@@ -150,13 +201,16 @@ homeRouter.get('/', async (req, res, next) => {
   let latestDegraded = false;
   try {
     if (rL.ok && Array.isArray(rL.value)) {
-      latestArticles = toHomeBundleLatestMin(sanitizeForPublicListPayloadArr(rL.value));
+      const sanitized = sanitizeForPublicListPayloadArr(rL.value);
+      latestArticles = emergencyMinPublicJson()
+        ? toUltraHomeLatest(sanitized)
+        : toHomeBundleLatestMin(sanitized);
       recordHomeLatestMinSuccess(latestArticles);
     } else {
       throw rL.err || new Error('latest failed');
     }
   } catch (err) {
-    latestArticles = fallbackHomeLatestMin();
+    latestArticles = emergencyMinPublicJson() ? [] : fallbackHomeLatestMin();
     latestDegraded = true;
     const fallbackSource = latestArticles.length ? 'last_success_cache' : 'empty';
     logPublicSoftfail('GET /api/home', err, {
@@ -193,9 +247,8 @@ homeRouter.get('/', async (req, res, next) => {
     (rL.ok && rL.value ? rL.value : []).map((r) => ({ id: r.id, title: r.title })),
     { cap: mainFeedArticleCap(), len: (rL.value && rL.value.length) || 0, latestDegraded },
   );
-  const popularArticles = toHomeBundlePopularMin(
-    sanitizeForPublicListPayloadArr(rP.ok && Array.isArray(rP.value) ? rP.value : []),
-  );
+  const popSan = sanitizeForPublicListPayloadArr(rP.ok && Array.isArray(rP.value) ? rP.value : []);
+  const popularArticles = emergencyMinPublicJson() ? toUltraHomePopular(popSan) : toHomeBundlePopularMin(popSan);
   const ads = rA.ok && rA.value ? rA.value : buildFallbackAdsConfig();
 
   const partial = {
@@ -220,7 +273,7 @@ homeRouter.get('/', async (req, res, next) => {
   const diagRequested =
     String(process.env.NW_HOME_DIAG || '').trim() === '1' &&
     String(req.query.diag || '').trim() === '1';
-  if (diagRequested) {
+  if (diagRequested && emergencyShieldTtlMs() <= 0) {
     try {
       const publishedTotal = await articlesDb.countPublished();
       body._meta = {
@@ -327,6 +380,11 @@ homeRouter.get('/', async (req, res, next) => {
     }),
   );
 
+  try {
+    emergencyCacheSet(shieldKeyHome, JSON.parse(payloadStr));
+  } catch (_) {
+    emergencyCacheSet(shieldKeyHome, body);
+  }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.send(payloadStr);
   } catch (e) {
@@ -339,7 +397,7 @@ homeRouter.get('/', async (req, res, next) => {
         degradedReason: NW_DEGRADED_REASON_HEADER,
       };
       const body = {
-        latestArticles: fallbackHomeLatestMin(),
+        latestArticles: emergencyMinPublicJson() ? [] : fallbackHomeLatestMin(),
         popularArticles: [],
         ads: buildFallbackAdsConfig(),
         _homePartial: partial,

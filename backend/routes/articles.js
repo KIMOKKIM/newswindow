@@ -8,7 +8,18 @@ import {
   normalizeTitleDedupeKey,
   dedupeWindowMs,
 } from '../db/articles.js';
-import { sanitizeForPublicListPayloadArr, sanitizeHeroPublicResponseArr } from '../db/articles.shared.js';
+import {
+  sanitizeForPublicListPayloadArr,
+  sanitizeHeroPublicResponseArr,
+  toUltraHomePopular,
+  toUltraPublicListPayloadArr,
+} from '../db/articles.shared.js';
+import {
+  emergencyCacheGet,
+  emergencyCacheSet,
+  emergencyMinPublicJson,
+  emergencyShieldTtlMs,
+} from '../lib/emergencyApiShield.js';
 import { getArticlesReadSource, getArticlesWriteSource } from '../lib/dbMode.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { invalidateArticleDerivedCaches } from '../lib/articleDerivedCache.js';
@@ -84,7 +95,14 @@ function isDupConflict(e) {
 // GET /api/articles/public/list — 메인 노출용 공개 기사 목록 (승인·게시 published 만, 최신순)
 articlesRouter.get('/public/list', async (req, res, next) => {
   const t0 = Date.now();
+  const shieldKey = 'GET /api/articles/public/list';
   try {
+    const cachedList = emergencyCacheGet(shieldKey);
+    if (cachedList != null) {
+      res.set('X-NW-Emergency-Cache', 'HIT');
+      res.set('X-NW-Emergency-Shield-Ttl-Ms', String(emergencyShieldTtlMs()));
+      return res.json(cachedList);
+    }
     /** listPublishedForMain 내부에서만 피드 조회 — 통합 피드 이중 로드 제거 */
     const rows = await articlesDb.listPublishedForMain();
     tracePublicFeedPresence(
@@ -99,7 +117,10 @@ articlesRouter.get('/public/list', async (req, res, next) => {
         JSON.stringify({ ids: (rows || []).slice(0, 50).map((r) => r && r.id) }),
       );
     }
-    const out = sanitizeForPublicListPayloadArr(rows);
+    const out = emergencyMinPublicJson()
+      ? toUltraPublicListPayloadArr(sanitizeForPublicListPayloadArr(rows))
+      : sanitizeForPublicListPayloadArr(rows);
+    emergencyCacheSet(shieldKey, out);
     console.info(
       '[nw/public-list]',
       JSON.stringify({
@@ -111,7 +132,8 @@ articlesRouter.get('/public/list', async (req, res, next) => {
     );
     res.json(out);
   } catch (e) {
-    next(e);
+    console.warn('[nw/public-list] emergency empty', e && e.message);
+    res.status(200).json([]);
   }
 });
 
@@ -131,6 +153,14 @@ articlesRouter.get('/public/latest', async (req, res, next) => {
        const limit = hero
       ? Math.min(15, Math.max(1, Number(req.query.limit) || 5))
       : Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const shieldKey = `GET /api/articles/public/latest?hero=${hero ? 1 : 0}&limit=${limit}`;
+    const cachedL = emergencyCacheGet(shieldKey);
+    if (cachedL != null) {
+      res.set('X-NW-Emergency-Cache', 'HIT');
+      res.set('X-NW-Emergency-Shield-Ttl-Ms', String(emergencyShieldTtlMs()));
+      res.set('X-NW-Public-Latest-Hero', hero ? '1' : '0');
+      return res.json(cachedL);
+    }
     const t0 = Date.now();
     let rows;
     let degraded = false;
@@ -152,7 +182,16 @@ articlesRouter.get('/public/latest', async (req, res, next) => {
       });
     }
     const serverMs = Date.now() - t0;
-    const payload = hero ? sanitizeHeroPublicResponseArr(rows) : sanitizeForPublicListPayloadArr(rows);
+    let payload = hero ? sanitizeHeroPublicResponseArr(rows) : sanitizeForPublicListPayloadArr(rows);
+    if (emergencyMinPublicJson()) {
+      payload = hero
+        ? payload.map((r) => ({
+            id: r.id,
+            title: r.title || '',
+            thumb: String(r.thumb || r.imageUrl || '').trim(),
+          }))
+        : toUltraPublicListPayloadArr(payload);
+    }
     if (!degraded) recordPublicLatestSuccess(payload);
     const jsonBytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
     res.set('X-NW-Public-Latest-Hero', hero ? '1' : '0');
@@ -192,9 +231,11 @@ articlesRouter.get('/public/latest', async (req, res, next) => {
         ms: serverMs,
       }),
     );
+    emergencyCacheSet(shieldKey, payload);
     res.json(payload);
   } catch (e) {
-    next(e);
+    console.warn('[nw/public-latest] emergency empty', e && e.message);
+    res.status(200).json([]);
   }
 });
 
@@ -240,13 +281,21 @@ articlesRouter.get('/public/popular', async (req, res, next) => {
     const category = req.query.category != null ? String(req.query.category) : '';
     const daysQ = req.query.days;
     const hasDays = daysQ != null && String(daysQ).trim() !== '';
+    const months = hasDays ? 0 : Number(req.query.months) || 3;
+    const days = hasDays ? Math.max(1, Math.min(366, Number(daysQ) || 30)) : 0;
+    const popShieldKey = `GET /api/articles/public/popular?lim=${limit}&cat=${encodeURIComponent(category)}&d=${hasDays ? `day${days}` : `mo${months}`}`;
+    const cachedPop = emergencyCacheGet(popShieldKey);
+    if (cachedPop != null) {
+      res.set('X-NW-Emergency-Cache', 'HIT');
+      res.set('X-NW-Emergency-Shield-Ttl-Ms', String(emergencyShieldTtlMs()));
+      res.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+      return res.json(cachedPop);
+    }
     let sinceMs;
     if (hasDays) {
-      const days = Math.max(1, Math.min(366, Number(daysQ) || 30));
       sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
       if (debug()) console.log('[articles] GET /public/popular days=', days);
     } else {
-      const months = Number(req.query.months) || 3;
       sinceMs = Date.now() - months * 30 * 24 * 60 * 60 * 1000;
       if (debug()) console.log('[articles] GET /public/popular months=', months);
     }
@@ -255,7 +304,9 @@ articlesRouter.get('/public/popular', async (req, res, next) => {
     res.set('X-NW-Popular-Cache', pr.cacheHit ? 'HIT' : 'MISS');
     res.set('X-NW-Popular-Db-Ms', String(pr.dbMs));
     if (debug()) console.log('[articles] GET /public/popular count=', pr.rows.length, 'cache=', pr.cacheHit);
-    const popOut = sanitizeForPublicListPayloadArr(pr.rows);
+    const popSan = sanitizeForPublicListPayloadArr(pr.rows);
+    const popOut = emergencyMinPublicJson() ? toUltraHomePopular(popSan) : popSan;
+    emergencyCacheSet(popShieldKey, popOut);
     console.info(
       '[nw/most-viewed]',
       JSON.stringify({

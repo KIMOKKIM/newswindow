@@ -467,6 +467,43 @@ export function toHomeBundlePopularMin(arr) {
   }));
 }
 
+/** Emergency home/public list: id, title, thumb, status, published_at only */
+export function toUltraHomeLatest(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((x) => ({
+    id: x.id,
+    title: x.title || '',
+    thumb: stripDataUriThumbString(x.thumb),
+    status: x.status || 'published',
+    published_at: x.published_at || '',
+  }));
+}
+
+export function toUltraHomePopular(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((x) => ({
+    id: x.id,
+    title: x.title || '',
+    thumb: stripDataUriThumbString(x.thumb),
+  }));
+}
+
+export function toUltraPublicListRow(x) {
+  if (!x || typeof x !== 'object') return x;
+  return {
+    id: x.id,
+    title: x.title || '',
+    thumb: stripDataUriThumbString(x.thumb),
+    status: x.status || 'published',
+    published_at: x.published_at || '',
+  };
+}
+
+export function toUltraPublicListPayloadArr(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((x) => toUltraPublicListRow(x));
+}
+
 /** DB/JSON row → API용 표시 문자열(날짜) */
 export function formatTs(v) {
   if (v == null || v === '') return '';
