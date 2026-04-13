@@ -28,9 +28,22 @@ const API_ORIGIN = normalizeApiOrigin(import.meta.env.VITE_API_ORIGIN) || runtim
 /** 기본 타임아웃(ms). Render cold start·슬립 대비 */
 const DEFAULT_TIMEOUT_MS = (() => {
   const n = Number(import.meta.env.VITE_API_TIMEOUT_MS);
-  if (Number.isFinite(n) && n >= 3000 && n <= 120000) return Math.floor(n);
-  return 20000;
+  if (Number.isFinite(n) && n >= 3000 && n <= 180000) return Math.floor(n);
+  return 45000;
 })();
+
+/**
+ * GET /api/articles full list — allow longer wait behind reverse proxies.
+ * Override with VITE_API_ARTICLES_LIST_TIMEOUT_MS (5000–180000).
+ */
+export const API_ARTICLES_LIST_TIMEOUT_MS = (() => {
+  const n = Number(import.meta.env.VITE_API_ARTICLES_LIST_TIMEOUT_MS);
+  if (Number.isFinite(n) && n >= 5000 && n <= 180000) return Math.floor(n);
+  return Math.min(120000, Math.max(DEFAULT_TIMEOUT_MS + 15000, 60000));
+})();
+
+const MAX_FETCH_TIMEOUT_MS = 180000;
+const RETRY_BACKOFF_MS = 400;
 
 export function apiUrl(path) {
   const p = path.startsWith('/') ? path : '/' + path;
@@ -49,14 +62,24 @@ export async function apiFetch(path, opts = {}) {
   const allowRetry = method === 'GET' && opts.retry !== false;
 
   async function doOnce(isRetry) {
+    const attemptTimeout = isRetry
+      ? Math.min(Math.floor(timeoutMs * 1.5), MAX_FETCH_TIMEOUT_MS)
+      : Math.min(timeoutMs, MAX_FETCH_TIMEOUT_MS);
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = setTimeout(() => {
-      if (ctrl) ctrl.abort();
-    }, timeoutMs);
+    let timer = null;
+    const clear = () => {
+      if (timer != null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
     const headers = { Accept: 'application/json', ...opts.headers };
     const cache = opts.cache != null ? opts.cache : 'no-store';
     const { cache: _c, timeoutMs: _t, retry: _r, ...rest } = opts;
     try {
+      timer = setTimeout(() => {
+        if (ctrl) ctrl.abort();
+      }, attemptTimeout);
       const res = await fetch(url, {
         ...rest,
         method: opts.method || 'GET',
@@ -64,7 +87,7 @@ export async function apiFetch(path, opts = {}) {
         headers,
         signal: ctrl ? ctrl.signal : undefined,
       });
-      clearTimeout(timer);
+      clear();
       const text = await res.text().catch(() => '');
       let data = null;
       try {
@@ -78,8 +101,9 @@ export async function apiFetch(path, opts = {}) {
       }
       return { res, data, text };
     } catch (err) {
-      clearTimeout(timer);
+      clear();
       if (allowRetry && !isRetry && (err.name === 'AbortError' || err.name === 'TypeError')) {
+        await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
         return doOnce(true);
       }
       throw err;

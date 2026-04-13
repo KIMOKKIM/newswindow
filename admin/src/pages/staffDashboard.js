@@ -1,4 +1,9 @@
-import { apiFetch, authHeaders, userFacingStaffListErrorMessage } from '../api/client.js';
+import {
+  apiFetch,
+  API_ARTICLES_LIST_TIMEOUT_MS,
+  authHeaders,
+  userFacingStaffListErrorMessage,
+} from '../api/client.js';
 import {
   logArticlesListResponseShape,
   normalizeArticlesListResponse,
@@ -125,7 +130,10 @@ export async function renderStaffDashboard(app, { navigate, mode }) {
 
   let listRes;
   try {
-    listRes = await apiFetch('/api/articles', { headers: authHeaders(session.token) });
+    listRes = await apiFetch('/api/articles', {
+      headers: authHeaders(session.token),
+      timeoutMs: API_ARTICLES_LIST_TIMEOUT_MS,
+    });
   } catch (e) {
     clearTimeout(longTimer);
     if (mySeq !== staffDashboardFetchSeq) return;

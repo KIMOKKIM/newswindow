@@ -13,14 +13,21 @@ export default defineConfig(({ mode }) => {
     process.env.NW_DEV_API_ORIGIN;
   const port = rootEnv.NW_API_PORT || process.env.NW_API_PORT || '3000';
   const proxyTarget = fromEnv || `http://127.0.0.1:${port}`;
+  /** Dev proxy: long socket timeouts so slow upstream (cold start) is not cut off early */
+  const proxyLong = {
+    target: proxyTarget,
+    changeOrigin: true,
+    timeout: 120000,
+    proxyTimeout: 120000,
+  };
 
   return {
     base: '/admin/',
     server: {
       port: 5173,
       proxy: {
-        '/api': { target: proxyTarget, changeOrigin: true },
-        '/uploads': { target: proxyTarget, changeOrigin: true },
+        '/api': proxyLong,
+        '/uploads': proxyLong,
       },
     },
     build: {
