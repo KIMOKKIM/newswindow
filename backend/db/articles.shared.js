@@ -617,7 +617,8 @@ export function toHomeBundleLatestMin(arr) {
     thumb: stripDataUriThumbString(x.cardImage || x.thumb),
     imageUrl: stripDataUriThumbString(x.cardImage || x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
     primaryImage: stripDataUriThumbString(x.cardImage || x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
-    cardImage: stripDataUriThumbString(x.cardImage || x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
+    // cardImage: allow normalized data: URIs up to publicDataUriMaxChars (normalizePublicThumbString)
+    cardImage: normalizePublicThumbString(x.cardImage || x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
   }));
 }
 

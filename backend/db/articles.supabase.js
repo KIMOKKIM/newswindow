@@ -34,6 +34,28 @@ function sb() {
   return assertSupabase();
 }
 
+// Cache whether the articles table has cover_image_key column (avoid repeated information_schema queries).
+let COVER_IMAGE_KEY_EXISTS = null;
+async function coverImageKeyColumnExists() {
+  if (COVER_IMAGE_KEY_EXISTS !== null) return COVER_IMAGE_KEY_EXISTS;
+  try {
+    const { data, error } = await sb()
+      .from('information_schema.columns')
+      .select('column_name')
+      .eq('table_name', 'articles')
+      .eq('column_name', 'cover_image_key')
+      .maybeSingle();
+    if (error) {
+      COVER_IMAGE_KEY_EXISTS = false;
+    } else {
+      COVER_IMAGE_KEY_EXISTS = !!(data && data.column_name);
+    }
+  } catch (_) {
+    COVER_IMAGE_KEY_EXISTS = false;
+  }
+  return COVER_IMAGE_KEY_EXISTS;
+}
+
 /**
  * Public feed SQL filter: PostgREST `.in()` is case-sensitive; `.or()` covers common DB casings.
  * Rows are still narrowed by isPublicFeedReadableStatus for API consistency.
@@ -375,6 +397,12 @@ export const articlesDb = {
       rejected_at: st === 'rejected' ? now : null,
       views: 0,
     };
+    // If DB supports cover_image_key column, include it.
+    try {
+      if (await coverImageKeyColumnExists()) {
+        row.cover_image_key = data.coverImageKey || '';
+      }
+    } catch (_) {}
     const { data: inserted, error } = await sb().from('articles').insert(row).select(FULL_ARTICLE_SELECT).single();
     if (error) throw error;
     const rec = rowToArticleRecord(inserted);
@@ -475,6 +503,12 @@ export const articlesDb = {
     if (data.image2 !== undefined) patch.image2 = data.image2;
     if (data.image3 !== undefined) patch.image3 = data.image3;
     if (data.image4 !== undefined) patch.image4 = data.image4;
+    // If DB supports cover_image_key column, write it when provided.
+    try {
+      if ((data.coverImageKey !== undefined || data.cover_image_key !== undefined) && (await coverImageKeyColumnExists())) {
+        patch.cover_image_key = data.coverImageKey || data.cover_image_key || '';
+      }
+    } catch (_) {}
     // Note: do not write cover_image_key column here to avoid errors if DB column is absent.
     if (data.image1_caption !== undefined) patch.image1_caption = data.image1_caption;
     if (data.image2_caption !== undefined) patch.image2_caption = data.image2_caption;
