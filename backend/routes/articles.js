@@ -117,9 +117,36 @@ articlesRouter.get('/public/list', async (req, res, next) => {
         JSON.stringify({ ids: (rows || []).slice(0, 50).map((r) => r && r.id) }),
       );
     }
-    const out = emergencyMinPublicJson()
+    let out = emergencyMinPublicJson()
       ? toUltraPublicListPayloadArr(sanitizeForPublicListPayloadArr(rows))
       : sanitizeForPublicListPayloadArr(rows);
+    // Post-process: ensure a canonical primary image is present when possible.
+    try {
+      for (let i = 0; i < (rows || []).length; i++) {
+        const original = rows[i] || {};
+        const itemOut = out[i] || {};
+        // If no public primary image keys are present, try deriving from hero candidates.
+        if (!itemOut.primaryImage && !itemOut.thumb && !itemOut.imageUrl && !itemOut.image_url) {
+          try {
+            const cand = require('../db/articles.shared.js').publicThumbUrlOnly(original);
+            if (cand) {
+              const v = String(cand || '').trim();
+              if (v) {
+                itemOut.thumb = v;
+                itemOut.imageUrl = v;
+                itemOut.image_url = v;
+                itemOut.primaryImage = v;
+                out[i] = itemOut;
+              }
+            }
+          } catch (_e) {
+            /* best-effort */
+          }
+        }
+      }
+    } catch (_e) {
+      /* best-effort */
+    }
     emergencyCacheSet(shieldKey, out);
     console.info(
       '[nw/public-list]',
