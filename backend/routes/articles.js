@@ -120,7 +120,7 @@ articlesRouter.get('/public/list', async (req, res, next) => {
     let out = emergencyMinPublicJson()
       ? toUltraPublicListPayloadArr(sanitizeForPublicListPayloadArr(rows))
       : sanitizeForPublicListPayloadArr(rows);
-    // Post-process: ensure a canonical primary image is present when possible.
+    // Post-process: ensure a canonical primary image (and cardImage) is present when possible.
     try {
       for (let i = 0; i < (rows || []).length; i++) {
         const original = rows[i] || {};
@@ -143,10 +143,34 @@ articlesRouter.get('/public/list', async (req, res, next) => {
             /* best-effort */
           }
         }
+        // Ensure cardImage exists using resolveCardImage (server-side canonical).
+        try {
+          if (!itemOut.cardImage) {
+            const resolved = require('../db/articles.shared.js').resolveCardImage(original);
+            if (resolved) {
+              itemOut.cardImage = resolved;
+              // also ensure primary/thumb mirror if missing
+              if (!itemOut.primaryImage) itemOut.primaryImage = resolved;
+              if (!itemOut.thumb) itemOut.thumb = resolved;
+              if (!itemOut.imageUrl) itemOut.imageUrl = resolved;
+              if (!itemOut.image_url) itemOut.image_url = resolved;
+              out[i] = itemOut;
+            }
+          }
+        } catch (_e2) {}
       }
     } catch (_e) {
       /* best-effort */
     }
+    // Log top 5 cardImage resolution results for quick debugging.
+    try {
+      const dbg = (out || []).slice(0, 5).map((it) => ({
+        id: it && it.id,
+        coverImageKey: it && (it.coverImageKey || it.cover_image_key),
+        cardImage: it && it.cardImage,
+      }));
+      console.info('[nw/card-image]', JSON.stringify({ route: 'GET /api/articles/public/list', reqId: req.nwRequestId, sample: dbg }));
+    } catch (_e) {}
     emergencyCacheSet(shieldKey, out);
     console.info(
       '[nw/public-list]',

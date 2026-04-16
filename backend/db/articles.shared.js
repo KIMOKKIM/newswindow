@@ -293,6 +293,54 @@ function normalizePublicThumbString(s) {
   return '';
 }
 
+/**
+ * Resolve a single canonical card image URL for article cards.
+ * Priority:
+ *  1) coverImageKey -> corresponding image slot (image1..image4)
+ *  2) image1
+ *  3) image2
+ *  4) image3
+ *  5) image4
+ *  6) primaryImage
+ *  7) thumb
+ *  8) imageUrl
+ *  9) image_url
+ * 10) ''
+ */
+export function resolveCardImage(a) {
+  try {
+    if (!a || typeof a !== 'object') return '';
+    const pick = (v) => {
+      if (v == null) return '';
+      const s = String(v || '').trim();
+      if (!s) return '';
+      const n = normalizePublicThumbString(s);
+      return n || s;
+    };
+    // 1) coverImageKey
+    const coverKey = (a && (a.coverImageKey || a.cover_image_key)) || '';
+    if (coverKey && typeof coverKey === 'string') {
+      const slot = a[coverKey];
+      const p = pick(slot);
+      if (p) return p;
+    }
+    // 2-5) image1..image4
+    for (const n of [1, 2, 3, 4]) {
+      const v = a['image' + n];
+      const p = pick(v);
+      if (p) return p;
+    }
+    // 6-9) other fallbacks
+    const fallbacks = ['primaryImage', 'thumb', 'imageUrl', 'image_url'];
+    for (const k of fallbacks) {
+      const v = a[k];
+      const p = pick(v);
+      if (p) return p;
+    }
+  } catch (_e) {}
+  return '';
+}
+
 const HERO_RAW_IMAGE_KEYS = [
   'hero_image',
   'heroImage',
@@ -430,12 +478,14 @@ export function sanitizeForPublicListPayload(obj) {
         out.imageUrl = finalPrimary;
         out.image_url = finalPrimary;
         out.primaryImage = finalPrimary;
+        out.cardImage = finalPrimary;
       } else {
         // Ensure keys are not left with invalid values.
         if ('thumb' in out) delete out.thumb;
         if ('imageUrl' in out) delete out.imageUrl;
         if ('image_url' in out) delete out.image_url;
         if ('primaryImage' in out) delete out.primaryImage;
+        if ('cardImage' in out) delete out.cardImage;
       }
     }
   } catch (e) {

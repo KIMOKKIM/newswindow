@@ -95,11 +95,9 @@
 
   function cardThumbUrl(it) {
     if (!it || typeof it !== 'object') return '';
-    if (typeof resolveArticlePrimaryImage === 'function') {
-      var u = resolveArticlePrimaryImage(it);
-      if (u) return u;
-    }
-    return resolveThumb(it.thumb || it.image_url || it.imageUrl || '');
+    // Use server-provided canonical cardImage for all card views.
+    if (it.cardImage) return resolveThumb(it.cardImage || '');
+    return '';
   }
 
   function cardImageHtml(it) {
