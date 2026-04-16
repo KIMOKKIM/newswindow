@@ -449,7 +449,7 @@ articlesRouter.post('/', authMiddleware, async (req, res, next) => {
     if (req.user.role !== 'reporter') {
       return res.status(403).json({ error: '기자만 기사를 작성할 수 있습니다.' });
     }
-    const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status } =
+    const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status, coverImageKey } =
       req.body;
     const st = canonicalStoreStatus(status != null ? status : 'draft');
     if (st === 'submitted') {
@@ -483,6 +483,7 @@ articlesRouter.post('/', authMiddleware, async (req, res, next) => {
       image2_caption: image2_caption || '',
       image3_caption: image3_caption || '',
       image4_caption: image4_caption || '',
+      coverImageKey: coverImageKey || '',
       status: status != null ? status : 'draft',
       authorId: req.user.id,
       authorName: req.user.name || '',
@@ -522,7 +523,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
   try {
     const role = req.user.role;
     if (role === 'reporter') {
-      const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status } =
+      const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status, coverImageKey } =
         req.body;
       const tAfterBody = Date.now();
       const raw = await articlesDb.recordLightForPatch(req.params.id);
@@ -565,6 +566,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
           image2_caption,
           image3_caption,
           image4_caption,
+          coverImageKey,
           status,
         },
         req.user.name
@@ -614,7 +616,7 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
       return res.status(403).json({ error: '권한 없음' });
     }
     const { id } = req.params;
-    const { action, ...restBody } = req.body;
+      const { action, ...restBody } = req.body;
     if (action === 'approve') {
       const r = await articlesDb.approveFromSubmitted(id);
       if (!r.ok) return res.status(r.http).json({ error: r.error });

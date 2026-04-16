@@ -78,8 +78,18 @@
 
     function normalizedImage1(article) {
         if (!article || typeof article !== 'object') return '';
-        // Prefer explicit canonical primaryImage (set by server) first, then legacy image1.
-        var v = article.primaryImage != null && String(article.primaryImage).trim() ? article.primaryImage : article.image1;
+        // Prefer explicit canonical primaryImage (set by server) first,
+        // then explicit coverImageKey selection (article.coverImageKey -> article[coverKey]),
+        // then legacy image1.
+        if (article.primaryImage != null && String(article.primaryImage).trim()) {
+            return normalizeThumbString(article.primaryImage);
+        }
+        var coverKey = article.coverImageKey || article.cover_image_key;
+        if (coverKey && typeof coverKey === 'string' && article[coverKey]) {
+            var cv = article[coverKey];
+            if (cv != null && String(cv).trim()) return normalizeThumbString(cv);
+        }
+        var v = article.image1;
         if (v == null || String(v).trim() === '') return '';
         return normalizeThumbString(v);
     }

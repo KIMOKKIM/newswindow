@@ -148,6 +148,7 @@ export function mapDetail(a) {
     image2_caption: a.image2_caption || '',
     image3_caption: a.image3_caption || '',
     image4_caption: a.image4_caption || '',
+    coverImageKey: a.coverImageKey || a.cover_image_key || '',
     status: toApiStatus(a.status),
     created_at: a.created_at || '',
     updated_at: a.updated_at || a.created_at || '',
@@ -382,9 +383,18 @@ export function sanitizeForPublicListPayload(obj) {
   //  3) other hero candidates (image2.., hero fields)
   //  4) data URI fallback (limited by publicDataUriMaxChars)
   try {
-    // Prefer raw image1 when available and normalize it.
-    const rawImage1 = obj && obj.image1 ? String(obj.image1).trim() : '';
-    let primary = rawImage1 ? normalizePublicThumbString(rawImage1) : '';
+    // Prefer explicit cover selection when present (coverImageKey -> imageN).
+    const coverKey = (obj && (obj.coverImageKey || obj.cover_image_key)) || '';
+    let primary = '';
+    if (coverKey && typeof coverKey === 'string' && obj && obj[coverKey]) {
+      const rawCover = String(obj[coverKey] || '').trim();
+      primary = rawCover ? normalizePublicThumbString(rawCover) : '';
+    }
+    // Prefer raw image1 when available and normalize it (if no cover selection).
+    if (!primary) {
+      const rawImage1 = obj && obj.image1 ? String(obj.image1).trim() : '';
+      primary = rawImage1 ? normalizePublicThumbString(rawImage1) : '';
+    }
 
     // If no valid image1, use existing thumb/imageUrl or first non-data candidate.
     if (!primary) {
@@ -675,6 +685,7 @@ export function rowToArticleRecord(r) {
     image2_caption: r.image2_caption ?? '',
     image3_caption: r.image3_caption ?? '',
     image4_caption: r.image4_caption ?? '',
+    coverImageKey: r.cover_image_key ?? '',
     summary: r.summary ?? '',
     status: r.status ?? 'draft',
     created_at: formatTs(r.created_at),

@@ -138,13 +138,19 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       </div>
       ${[1, 2, 3, 4]
         .map(
-          (n) => `
+          (n) => {
+            const checked = article && (article.coverImageKey === 'image' + n || article.cover_image_key === 'image' + n) ? 'checked' : '';
+            return `
         <div class="nw-form-row nw-file-block">
           <label>이미지 ${n}</label>
           <input type="file" id="img${n}" accept="image/*" />
           <label>이미지 ${n} 설명</label>
           <textarea id="cap${n}" rows="2">${esc(article?.['image' + n + '_caption'] || '')}</textarea>
-        </div>`
+          <div class="nw-form-row">
+            <label><input type="radio" name="coverImageKey" value="image${n}" ${checked}/> 대표이미지로 선택</label>
+          </div>
+        </div>`;
+          }
         )
         .join('')}
       <p id="formErr" class="nw-error" style="display:none;"></p>
@@ -212,6 +218,9 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       if (f) payload['image' + n] = await fileToBase64(f);
       else if (article && article['image' + n]) payload['image' + n] = article['image' + n];
     }
+    // coverImageKey radio
+    const coverEl = app.querySelector('input[name="coverImageKey"]:checked');
+    payload.coverImageKey = coverEl ? String(coverEl.value || '').trim() : '';
     return payload;
   }
 
