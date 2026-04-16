@@ -222,6 +222,27 @@ homeRouter.get('/', async (req, res, next) => {
   let latestDegraded = false;
   try {
     if (rL.ok && Array.isArray(rL.value)) {
+      // Debug: log raw fields for first few rows before sanitize/resolveCardImage
+      try {
+        (rL.value || []).slice(0, 6).forEach((rawRow) => {
+          try {
+            console.info(
+              '[nw/card-image-debug]',
+              JSON.stringify({
+                id: rawRow && rawRow.id,
+                coverImageKey: rawRow && (rawRow.coverImageKey || rawRow.cover_image_key || ''),
+                image1: rawRow && (rawRow.image1 || rawRow.image_1 || ''),
+                image2: rawRow && (rawRow.image2 || rawRow.image_2 || ''),
+                image3: rawRow && (rawRow.image3 || rawRow.image_3 || ''),
+                image4: rawRow && (rawRow.image4 || rawRow.image_4 || ''),
+                primaryImage: rawRow && (rawRow.primaryImage || rawRow.primary_image || ''),
+                thumb: rawRow && (rawRow.thumb || ''),
+                imageUrl: rawRow && (rawRow.imageUrl || rawRow.image_url || ''),
+              }),
+            );
+          } catch (__) {}
+        });
+      } catch (_) {}
       const sanitized = sanitizeForPublicListPayloadArr(rL.value);
       // If a specific raw row id is of interest (e.g., 85), log its raw image fields for diagnostics.
       try {

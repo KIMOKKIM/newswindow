@@ -146,16 +146,36 @@ articlesRouter.get('/public/list', async (req, res, next) => {
         // Ensure cardImage exists using resolveCardImage (server-side canonical).
         try {
           if (!itemOut.cardImage) {
-            const resolved = require('../db/articles.shared.js').resolveCardImage(original);
-            if (resolved) {
-              itemOut.cardImage = resolved;
-              // also ensure primary/thumb mirror if missing
-              if (!itemOut.primaryImage) itemOut.primaryImage = resolved;
-              if (!itemOut.thumb) itemOut.thumb = resolved;
-              if (!itemOut.imageUrl) itemOut.imageUrl = resolved;
-              if (!itemOut.image_url) itemOut.image_url = resolved;
-              out[i] = itemOut;
-            }
+            try {
+              // Debug: log raw input before resolveCardImage
+              try {
+                console.info(
+                  '[nw/card-image-debug]',
+                  JSON.stringify({
+                    id: original && original.id,
+                    coverImageKey: original && (original.coverImageKey || original.cover_image_key || ''),
+                    image1: original && (original.image1 || original.image_1 || ''),
+                    image2: original && (original.image2 || original.image_2 || ''),
+                    image3: original && (original.image3 || original.image_3 || ''),
+                    image4: original && (original.image4 || original.image_4 || ''),
+                    primaryImage: original && (original.primaryImage || original.primary_image || ''),
+                    thumb: original && (original.thumb || ''),
+                    imageUrl: original && (original.imageUrl || original.image_url || ''),
+                    cardImage: itemOut.cardImage || '',
+                  }),
+                );
+              } catch (_e0) {}
+              const resolved = require('../db/articles.shared.js').resolveCardImage(original);
+              if (resolved) {
+                itemOut.cardImage = resolved;
+                // also ensure primary/thumb mirror if missing
+                if (!itemOut.primaryImage) itemOut.primaryImage = resolved;
+                if (!itemOut.thumb) itemOut.thumb = resolved;
+                if (!itemOut.imageUrl) itemOut.imageUrl = resolved;
+                if (!itemOut.image_url) itemOut.image_url = resolved;
+                out[i] = itemOut;
+              }
+            } catch (_e1) {}
           }
         } catch (_e2) {}
       }
