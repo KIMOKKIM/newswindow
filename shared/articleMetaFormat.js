@@ -16,6 +16,9 @@ function buildValueToLabelMap(data) {
   for (const it of data.topLevel || []) {
     m.set(it.value, it.label);
   }
+  for (const it of data.editorOnlyTopLevel || []) {
+    m.set(it.value, it.label);
+  }
   return m;
 }
 

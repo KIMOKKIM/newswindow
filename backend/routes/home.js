@@ -4,9 +4,11 @@ import { loadPublicAdsConfig, buildFallbackAdsConfig } from './ads.js';
 import {
   comparePopularArticlesDesc,
   mainFeedArticleCap,
+  mapHomeWeeklyNewsTitles,
   mapPublishedListItem,
   sanitizeForPublicListPayloadArr,
   toHomeBundleLatestMin,
+  toHomeBundlePersonSpotlight,
   toHomeBundlePopularMin,
   toUltraHomeLatest,
   toUltraHomePopular,
@@ -36,6 +38,9 @@ import {
 export const homeRouter = Router();
 
 const POPULAR_LIMIT = 10;
+const HOME_WEEKLY_DAYS = 7;
+const HOME_WEEKLY_NEWS_LIMIT = 4;
+const HOME_PERSON_SPOTLIGHT_CATEGORY = '인물동정';
 
 function headlineMemTtlForLog() {
   if (String(process.env.NW_HEADLINE_CACHE_BYPASS || '').trim() === '1') return 0;
@@ -274,6 +279,41 @@ homeRouter.get('/', async (req, res, next) => {
   const popularArticles = emergencyMinPublicJson() ? toUltraHomePopular(popSan) : toHomeBundlePopularMin(popSan);
   const ads = rA.ok && rA.value ? rA.value : buildFallbackAdsConfig();
 
+  const rSide = await timeSegment('sidecards', () =>
+    runWithReadDeadline(
+      async () => {
+        const sinceMs = Date.now() - HOME_WEEKLY_DAYS * 24 * 60 * 60 * 1000;
+        const weeklyRaw = await articlesDb.listPublishedPopularSince(
+          sinceMs,
+          HOME_WEEKLY_NEWS_LIMIT,
+          '',
+        );
+        const personRows = await articlesDb.listLatestPublicArticleByExactCategory(
+          HOME_PERSON_SPOTLIGHT_CATEGORY,
+          1,
+        );
+        return {
+          weeklyNews: mapHomeWeeklyNewsTitles(weeklyRaw),
+          personSpotlight:
+            personRows && personRows.length ? toHomeBundlePersonSpotlight(personRows[0]) : null,
+        };
+      },
+      auxCap,
+    ),
+  );
+  let weeklyNews = [];
+  let personSpotlight = null;
+  if (rSide.ok && rSide.value) {
+    weeklyNews = Array.isArray(rSide.value.weeklyNews) ? rSide.value.weeklyNews : [];
+    personSpotlight = rSide.value.personSpotlight;
+  } else if (!strictHomeFullDb && isPublicReadSoftFailEnabled()) {
+    logPublicSoftfail('GET /api/home sidecards', rSide.err || new Error('sidecards'), {
+      bundle: true,
+      reqId: req.nwRequestId,
+      ms: rSide.ms,
+    });
+  }
+
   const partial = {
     latest: latestDegraded,
     popular: false,
@@ -288,6 +328,8 @@ homeRouter.get('/', async (req, res, next) => {
   const body = {
     latestArticles,
     popularArticles,
+    weeklyNews,
+    personSpotlight,
     ads,
     _homePartial: partial,
   };
@@ -322,6 +364,8 @@ homeRouter.get('/', async (req, res, next) => {
     payloadStr = JSON.stringify({
       latestArticles: [],
       popularArticles: [],
+      weeklyNews: [],
+      personSpotlight: null,
       ads: buildFallbackAdsConfig(),
       _homePartial: { latest: true, popular: true, ads: true, degradedReason: NW_DEGRADED_REASON_HEADER },
     });
@@ -344,7 +388,7 @@ homeRouter.get('/', async (req, res, next) => {
   res.set('Vary', 'Accept-Encoding');
   res.set(
     'Server-Timing',
-    `latest;dur=${rL.ms}, popular;dur=${rP.ms}, ads;dur=${rA.ms}, total;dur=${wallMs}`,
+      `latest;dur=${rL.ms}, popular;dur=${rP.ms}, ads;dur=${rA.ms}, sidecards;dur=${rSide.ms}, total;dur=${wallMs}`,
   );
   res.set('X-NW-Home-Timing-Wall-Ms', String(wallMs));
   res.set('X-NW-Home-Timing-Latest-Ms', String(rL.ms));
@@ -375,11 +419,14 @@ homeRouter.get('/', async (req, res, next) => {
     latestMs: rL.ms,
     popularMs: rP.ms,
     adsMs: rA.ms,
+    sidecardsMs: rSide.ms,
     popularCacheHit: !!rP.cacheHit,
     popularDbMs: rP.dbMs,
     jsonBytes,
     latestLen: latestArticles.length,
     popularLen: popularArticles.length,
+    weeklyNewsLen: weeklyNews.length,
+    personSpotlight: personSpotlight ? 1 : 0,
     adsHomeCacheHit: false,
     partial,
     degraded: latestDegraded,
@@ -436,6 +483,8 @@ homeRouter.get('/', async (req, res, next) => {
             ? []
             : fallbackHomeLatestMin(),
         popularArticles: [],
+        weeklyNews: [],
+        personSpotlight: null,
         ads: buildFallbackAdsConfig(),
         _homePartial: partial,
       };

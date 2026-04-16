@@ -27,6 +27,13 @@ function loadSpec() {
       fullValues.add(v);
     }
   }
+  for (const t of j.editorOnlyTopLevel || []) {
+    if (t && t.value != null) {
+      const v = String(t.value).trim();
+      exactTop.add(v);
+      fullValues.add(v);
+    }
+  }
   cache = { majorTitles, fullValues, exactTop };
   return cache;
 }

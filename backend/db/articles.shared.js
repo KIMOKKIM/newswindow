@@ -492,6 +492,41 @@ export function toHomeBundlePopularMin(arr) {
   }));
 }
 
+/** 홈 사이드 Weekly News: 제목만 (최근 7일·조회수 상위) */
+export function mapHomeWeeklyNewsTitles(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((x) => ({
+      id: Number(x && x.id),
+      title: String((x && x.title) ?? '').slice(0, 2000),
+    }))
+    .filter((x) => Number.isFinite(x.id) && x.id > 0 && x.title.trim() !== '');
+}
+
+function plainTextSnippetFromRich(s, maxLen) {
+  const t = String(s ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, Math.max(0, maxLen - 1))}…`;
+}
+
+/** 홈 사이드 인물동정 카드 1건 */
+export function toHomeBundlePersonSpotlight(row) {
+  if (!row || row.id == null) return null;
+  const title = String(row.title ?? '').trim();
+  const summaryRaw = String(row.summary ?? '').trim();
+  const snippet = summaryRaw
+    ? plainTextSnippetFromRich(summaryRaw, 200)
+    : plainTextSnippetFromRich(title, 120);
+  return {
+    id: Number(row.id),
+    title: String(row.title ?? '').slice(0, 2000),
+    snippet: String(snippet).slice(0, 400),
+  };
+}
+
 /** Emergency home/public list: id, title, thumb, status, published_at only */
 export function toUltraHomeLatest(arr) {
   if (!Array.isArray(arr)) return [];

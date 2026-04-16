@@ -5,6 +5,7 @@ import {
   canonicalStoreStatus,
   toApiStatus,
   isPublicFeedReadableStatus,
+  parseArticleDateMs,
   authorIdNorm,
   reporterOwnsArticleRecord,
   mapListFields,
@@ -270,6 +271,37 @@ export const articlesDb = {
       .sort(comparePopularArticlesDesc)
       .slice(0, lim)
       .map((a) => mapPublishedListItem(a));
+  },
+
+  /**
+   * category 문자열 정확 일치 + 공개 피드 readable status, 최신 published_at 우선 1건(또는 limit).
+   * 인물동정 등 헤더 비노출 분류용.
+   */
+  async listLatestPublicArticleByExactCategory(exactCategory, limit) {
+    const cat = String(exactCategory ?? '').trim();
+    const lim = Math.min(5, Math.max(1, Number(limit) || 1));
+    if (!cat) return [];
+    const { data, error } = await sb()
+      .from('articles')
+      .select(
+        'id,title,category,author_name,summary,created_at,published_at,submitted_at,updated_at,status,views',
+      )
+      .or(OR_PUBLIC_FEED_STATUS)
+      .eq('category', cat)
+      .order('published_at', { ascending: false })
+      .limit(Math.min(24, lim * 6));
+    if (error) throw error;
+    let rows = (data || [])
+      .map(rowToArticleRecord)
+      .filter((a) => isPublicFeedReadableStatus(a.status))
+      .filter((a) => String(a.category || '').trim() === cat);
+    rows.sort((a, b) => {
+      const tb = parseArticleDateMs(b.published_at) || 0;
+      const ta = parseArticleDateMs(a.published_at) || 0;
+      if (tb !== ta) return tb - ta;
+      return Number(b.id) - Number(a.id);
+    });
+    return rows.slice(0, lim).map((a) => mapPublishedListItem(a));
   },
 
   async listPublishedPopularByMonths(months, limit, sectionCategory) {

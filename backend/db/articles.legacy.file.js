@@ -19,6 +19,7 @@ import {
   dedupeWindowMs,
   popularWindowReferenceMs,
   comparePopularArticlesDesc,
+  parseArticleDateMs,
   mainFeedArticleCap,
   normalizeReporterNameForFilter,
   formatSitemapLastMod,
@@ -161,6 +162,23 @@ export const legacySyncArticlesDb = {
         return ref != null && ref >= since;
       })
       .sort(comparePopularArticlesDesc)
+      .slice(0, lim)
+      .map((a) => mapPublishedListItem(a));
+  },
+
+  listLatestPublicArticleByExactCategory(exactCategory, limit) {
+    const cat = String(exactCategory ?? '').trim();
+    const lim = Math.min(5, Math.max(1, Number(limit) || 1));
+    if (!cat) return [];
+    return [...articles]
+      .filter((a) => isPublicFeedReadableStatus(a.status))
+      .filter((a) => String(a.category || '').trim() === cat)
+      .sort((a, b) => {
+        const tb = parseArticleDateMs(b.published_at) || 0;
+        const ta = parseArticleDateMs(a.published_at) || 0;
+        if (tb !== ta) return tb - ta;
+        return Number(b.id) - Number(a.id);
+      })
       .slice(0, lim)
       .map((a) => mapPublishedListItem(a));
   },

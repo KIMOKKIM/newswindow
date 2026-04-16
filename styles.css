@@ -990,6 +990,27 @@ a:hover {
     font-size: 13px;
 }
 
+.side-list .nw-sidecard-loading span,
+.side-list .nw-sidecard-empty span {
+    font-size: 13px;
+    color: var(--color-muted);
+}
+
+.people-item-inner.nw-sidecard-loading span,
+.people-empty-msg {
+    font-size: 13px;
+    color: var(--color-muted);
+    line-height: 1.5;
+}
+
+.people-item--empty {
+    padding: 8px 0;
+}
+
+.people-item--empty .people-empty-msg {
+    margin: 0;
+}
+
 /* 이슈포커스 */
 .focus-item,
 .people-item {

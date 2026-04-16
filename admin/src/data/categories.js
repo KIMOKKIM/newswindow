@@ -25,6 +25,9 @@ function buildCategoryOptions() {
   for (const it of raw.topLevel || []) {
     out.push({ value: it.value, label: it.label });
   }
+  for (const it of raw.editorOnlyTopLevel || []) {
+    out.push({ value: it.value, label: it.label });
+  }
   return out;
 }
 
@@ -63,6 +66,21 @@ export function categorySelectHtml(selected) {
       '>' +
       escapeHtml(it.label) +
       '</option>';
+  }
+  if ((raw.editorOnlyTopLevel || []).length) {
+    html += '<optgroup label="' + escapeAttr('기타(헤더 비노출)') + '">';
+    for (const it of raw.editorOnlyTopLevel || []) {
+      const sel = it.value === selected ? ' selected' : '';
+      html +=
+        '<option value="' +
+        escapeAttr(it.value) +
+        '"' +
+        sel +
+        '>' +
+        escapeHtml(it.label) +
+        '</option>';
+    }
+    html += '</optgroup>';
   }
   return html;
 }

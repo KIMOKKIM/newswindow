@@ -68,5 +68,8 @@
     { "value": "국제", "label": "국제" },
     { "value": "칼럼", "label": "칼럼" },
     { "value": "포토뉴스&영상", "label": "포토뉴스&영상" }
+  ],
+  "editorOnlyTopLevel": [
+    { "value": "인물동정", "label": "인물동정" }
   ]
 }
