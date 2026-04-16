@@ -370,12 +370,13 @@ a:hover {
 }
 
 @media (min-width: 769px) {
-    /* 카탈로그 실제 콘텐츠 폭만 제한(조정: 920–1040px). .container 1200px보다 좁게 */
+    /*
+     * 헤더 .header-inner.container 와 동일 max-width·가운데 정렬 → 메가메뉴가 별도 박스처럼 오른쪽으로 치우치지 않음.
+     * 좌 패딩: header-inner 좌 20px + .nav-menu-btn 좌 16px = 3bar(선) 시작과 첫 컬럼(정치) 시작 정렬.
+     */
     .nav-mega-panel .nav-mega-inner.container {
-        max-width: 980px;
-        /* 좌측만 축소(16px→8px): 첫 컬럼 시작선 당김, 우측·column-gap은 유지 */
-        padding-left: 8px;
-        padding-right: 16px;
+        max-width: var(--container-max);
+        padding: 14px 20px 18px calc(20px + 16px);
     }
 }
 
