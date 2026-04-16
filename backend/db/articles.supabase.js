@@ -43,7 +43,7 @@ const OR_PUBLIC_FEED_STATUS =
 
 /** 목록·메인 피드용 — 본문/다중 이미지 제외 (SELECT * 금지) */
 const PUBLISHED_LIST_SELECT =
-  'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1,cover_image_key';
+  'id,title,category,author_name,created_at,published_at,submitted_at,updated_at,status,views,image1';
 
 const STAFF_LIST_SELECT =
   'id,title,subtitle,category,author_id,author_name,summary,status,created_at,updated_at,submitted_at,published_at,rejected_at,views';
@@ -52,19 +52,19 @@ const STAFF_LIST_SELECT =
  * Public list columns (no body). Main paths: bounded table articles only (never articles_list_slim).
  */
 const MERGED_PUBLIC_FEED_SELECT =
-  'id,title,category,author_name,summary,created_at,published_at,submitted_at,updated_at,status,views,image1,image2,image3,image4,cover_image_key';
+  'id,title,category,author_name,summary,created_at,published_at,submitted_at,updated_at,status,views,image1,image2,image3,image4';
 
 const POPULAR_WINDOW_SELECT =
-  'id,title,category,author_name,published_at,created_at,views,image1,cover_image_key';
+  'id,title,category,author_name,published_at,created_at,views,image1';
 
 const ROW_LIGHT_SELECT =
   'id,title,author_id,author_name,status,submitted_at,published_at,rejected_at';
 
 const PATCH_RETURN_COLS =
-  'id,title,subtitle,summary,author_name,author_id,category,status,created_at,updated_at,submitted_at,published_at,rejected_at,views,cover_image_key';
+  'id,title,subtitle,summary,author_name,author_id,category,status,created_at,updated_at,submitted_at,published_at,rejected_at,views';
 
 const FULL_ARTICLE_SELECT =
-  'id,title,subtitle,author_id,author_name,category,content,content1,content2,content3,content4,image1,image2,image3,image4,image1_caption,image2_caption,image3_caption,image4_caption,summary,status,created_at,updated_at,submitted_at,published_at,rejected_at,views,cover_image_key';
+  'id,title,subtitle,author_id,author_name,category,content,content1,content2,content3,content4,image1,image2,image3,image4,image1_caption,image2_caption,image3_caption,image4_caption,summary,status,created_at,updated_at,submitted_at,published_at,rejected_at,views';
 
 const RAW_GATE_SELECT = 'id,author_id,author_name,status';
 
@@ -366,7 +366,6 @@ export const articlesDb = {
       image2_caption: data.image2_caption || '',
       image3_caption: data.image3_caption || '',
       image4_caption: data.image4_caption || '',
-      cover_image_key: data.coverImageKey || '',
       summary: data.summary || allContent.slice(0, 200) || '',
       status: st,
       created_at: now,
@@ -413,7 +412,35 @@ export const articlesDb = {
   async findById(id, authorId, reporterDisplayName) {
     const a = await resolveArticleRecord(id);
     if (!a) return null;
-    if (authorId == null) return mapDetail(a);
+    // Log raw DB row for diagnostics (do not include sensitive tokens)
+    try {
+      console.error('[nw/admin-article-detail] db.row.loaded', {
+        articleId: id,
+        keysPresent: a ? Object.keys(a) : [],
+        sampleFields: {
+          id: a && a.id,
+          title: a && a.title,
+          subtitle: a && a.subtitle,
+          author_name: a && a.author_name,
+          category: a && a.category,
+          status: a && a.status,
+          published_at: a && a.published_at,
+          cover_image_key: a && a.cover_image_key,
+        },
+      });
+    } catch (_) {}
+    if (authorId == null) {
+      try {
+        const mapped = mapDetail(a);
+        try {
+          console.error('[nw/admin-article-detail] detail.map.success', { articleId: id });
+        } catch (_) {}
+        return mapped;
+      } catch (mapErr) {
+        console.error('[nw/admin-article-detail] detail.map.error', { articleId: id, message: (mapErr && mapErr.message) || String(mapErr) });
+        throw mapErr;
+      }
+    }
     if (!reporterOwnsArticleRecord(a, authorId, reporterDisplayName)) return null;
     return mapDetail(a);
   },
@@ -448,7 +475,7 @@ export const articlesDb = {
     if (data.image2 !== undefined) patch.image2 = data.image2;
     if (data.image3 !== undefined) patch.image3 = data.image3;
     if (data.image4 !== undefined) patch.image4 = data.image4;
-    if (data.coverImageKey !== undefined) patch.cover_image_key = data.coverImageKey;
+    // Note: do not write cover_image_key column here to avoid errors if DB column is absent.
     if (data.image1_caption !== undefined) patch.image1_caption = data.image1_caption;
     if (data.image2_caption !== undefined) patch.image2_caption = data.image2_caption;
     if (data.image3_caption !== undefined) patch.image3_caption = data.image3_caption;
@@ -489,7 +516,7 @@ export const articlesDb = {
     if (data.image2 !== undefined) patch.image2 = data.image2;
     if (data.image3 !== undefined) patch.image3 = data.image3;
     if (data.image4 !== undefined) patch.image4 = data.image4;
-    if (data.coverImageKey !== undefined) patch.cover_image_key = data.coverImageKey;
+    // cover_image_key column may not exist in some DBs; avoid writing it here to prevent SQL errors.
     if (data.image1_caption !== undefined) patch.image1_caption = data.image1_caption;
     if (data.image2_caption !== undefined) patch.image2_caption = data.image2_caption;
     if (data.image3_caption !== undefined) patch.image3_caption = data.image3_caption;
