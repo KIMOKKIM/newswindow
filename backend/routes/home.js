@@ -223,6 +223,24 @@ homeRouter.get('/', async (req, res, next) => {
   try {
     if (rL.ok && Array.isArray(rL.value)) {
       const sanitized = sanitizeForPublicListPayloadArr(rL.value);
+      // If a specific raw row id is of interest (e.g., 85), log its raw image fields for diagnostics.
+      try {
+        const raw85 = (rL.value || []).find((rr) => rr && Number(rr.id) === 85);
+        if (raw85) {
+          console.info(
+            '[nw/home-diagnose] raw-row-85',
+            JSON.stringify({
+              id: raw85.id,
+              image1: raw85.image1 || raw85.image_1 || '',
+              image2: raw85.image2 || raw85.image_2 || '',
+              image3: raw85.image3 || raw85.image_3 || '',
+              image4: raw85.image4 || raw85.image_4 || '',
+              coverImageKey: raw85.cover_image_key || raw85.coverImageKey || '',
+              primaryImage: raw85.primaryImage || raw85.primary_image || '',
+            }),
+          );
+        }
+      } catch (_e) {}
       latestArticles = emergencyMinPublicJson()
         ? toUltraHomeLatest(sanitized)
         : toHomeBundleLatestMin(sanitized);

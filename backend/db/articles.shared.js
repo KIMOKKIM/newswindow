@@ -549,6 +549,7 @@ export function sanitizeHeroPublicResponseArr(arr) {
       thumb: u,
       imageUrl: u,
       primaryImage: u,
+      cardImage: u,
       heroImageCandidates: urlCandidates,
     };
   });
@@ -612,9 +613,10 @@ export function toHomeBundleLatestMin(arr) {
     summary: x.summary,
     published_at: x.published_at,
     status: x.status,
-    thumb: stripDataUriThumbString(x.thumb),
-    imageUrl: stripDataUriThumbString(x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
-    primaryImage: stripDataUriThumbString(x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
+    // Use server canonical cardImage when available for consistent card rendering.
+    thumb: stripDataUriThumbString(x.cardImage || x.thumb),
+    imageUrl: stripDataUriThumbString(x.cardImage || x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
+    primaryImage: stripDataUriThumbString(x.cardImage || x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
   }));
 }
 
@@ -627,8 +629,8 @@ export function toHomeBundlePopularMin(arr) {
     author_name: x.author_name,
     published_at: x.published_at,
     views: Number(x.views) || 0,
-    thumb: stripDataUriThumbString(x.thumb),
-    primaryImage: stripDataUriThumbString(x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
+    thumb: stripDataUriThumbString(x.cardImage || x.thumb),
+    primaryImage: stripDataUriThumbString(x.cardImage || x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
   }));
 }
 
