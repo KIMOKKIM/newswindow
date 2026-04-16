@@ -56,6 +56,59 @@ async function coverImageKeyColumnExists() {
   return COVER_IMAGE_KEY_EXISTS;
 }
 
+/** Parse data:URI -> { mime, buffer, ext } or null */
+function parseDataUri(dataUri) {
+  if (!dataUri || typeof dataUri !== 'string') return null;
+  const m = dataUri.match(/^data:([^;]+);base64,(.+)$/i);
+  if (!m) return null;
+  const mime = m[1];
+  const b64 = m[2];
+  try {
+    const buffer = Buffer.from(b64, 'base64');
+    const extMatch = mime.match(/\/([a-z0-9.+-]+)$/i);
+    const ext = extMatch ? extMatch[1] : 'bin';
+    return { mime, buffer, ext };
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Upload data URI buffer to Supabase Storage and return public URL, or null on failure. */
+async function uploadDataUriToStorage(dataUri, filenameHint) {
+  try {
+    const parsed = parseDataUri(dataUri);
+    if (!parsed) return null;
+    let client;
+    try {
+      client = sb();
+    } catch (e) {
+      return null;
+    }
+    const bucket = String(process.env.SUPABASE_ARTICLES_BUCKET || 'articles').trim() || 'articles';
+    const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + Math.floor(Math.random()*1e6);
+    const name = filenameHint ? `${uuid}-${filenameHint}` : uuid;
+    const path = `articles/${new Date().toISOString().slice(0,10)}/${name}.${parsed.ext}`;
+    const { error: upErr } = await client.storage.from(bucket).upload(path, parsed.buffer, { upsert: true });
+    if (upErr) {
+      console.error('[nw/upload] upload error', upErr.message || upErr);
+      return null;
+    }
+    // get public URL
+    try {
+      const { data: urlData } = client.storage.from(bucket).getPublicUrl(path);
+      if (urlData && urlData.publicUrl) return urlData.publicUrl;
+    } catch (e) {}
+    // fallback to path-based URL using SUPABASE_URL if available
+    const sbUrl = String(process.env.SUPABASE_URL || process.env.NW_PUBLIC_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    if (sbUrl) {
+      return `${sbUrl}/storage/v1/object/public/${bucket}/${path}`.replace(/\/+/g, '/').replace(':/', '://');
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Public feed SQL filter: PostgREST `.in()` is case-sensitive; `.or()` covers common DB casings.
  * Rows are still narrowed by isPublicFeedReadableStatus for API consistency.
@@ -397,6 +450,19 @@ export const articlesDb = {
       rejected_at: st === 'rejected' ? now : null,
       views: 0,
     };
+    // If any imageN is a data: URI, attempt to upload to Supabase Storage and replace with public URL.
+    try {
+      for (const n of [1,2,3,4]) {
+        const key = 'image' + n;
+        const val = data && data[key] ? String(data[key]) : '';
+        if (val && val.indexOf('data:') === 0) {
+          const uploaded = await uploadDataUriToStorage(val, key);
+          if (uploaded) row[key] = uploaded;
+        } else {
+          row[key] = val || '';
+        }
+      }
+    } catch (_) {}
     // If DB supports cover_image_key column, include it.
     try {
       if (await coverImageKeyColumnExists()) {
@@ -507,6 +573,16 @@ export const articlesDb = {
     try {
       if ((data.coverImageKey !== undefined || data.cover_image_key !== undefined) && (await coverImageKeyColumnExists())) {
         patch.cover_image_key = data.coverImageKey || data.cover_image_key || '';
+      }
+    } catch (_) {}
+    // If any imageN is a data: URI, attempt to upload to Supabase Storage and replace with public URL.
+    try {
+      for (const n of [1,2,3,4]) {
+        const k = 'image' + n;
+        if (data[k] !== undefined && typeof data[k] === 'string' && String(data[k]).indexOf('data:') === 0) {
+          const uploaded = await uploadDataUriToStorage(String(data[k]), k);
+          if (uploaded) patch[k] = uploaded;
+        }
       }
     } catch (_) {}
     // Note: do not write cover_image_key column here to avoid errors if DB column is absent.
