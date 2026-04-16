@@ -364,20 +364,35 @@ a:hover {
     }
 }
 
+/* 메가메뉴: 전체 폭·컬럼 간격 compact (1fr 제거로 컬럼 무한 확장 방지) */
 .nav-mega-inner {
-    padding: 20px 20px 24px;
+    padding: 14px 14px 18px;
+}
+
+@media (min-width: 769px) {
+    /* 카탈로그 실제 콘텐츠 폭만 제한(조정: 920–1040px). .container 1200px보다 좁게 */
+    .nav-mega-panel .nav-mega-inner.container {
+        max-width: 980px;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
 }
 
 .nav-mega-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-    gap: 12px 24px;
+    /* max를 auto: 제목·하위 링크 너비만큼만 차지, 남는 공간으로 컬럼이 늘어나지 않음 */
+    grid-template-columns: repeat(auto-fill, minmax(116px, auto));
+    gap: 10px 16px;
     align-items: start;
+    justify-content: start;
+    width: 100%;
 }
 
 @media (min-width: 1200px) {
     .nav-mega-grid {
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(108px, auto));
+        column-gap: 14px;
+        row-gap: 10px;
     }
 }
 
@@ -427,8 +442,8 @@ a:hover {
 .nav-mega-col.is-mega-active {
     background: rgba(33, 150, 243, 0.07);
     border-radius: 6px;
-    padding: 8px 10px 12px;
-    margin: -8px -10px -12px;
+    padding: 6px 8px 10px;
+    margin: -6px -8px -10px;
 }
 
 .nav-bar .nav-top-item.is-mega-active > a {
