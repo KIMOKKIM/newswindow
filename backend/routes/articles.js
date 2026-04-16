@@ -522,6 +522,23 @@ articlesRouter.post('/', authMiddleware, async (req, res, next) => {
     }
     const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status, coverImageKey } =
       req.body;
+    try {
+      console.error(
+        '[nw/article-save-body]',
+        JSON.stringify({
+          route: req.originalUrl || req.url,
+          reqId: req.nwRequestId,
+          keys: Object.keys(req.body || {}),
+          lens: {
+            image1: String(req.body.image1 || '').length,
+            image2: String(req.body.image2 || '').length,
+            image3: String(req.body.image3 || '').length,
+            image4: String(req.body.image4 || '').length,
+          },
+          coverImageKey: String(req.body.coverImageKey || req.body.cover_image_key || '').slice(0, 200),
+        }),
+      );
+    } catch (_) {}
     const st = canonicalStoreStatus(status != null ? status : 'draft');
     if (st === 'submitted') {
       try {
@@ -596,6 +613,23 @@ articlesRouter.patch('/:id', authMiddleware, async (req, res, next) => {
     if (role === 'reporter') {
       const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status, coverImageKey } =
         req.body;
+      try {
+        console.error(
+          '[nw/article-save-body]',
+          JSON.stringify({
+            route: req.originalUrl || req.url,
+            reqId: req.nwRequestId,
+            keys: Object.keys(req.body || {}),
+            lens: {
+              image1: String(req.body.image1 || '').length,
+              image2: String(req.body.image2 || '').length,
+              image3: String(req.body.image3 || '').length,
+              image4: String(req.body.image4 || '').length,
+            },
+            coverImageKey: String(req.body.coverImageKey || req.body.cover_image_key || '').slice(0, 200),
+          }),
+        );
+      } catch (_) {}
       const tAfterBody = Date.now();
       const raw = await articlesDb.recordLightForPatch(req.params.id);
       if (!raw) return res.status(404).json({ error: '기사를 찾을 수 없습니다.' });

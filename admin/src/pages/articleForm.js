@@ -242,6 +242,23 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     // coverImageKey radio
     const coverEl = app.querySelector('input[name="coverImageKey"]:checked');
     payload.coverImageKey = coverEl ? String(coverEl.value || '').trim() : '';
+    // Debug: log gathered payload summary (do not log full base64 to avoid huge logs)
+    try {
+      console.info(
+        '[nw/gatherPayload]',
+        JSON.stringify({
+          id: article && article.id,
+          keys: Object.keys(payload || {}),
+          imageLens: {
+            image1: String(payload.image1 || '').length,
+            image2: String(payload.image2 || '').length,
+            image3: String(payload.image3 || '').length,
+            image4: String(payload.image4 || '').length,
+          },
+          coverImageKey: payload.coverImageKey || '',
+        }),
+      );
+    } catch (_) {}
     return payload;
   }
 
