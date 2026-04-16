@@ -101,6 +101,27 @@ export async function renderArticleForm(app, { navigate, articleId }) {
   const cat = article ? article.category || '' : '';
   const path = dashboardPathForRole(session.role);
 
+  // Determine initial coverImageKey to restore representative selection on form load.
+  const initialCoverKey = (() => {
+    if (!article || typeof article !== 'object') return '';
+    let ck = article.coverImageKey || article.cover_image_key || '';
+    if (!ck && article.primaryImage) {
+      try {
+        const pi = String(article.primaryImage || '').trim();
+        if (pi) {
+          for (const n of [1, 2, 3, 4]) {
+            const v = article['image' + n];
+            if (v && String(v).trim() === pi) {
+              ck = 'image' + n;
+              break;
+            }
+          }
+        }
+      } catch (_e) {}
+    }
+    return ck;
+  })();
+
   const body = `
     <p><a href="${path}" data-link>← 목록</a></p>
     <form id="artForm" class="nw-card nw-article-form">
@@ -137,21 +158,21 @@ export async function renderArticleForm(app, { navigate, articleId }) {
         <textarea id="c4" rows="5">${esc(article?.content4 || '')}</textarea>
       </div>
       ${[1, 2, 3, 4]
-        .map(
-          (n) => {
-            const checked = article && (article.coverImageKey === 'image' + n || article.cover_image_key === 'image' + n) ? 'checked' : '';
-            return `
-        <div class="nw-form-row nw-file-block">
+        .map((n) => {
+          const checked = initialCoverKey === 'image' + n ? 'checked' : '';
+          return `
+        <div class="nw-form-row nw-file-block" id="fileBlock${n}">
           <label>이미지 ${n}</label>
           <input type="file" id="img${n}" accept="image/*" />
+          <div id="imgPreview${n}" class="nw-img-preview" aria-live="polite"></div>
+          <p id="imgStatus${n}" class="nw-muted" style="margin:4px 0 0 0;"></p>
           <label>이미지 ${n} 설명</label>
           <textarea id="cap${n}" rows="2">${esc(article?.['image' + n + '_caption'] || '')}</textarea>
           <div class="nw-form-row">
             <label><input type="radio" name="coverImageKey" value="image${n}" ${checked}/> 대표이미지로 선택</label>
           </div>
         </div>`;
-          }
-        )
+        })
         .join('')}
       <p id="formErr" class="nw-error" style="display:none;"></p>
       <p id="formSaveLongWait" class="nw-muted nw-dash-longwait" hidden role="status">${NW_FORM_LONG_WAIT_HINT}</p>
@@ -417,4 +438,39 @@ export async function renderArticleForm(app, { navigate, articleId }) {
   function escAttr(s) {
     return esc(s).replace(/"/g, '&quot;');
   }
+  // Populate preview areas and status text for each image slot without attempting to set file inputs.
+  try {
+    for (const n of [1, 2, 3, 4]) {
+      const imgKey = 'image' + n;
+      const previewEl = app.querySelector('#imgPreview' + n);
+      const statusEl = app.querySelector('#imgStatus' + n);
+      if (previewEl) previewEl.innerHTML = '';
+      if (statusEl) statusEl.textContent = '';
+      let src = '';
+      if (article && article[imgKey]) src = String(article[imgKey]).trim();
+      // If no slot URL but article.primaryImage equals this slot's value, show that.
+      if (!src && article && article.primaryImage) {
+        try {
+          if (String(article.primaryImage).trim() === String(article[imgKey] || '').trim()) {
+            src = String(article.primaryImage).trim();
+          }
+        } catch (_e) {}
+      }
+      if (src) {
+        if (previewEl) {
+          const im = document.createElement('img');
+          im.src = src;
+          im.alt = '';
+          im.style.maxWidth = '320px';
+          im.style.display = 'block';
+          im.style.marginTop = '6px';
+          previewEl.appendChild(im);
+        }
+        if (statusEl)
+          statusEl.textContent = '현재 저장된 이미지 있음 — 새 파일을 선택하면 기존 이미지를 교체합니다.';
+      } else {
+        if (statusEl) statusEl.textContent = '현재 저장된 이미지 없음';
+      }
+    }
+  } catch (_e) {}
 }
