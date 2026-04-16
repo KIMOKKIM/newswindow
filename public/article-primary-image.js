@@ -78,7 +78,8 @@
 
     function normalizedImage1(article) {
         if (!article || typeof article !== 'object') return '';
-        var v = article.image1;
+        // Prefer explicit canonical primaryImage (set by server) first, then legacy image1.
+        var v = article.primaryImage != null && String(article.primaryImage).trim() ? article.primaryImage : article.image1;
         if (v == null || String(v).trim() === '') return '';
         return normalizeThumbString(v);
     }
@@ -91,6 +92,7 @@
         var r = normalizedImage1(article);
         if (r) return r;
         var keyOrder = [
+            'primaryImage',
             'hero_image',
             'heroImage',
             'heroImageUrl',

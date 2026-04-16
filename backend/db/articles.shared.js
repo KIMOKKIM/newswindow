@@ -374,17 +374,93 @@ const PUBLIC_LIST_DROP_KEYS = new Set([
 export function sanitizeForPublicListPayload(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const out = { ...obj };
+
+  // Ensure a stable, explicit primary image is present for public list/home payloads.
+  // Priority:
+  //  1) image1 (explicit article field)
+  //  2) existing thumb/imageUrl fields
+  //  3) other hero candidates (image2.., hero fields)
+  //  4) data URI fallback (limited by publicDataUriMaxChars)
+  try {
+    // Prefer raw image1 when available and normalize it.
+    const rawImage1 = obj && obj.image1 ? String(obj.image1).trim() : '';
+    let primary = rawImage1 ? normalizePublicThumbString(rawImage1) : '';
+
+    // If no valid image1, use existing thumb/imageUrl or first non-data candidate.
+    if (!primary) {
+      const existingThumb = obj && obj.thumb ? String(obj.thumb).trim() : '';
+      const existingImageUrl = obj && (obj.imageUrl || obj.image_url) ? String(obj.imageUrl || obj.image_url).trim() : '';
+      if (existingThumb) primary = normalizePublicThumbString(existingThumb);
+      if (!primary && existingImageUrl) primary = normalizePublicThumbString(existingImageUrl);
+    }
+
+    // Still missing: derive from hero image candidates (this will check image2.. and other keys)
+    if (!primary) {
+      const cands = listHeroImageCandidates(obj);
+      for (const u of cands) {
+        if (!u) continue;
+        // prefer non-data URLs first
+        if (!/^data:/i.test(u)) {
+          primary = u;
+          break;
+        }
+        if (!primary) primary = u;
+      }
+    }
+
+    // Apply primary into normalized fields so front-end always has a reliable key to read.
+    if (primary) {
+      // Force-unify all public-facing image keys to the same normalized primary value.
+      // Do not only set when empty — overwrite to ensure image1 takes precedence.
+      const normPrimary = normalizePublicThumbString(primary) || primary;
+      // Validate normalized primary (may become empty string if invalid).
+      const finalPrimary = normPrimary && String(normPrimary).trim() ? normPrimary : '';
+      if (finalPrimary) {
+        out.thumb = finalPrimary;
+        out.imageUrl = finalPrimary;
+        out.image_url = finalPrimary;
+        out.primaryImage = finalPrimary;
+      } else {
+        // Ensure keys are not left with invalid values.
+        if ('thumb' in out) delete out.thumb;
+        if ('imageUrl' in out) delete out.imageUrl;
+        if ('image_url' in out) delete out.image_url;
+        if ('primaryImage' in out) delete out.primaryImage;
+      }
+    }
+  } catch (e) {
+    // non-fatal: proceed with best-effort below
+  }
+
+  // Remove heavy/body/image raw fields that should not be included in public list payloads.
   for (const k of PUBLIC_LIST_DROP_KEYS) {
     if (k in out) delete out[k];
   }
-  const th = out.thumb != null ? String(out.thumb).trim() : '';
-  if (th) {
-    if (/^data:/i.test(th)) {
-      delete out.thumb;
-    } else if (th.length > 2048) {
-      delete out.thumb;
+
+  // Validate public image fields: drop data URIs (when not allowed), overly long values, or empty strings.
+  const publicImageKeys = ['thumb', 'imageUrl', 'image_url', 'primaryImage'];
+  for (const k of publicImageKeys) {
+    if (!(k in out)) continue;
+    const v = out[k] != null ? String(out[k]).trim() : '';
+    if (!v) {
+      delete out[k];
+      continue;
     }
+    // normalizePublicThumbString will return '' for invalid/oversized data URIs or invalid paths
+    const nv = normalizePublicThumbString(v);
+    if (!nv) {
+      delete out[k];
+      continue;
+    }
+    // Also ensure nv isn't longer than reasonable public URL length
+    if (nv.length > 2048) {
+      delete out[k];
+      continue;
+    }
+    // Keep normalized value
+    out[k] = nv;
   }
+
   return out;
 }
 
@@ -412,6 +488,7 @@ export function sanitizeHeroPublicResponseArr(arr) {
       published_at: String(r.published_at ?? ''),
       thumb: u,
       imageUrl: u,
+      primaryImage: u,
       heroImageCandidates: urlCandidates,
     };
   });
@@ -476,6 +553,8 @@ export function toHomeBundleLatestMin(arr) {
     published_at: x.published_at,
     status: x.status,
     thumb: stripDataUriThumbString(x.thumb),
+    imageUrl: stripDataUriThumbString(x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
+    primaryImage: stripDataUriThumbString(x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
   }));
 }
 
@@ -489,6 +568,7 @@ export function toHomeBundlePopularMin(arr) {
     published_at: x.published_at,
     views: Number(x.views) || 0,
     thumb: stripDataUriThumbString(x.thumb),
+    primaryImage: stripDataUriThumbString(x.primaryImage || x.imageUrl || x.image_url || x.thumb || ''),
   }));
 }
 
