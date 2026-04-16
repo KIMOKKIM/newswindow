@@ -373,7 +373,8 @@ a:hover {
     /* 카탈로그 실제 콘텐츠 폭만 제한(조정: 920–1040px). .container 1200px보다 좁게 */
     .nav-mega-panel .nav-mega-inner.container {
         max-width: 980px;
-        padding-left: 16px;
+        /* 좌측만 축소(16px→8px): 첫 컬럼 시작선 당김, 우측·column-gap은 유지 */
+        padding-left: 8px;
         padding-right: 16px;
     }
 }
