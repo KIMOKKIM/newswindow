@@ -565,14 +565,15 @@ export const articlesDb = {
     if (data.content2 !== undefined) patch.content2 = data.content2;
     if (data.content3 !== undefined) patch.content3 = data.content3;
     if (data.content4 !== undefined) patch.content4 = data.content4;
-    if (data.image1 !== undefined) patch.image1 = data.image1;
-    if (data.image2 !== undefined) patch.image2 = data.image2;
-    if (data.image3 !== undefined) patch.image3 = data.image3;
-    if (data.image4 !== undefined) patch.image4 = data.image4;
-    // If DB supports cover_image_key column, write it when provided.
+    if (data.image1 !== undefined && String(data.image1 || '').trim() !== '') patch.image1 = data.image1;
+    if (data.image2 !== undefined && String(data.image2 || '').trim() !== '') patch.image2 = data.image2;
+    if (data.image3 !== undefined && String(data.image3 || '').trim() !== '') patch.image3 = data.image3;
+    if (data.image4 !== undefined && String(data.image4 || '').trim() !== '') patch.image4 = data.image4;
+    // If DB supports cover_image_key column, write it when provided and non-empty.
     try {
-      if ((data.coverImageKey !== undefined || data.cover_image_key !== undefined) && (await coverImageKeyColumnExists())) {
-        patch.cover_image_key = data.coverImageKey || data.cover_image_key || '';
+      const covVal = data.coverImageKey !== undefined ? data.coverImageKey : data.cover_image_key;
+      if (covVal !== undefined && String(covVal || '').trim() !== '' && (await coverImageKeyColumnExists())) {
+        patch.cover_image_key = String(covVal).trim();
       }
     } catch (_) {}
     // If any imageN is a data: URI, attempt to upload to Supabase Storage and replace with public URL.
@@ -681,11 +682,17 @@ export const articlesDb = {
     if (data.content2 !== undefined) patch.content2 = data.content2;
     if (data.content3 !== undefined) patch.content3 = data.content3;
     if (data.content4 !== undefined) patch.content4 = data.content4;
-    if (data.image1 !== undefined) patch.image1 = data.image1;
-    if (data.image2 !== undefined) patch.image2 = data.image2;
-    if (data.image3 !== undefined) patch.image3 = data.image3;
-    if (data.image4 !== undefined) patch.image4 = data.image4;
-    // cover_image_key column may not exist in some DBs; avoid writing it here to prevent SQL errors.
+    if (data.image1 !== undefined && String(data.image1 || '').trim() !== '') patch.image1 = data.image1;
+    if (data.image2 !== undefined && String(data.image2 || '').trim() !== '') patch.image2 = data.image2;
+    if (data.image3 !== undefined && String(data.image3 || '').trim() !== '') patch.image3 = data.image3;
+    if (data.image4 !== undefined && String(data.image4 || '').trim() !== '') patch.image4 = data.image4;
+    // cover_image_key column may not exist in some DBs; write only if non-empty to avoid accidental clearing.
+    try {
+      const covValStaff = data.coverImageKey !== undefined ? data.coverImageKey : data.cover_image_key;
+      if (covValStaff !== undefined && String(covValStaff || '').trim() !== '' && (await coverImageKeyColumnExists())) {
+        patch.cover_image_key = String(covValStaff).trim();
+      }
+    } catch (_) {}
     if (data.image1_caption !== undefined) patch.image1_caption = data.image1_caption;
     if (data.image2_caption !== undefined) patch.image2_caption = data.image2_caption;
     if (data.image3_caption !== undefined) patch.image3_caption = data.image3_caption;
