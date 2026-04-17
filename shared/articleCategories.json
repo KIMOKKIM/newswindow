@@ -67,9 +67,10 @@
     {
       "id": "prosecution-police",
       "title": "검·경",
+      "value": "prosecution-police",
       "items": [
-        { "value": "검·경-검찰", "label": "검찰" },
-        { "value": "검·경-경찰", "label": "경찰" }
+        { "value": "prosecution-police-prosecution", "label": "검찰" },
+        { "value": "prosecution-police-police", "label": "경찰" }
       ]
     }
   ],

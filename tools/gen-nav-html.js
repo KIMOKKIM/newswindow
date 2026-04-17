@@ -5,7 +5,9 @@ const d = JSON.parse(fs.readFileSync(p, 'utf8'));
 const cols = [];
 let colIdx = 0;
 for (const g of d.groups || []) {
-  cols.push({ major: String(g.title || '').trim(), label: String(g.title || ''), items: g.items || [], col: colIdx++ });
+  const major = String(g.value != null ? g.value : g.title || '').trim();
+  const label = String(g.title || major || '').trim();
+  cols.push({ major: major, label: label, items: g.items || [], col: colIdx++ });
 }
 for (const t of d.topLevel || []) {
   const mv = String(t.value || '').trim();

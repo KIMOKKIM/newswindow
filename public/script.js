@@ -162,8 +162,10 @@ function nwRenderSiteNav() {
     var gi;
     for (gi = 0; gi < groups.length; gi++) {
         var g = groups[gi];
-        var majorG = String(g.title || '').trim();
-        cols.push({ major: majorG, label: majorG, items: g.items || [], col: colIdx++ });
+        // Use slug value if provided, otherwise fall back to title (legacy)
+        var majorG = String((g.value != null ? g.value : g.title) || '').trim();
+        var labelG = String(g.title || majorG || '').trim();
+        cols.push({ major: majorG, label: labelG, items: g.items || [], col: colIdx++ });
     }
     for (gi = 0; gi < top.length; gi++) {
         var t = top[gi];

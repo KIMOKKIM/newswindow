@@ -557,6 +557,17 @@ a:hover {
     text-decoration: none;
 }
 
+/* Reduce horizontal padding on narrower screens so top nav stays on one line */
+@media (max-width: 1200px) and (min-width: 769px) {
+    .nav-bar .nav-list a {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    .nav-menu-btn {
+        padding: 10px 12px;
+    }
+}
+
 .nav-bar .nav-list a.nav-highlight {
     background: var(--color-nav-light);
 }
