@@ -692,7 +692,7 @@ export function toHomeBundlePersonSpotlight(row) {
   const title = String(row.title ?? '').trim();
   const summaryRaw = String(row.summary ?? '').trim();
   const snippet = summaryRaw
-    ? plainTextSnippetFromRich(summaryRaw, 200)
+    ? plainTextSnippetFromRich(summaryRaw, 120)
     : plainTextSnippetFromRich(title, 120);
   return {
     id: Number(row.id),

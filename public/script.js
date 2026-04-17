@@ -2379,13 +2379,24 @@ function nwRenderPersonSpotlightSidebar(person) {
     }
     var title = cleanBrokenKoreanText(person.title, '\uC81C\uBAA9 \uC900\uBE44\uC911');
     var sn = person.snippet ? cleanBrokenKoreanText(person.snippet, '') : '';
+    // Escape snippet and title to avoid HTML injection.
+    var escHtml = function (s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    };
+    var titleEsc = escHtml(title);
+    var snEsc = escHtml(sn);
+    // Add class 'people-item' so existing .people-item p CSS (2-line clamp) applies.
     host.innerHTML =
-        '<a' +
-        publicArticleAnchorAttrs(person.id) +
+        '<a class="people-item"' +
+        publicArticleAnchorAttrs(person.id).replace(/^href/, ' href') +
         '><strong>' +
-        title +
+        titleEsc +
         '</strong><p>' +
-        sn +
+        snEsc +
         '</p></a>';
 }
 
