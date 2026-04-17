@@ -610,6 +610,34 @@ export const articlesDb = {
         .select(PATCH_RETURN_COLS)
         .single();
       if (error) throw error;
+      // Diagnostic: read raw DB row right after update and log image fields
+      try {
+        const { data: rawAfter, error: rawErr } = await sb()
+          .from('articles')
+          .select('id,image1,image2,image3,image4,cover_image_key,primary_image')
+          .eq('id', a.id)
+          .maybeSingle();
+        if (!rawErr && rawAfter) {
+          try {
+            console.error(
+              '[nw/article-after-update]',
+              JSON.stringify({
+                articleId: a.id,
+                image1: rawAfter.image1 || '',
+                image2: rawAfter.image2 || '',
+                image3: rawAfter.image3 || '',
+                image4: rawAfter.image4 || '',
+                cover_image_key: rawAfter.cover_image_key || '',
+                primary_image: rawAfter.primary_image || '',
+              }),
+            );
+          } catch (_) {}
+        } else if (rawErr) {
+          try {
+            console.error('[nw/article-after-update] raw-read-error', String(rawErr && rawErr.message ? rawErr.message : rawErr));
+          } catch (_) {}
+        }
+      } catch (_) {}
       return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
     } catch (e) {
       // Log update failure for diagnostics
