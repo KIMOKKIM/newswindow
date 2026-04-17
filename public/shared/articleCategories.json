@@ -63,6 +63,16 @@
         { "value": "이슈-여행&음식", "label": "여행&음식" }
       ]
     }
+    ,
+    {
+      "id": "prosecution-police",
+      "title": "검·경",
+      "value": "prosecution-police",
+      "items": [
+        { "value": "prosecution-police-prosecution", "label": "검찰" },
+        { "value": "prosecution-police-police", "label": "경찰" }
+      ]
+    }
   ],
   "topLevel": [
     { "value": "국제", "label": "국제" },
