@@ -647,6 +647,9 @@ export const articlesDb = {
                 }),
               );
             } catch (_) {}
+            try {
+              console.error('[nw/article-after-update-full]', JSON.stringify({ articleId: a.id, rawRow: rawAfter }));
+            } catch (_) {}
           } else if (rawErr) {
             try {
               console.error('[nw/article-after-update] raw-read-error', String(rawErr && rawErr.message ? rawErr.message : rawErr));

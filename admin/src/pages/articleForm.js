@@ -241,7 +241,18 @@ export async function renderArticleForm(app, { navigate, articleId }) {
     }
     // coverImageKey radio
     const coverEl = app.querySelector('input[name="coverImageKey"]:checked');
-    payload.coverImageKey = coverEl ? String(coverEl.value || '').trim() : '';
+    let coverKey = coverEl ? String(coverEl.value || '').trim() : '';
+    // If no explicit selection, default to first non-empty image slot (image1..image4)
+    if (!coverKey) {
+      for (const n of [1, 2, 3, 4]) {
+        const key = 'image' + n;
+        if (payload[key] && String(payload[key]).trim()) {
+          coverKey = 'image' + n;
+          break;
+        }
+      }
+    }
+    payload.coverImageKey = coverKey || '';
     // Debug: log gathered payload summary (do not log full base64 to avoid huge logs)
     try {
       console.info(
