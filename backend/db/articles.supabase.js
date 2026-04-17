@@ -599,53 +599,68 @@ export const articlesDb = {
       if (next === 'published') patch.published_at = a.published_at || now;
       if (next === 'rejected') patch.rejected_at = a.rejected_at || now;
     }
-    try {
       try {
-        console.error('[nw/article-patch-patch]', JSON.stringify({ articleId: a.id, patchKeys: Object.keys(patch), patchSample: { image1: String(patch.image1 || '').slice(0,200), image2: String(patch.image2 || '').slice(0,200), cover_image_key: patch.cover_image_key || '' } }));
-      } catch (_) {}
-      const { data: updated, error } = await sb()
-        .from('articles')
-        .update(patch)
-        .eq('id', a.id)
-        .select(PATCH_RETURN_COLS)
-        .single();
-      if (error) throw error;
-      // Diagnostic: read raw DB row right after update and log image fields
-      try {
-        const { data: rawAfter, error: rawErr } = await sb()
+        try {
+          console.error('[nw/article-patch-patch]', JSON.stringify({ articleId: a.id, patchKeys: Object.keys(patch), patchSample: { image1: String(patch.image1 || '').slice(0,200), image2: String(patch.image2 || '').slice(0,200), cover_image_key: patch.cover_image_key || '' } }));
+        } catch (_) {}
+        // Built patch diagnostic (presence/values)
+        try {
+          console.error('[nw/article-patch-built]', JSON.stringify({
+            articleId: a.id,
+            patchKeys: Object.keys(patch || {}),
+            imageFlags: {
+              hasImage1: Boolean(patch && patch.image1 && String(patch.image1).trim() !== ''),
+              hasImage2: Boolean(patch && patch.image2 && String(patch.image2).trim() !== ''),
+              hasImage3: Boolean(patch && patch.image3 && String(patch.image3).trim() !== ''),
+              hasImage4: Boolean(patch && patch.image4 && String(patch.image4).trim() !== ''),
+            },
+            coverPresent: Boolean(patch && (patch.cover_image_key || patch.coverImageKey)),
+          }));
+        } catch (_) {}
+        const { data: updated, error } = await sb()
           .from('articles')
-          .select('id,image1,image2,image3,image4,cover_image_key,primary_image')
+          .update(patch)
           .eq('id', a.id)
-          .maybeSingle();
-        if (!rawErr && rawAfter) {
-          try {
-            console.error(
-              '[nw/article-after-update]',
-              JSON.stringify({
-                articleId: a.id,
-                image1: rawAfter.image1 || '',
-                image2: rawAfter.image2 || '',
-                image3: rawAfter.image3 || '',
-                image4: rawAfter.image4 || '',
-                cover_image_key: rawAfter.cover_image_key || '',
-                primary_image: rawAfter.primary_image || '',
-              }),
-            );
-          } catch (_) {}
-        } else if (rawErr) {
-          try {
-            console.error('[nw/article-after-update] raw-read-error', String(rawErr && rawErr.message ? rawErr.message : rawErr));
-          } catch (_) {}
-        }
-      } catch (_) {}
-      return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
-    } catch (e) {
-      // Log update failure for diagnostics
-      try {
-        console.error('[nw/article-update-failed]', JSON.stringify({ articleId: a.id, err: String(e && e.message ? e.message : e) }));
-      } catch (_) {}
-      throw e;
-    }
+          .select(PATCH_RETURN_COLS)
+          .single();
+        if (error) throw error;
+        // Diagnostic: read raw DB row right after update and log image fields
+        try {
+          const { data: rawAfter, error: rawErr } = await sb()
+            .from('articles')
+            .select('id,image1,image2,image3,image4,cover_image_key,primary_image,updated_at')
+            .eq('id', a.id)
+            .maybeSingle();
+          if (!rawErr && rawAfter) {
+            try {
+              console.error(
+                '[nw/article-after-update]',
+                JSON.stringify({
+                  articleId: a.id,
+                  image1: rawAfter.image1 || '',
+                  image2: rawAfter.image2 || '',
+                  image3: rawAfter.image3 || '',
+                  image4: rawAfter.image4 || '',
+                  cover_image_key: rawAfter.cover_image_key || '',
+                  primary_image: rawAfter.primary_image || '',
+                  updated_at: rawAfter.updated_at || '',
+                }),
+              );
+            } catch (_) {}
+          } else if (rawErr) {
+            try {
+              console.error('[nw/article-after-update] raw-read-error', String(rawErr && rawErr.message ? rawErr.message : rawErr));
+            } catch (_) {}
+          }
+        } catch (_) {}
+        return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
+      } catch (e) {
+        // Log update failure for diagnostics
+        try {
+          console.error('[nw/article-update-failed]', JSON.stringify({ articleId: a.id, err: String(e && e.message ? e.message : e) }));
+        } catch (_) {}
+        throw e;
+      }
     if (error) throw error;
     return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
   },
