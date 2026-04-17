@@ -108,6 +108,8 @@ async function uploadDataUriToStorage(dataUri, filenameHint) {
     return null;
   }
 }
+// Export helpers for external scripts
+export { parseDataUri, uploadDataUriToStorage };
 
 /**
  * Public feed SQL filter: PostgREST `.in()` is case-sensitive; `.or()` covers common DB casings.
@@ -565,14 +567,21 @@ export const articlesDb = {
     if (data.content2 !== undefined) patch.content2 = data.content2;
     if (data.content3 !== undefined) patch.content3 = data.content3;
     if (data.content4 !== undefined) patch.content4 = data.content4;
-    if (data.image1 !== undefined && String(data.image1 || '').trim() !== '') patch.image1 = data.image1;
-    if (data.image2 !== undefined && String(data.image2 || '').trim() !== '') patch.image2 = data.image2;
-    if (data.image3 !== undefined && String(data.image3 || '').trim() !== '') patch.image3 = data.image3;
-    if (data.image4 !== undefined && String(data.image4 || '').trim() !== '') patch.image4 = data.image4;
-    // If DB supports cover_image_key column, write it when provided and non-empty.
+    // imageN: explicit null => delete (write empty string). Otherwise only write non-empty strings to avoid accidental overwrite.
+    if (data.image1 === null) patch.image1 = '';
+    else if (data.image1 !== undefined && String(data.image1 || '').trim() !== '') patch.image1 = data.image1;
+    if (data.image2 === null) patch.image2 = '';
+    else if (data.image2 !== undefined && String(data.image2 || '').trim() !== '') patch.image2 = data.image2;
+    if (data.image3 === null) patch.image3 = '';
+    else if (data.image3 !== undefined && String(data.image3 || '').trim() !== '') patch.image3 = data.image3;
+    if (data.image4 === null) patch.image4 = '';
+    else if (data.image4 !== undefined && String(data.image4 || '').trim() !== '') patch.image4 = data.image4;
+    // cover_image_key: explicit null => delete (write empty string). Otherwise only write non-empty values.
     try {
       const covVal = data.coverImageKey !== undefined ? data.coverImageKey : data.cover_image_key;
-      if (covVal !== undefined && String(covVal || '').trim() !== '' && (await coverImageKeyColumnExists())) {
+      if (covVal === null && (await coverImageKeyColumnExists())) {
+        patch.cover_image_key = '';
+      } else if (covVal !== undefined && String(covVal || '').trim() !== '' && (await coverImageKeyColumnExists())) {
         patch.cover_image_key = String(covVal).trim();
       }
     } catch (_) {}
@@ -682,14 +691,21 @@ export const articlesDb = {
     if (data.content2 !== undefined) patch.content2 = data.content2;
     if (data.content3 !== undefined) patch.content3 = data.content3;
     if (data.content4 !== undefined) patch.content4 = data.content4;
-    if (data.image1 !== undefined && String(data.image1 || '').trim() !== '') patch.image1 = data.image1;
-    if (data.image2 !== undefined && String(data.image2 || '').trim() !== '') patch.image2 = data.image2;
-    if (data.image3 !== undefined && String(data.image3 || '').trim() !== '') patch.image3 = data.image3;
-    if (data.image4 !== undefined && String(data.image4 || '').trim() !== '') patch.image4 = data.image4;
-    // cover_image_key column may not exist in some DBs; write only if non-empty to avoid accidental clearing.
+    // imageN: explicit null => delete (write empty string). Otherwise only write non-empty strings to avoid accidental overwrite.
+    if (data.image1 === null) patch.image1 = '';
+    else if (data.image1 !== undefined && String(data.image1 || '').trim() !== '') patch.image1 = data.image1;
+    if (data.image2 === null) patch.image2 = '';
+    else if (data.image2 !== undefined && String(data.image2 || '').trim() !== '') patch.image2 = data.image2;
+    if (data.image3 === null) patch.image3 = '';
+    else if (data.image3 !== undefined && String(data.image3 || '').trim() !== '') patch.image3 = data.image3;
+    if (data.image4 === null) patch.image4 = '';
+    else if (data.image4 !== undefined && String(data.image4 || '').trim() !== '') patch.image4 = data.image4;
+    // cover_image_key column may not exist in some DBs; explicit null => clear, otherwise write non-empty only.
     try {
       const covValStaff = data.coverImageKey !== undefined ? data.coverImageKey : data.cover_image_key;
-      if (covValStaff !== undefined && String(covValStaff || '').trim() !== '' && (await coverImageKeyColumnExists())) {
+      if (covValStaff === null && (await coverImageKeyColumnExists())) {
+        patch.cover_image_key = '';
+      } else if (covValStaff !== undefined && String(covValStaff || '').trim() !== '' && (await coverImageKeyColumnExists())) {
         patch.cover_image_key = String(covValStaff).trim();
       }
     } catch (_) {}
@@ -709,6 +725,23 @@ export const articlesDb = {
     try {
       try {
         console.error('[nw/article-patch-patch-staff]', JSON.stringify({ articleId: a.id, patchKeys: Object.keys(patch), patchSample: { image1: String(patch.image1 || '').slice(0,200), image2: String(patch.image2 || '').slice(0,200), cover_image_key: patch.cover_image_key || '' } }));
+      } catch (_) {}
+      // If any imageN is a data: URI, attempt to upload to Supabase Storage and replace with public URL.
+      try {
+        for (const n of [1,2,3,4]) {
+          const k = 'image' + n;
+          if (patch[k] !== undefined && typeof patch[k] === 'string' && String(patch[k]).indexOf('data:') === 0) {
+            const uploaded = await uploadDataUriToStorage(String(patch[k]), k);
+            if (uploaded) {
+              patch[k] = uploaded;
+            } else {
+              // leave as-is (will be filtered by non-empty check above) but log the upload failure for diagnostics
+              try {
+                console.error('[nw/upload] failed to upload data URI for article', { articleId: a.id, key: k });
+              } catch (_) {}
+            }
+          }
+        }
       } catch (_) {}
       const { data: updated, error } = await sb()
         .from('articles')

@@ -166,6 +166,9 @@ export async function renderArticleForm(app, { navigate, articleId }) {
           <input type="file" id="img${n}" accept="image/*" />
           <div id="imgPreview${n}" class="nw-img-preview" aria-live="polite"></div>
           <p id="imgStatus${n}" class="nw-muted" style="margin:4px 0 0 0;"></p>
+          <div style="margin-top:6px;">
+            <button type="button" class="nw-btn nw-btn--small" id="btnRemove${n}">이미지 ${n} 삭제</button>
+          </div>
           <label>이미지 ${n} 설명</label>
           <textarea id="cap${n}" rows="2">${esc(article?.['image' + n + '_caption'] || '')}</textarea>
           <div class="nw-form-row">
@@ -234,25 +237,24 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       image4_caption: app.querySelector('#cap4').value.trim(),
     };
     if (statusMaybe !== undefined) payload.status = statusMaybe;
+    // image slots: send null only if user explicitly marked removal,
+    // send base64 if uploading new file, otherwise leave undefined to preserve existing DB value.
     for (const n of [1, 2, 3, 4]) {
       const f = app.querySelector('#img' + n).files[0];
-      if (f) payload['image' + n] = await fileToBase64(f);
-      else if (article && article['image' + n]) payload['image' + n] = article['image' + n];
-    }
-    // coverImageKey radio
-    const coverEl = app.querySelector('input[name="coverImageKey"]:checked');
-    let coverKey = coverEl ? String(coverEl.value || '').trim() : '';
-    // If no explicit selection, default to first non-empty image slot (image1..image4)
-    if (!coverKey) {
-      for (const n of [1, 2, 3, 4]) {
-        const key = 'image' + n;
-        if (payload[key] && String(payload[key]).trim()) {
-          coverKey = 'image' + n;
-          break;
-        }
+      const removeFlag = removedImages && removedImages[n];
+      if (removeFlag) {
+        payload['image' + n] = null; // explicit delete request
+      } else if (f) {
+        payload['image' + n] = await fileToBase64(f);
+      } else {
+        // do not include existing image URLs in payload — leave undefined so backend won't overwrite
       }
     }
-    payload.coverImageKey = coverKey || '';
+    // coverImageKey radio: only send if user explicitly selected a radio.
+    const coverEl = app.querySelector('input[name="coverImageKey"]:checked');
+    if (coverEl) {
+      payload.coverImageKey = String(coverEl.value || '').trim();
+    }
     // Debug: log gathered payload summary (do not log full base64 to avoid huge logs)
     try {
       console.info(
@@ -499,6 +501,28 @@ export async function renderArticleForm(app, { navigate, articleId }) {
       } else {
         if (statusEl) statusEl.textContent = '현재 저장된 이미지 없음';
       }
+    }
+  } catch (_e) {}
+  // Track explicit removal requests from the UI (deleted by user).
+  const removedImages = { 1: false, 2: false, 3: false, 4: false };
+  try {
+    for (const n of [1, 2, 3, 4]) {
+      const btn = app.querySelector('#btnRemove' + n);
+      const previewEl = app.querySelector('#imgPreview' + n);
+      const statusEl = app.querySelector('#imgStatus' + n);
+      const radioEl = app.querySelector('input[name="coverImageKey"][value="image' + n + '"]');
+      if (!btn) continue;
+      btn.addEventListener('click', () => {
+        removedImages[n] = true;
+        // clear preview
+        if (previewEl) previewEl.innerHTML = '';
+        if (statusEl) statusEl.textContent = '삭제 예정: 저장 시 서버에서 이미지가 제거됩니다.';
+        // clear file input
+        const fin = app.querySelector('#img' + n);
+        if (fin) fin.value = '';
+        // if this slot was selected as cover, unselect it
+        if (radioEl && radioEl.checked) radioEl.checked = false;
+      });
     }
   } catch (_e) {}
 }
