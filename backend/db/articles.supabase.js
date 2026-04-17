@@ -599,12 +599,25 @@ export const articlesDb = {
       if (next === 'published') patch.published_at = a.published_at || now;
       if (next === 'rejected') patch.rejected_at = a.rejected_at || now;
     }
-    const { data: updated, error } = await sb()
-      .from('articles')
-      .update(patch)
-      .eq('id', a.id)
-      .select(PATCH_RETURN_COLS)
-      .single();
+    try {
+      try {
+        console.error('[nw/article-patch-patch]', JSON.stringify({ articleId: a.id, patchKeys: Object.keys(patch), patchSample: { image1: String(patch.image1 || '').slice(0,200), image2: String(patch.image2 || '').slice(0,200), cover_image_key: patch.cover_image_key || '' } }));
+      } catch (_) {}
+      const { data: updated, error } = await sb()
+        .from('articles')
+        .update(patch)
+        .eq('id', a.id)
+        .select(PATCH_RETURN_COLS)
+        .single();
+      if (error) throw error;
+      return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
+    } catch (e) {
+      // Log update failure for diagnostics
+      try {
+        console.error('[nw/article-update-failed]', JSON.stringify({ articleId: a.id, err: String(e && e.message ? e.message : e) }));
+      } catch (_) {}
+      throw e;
+    }
     if (error) throw error;
     return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
   },
@@ -640,14 +653,24 @@ export const articlesDb = {
       if (next === 'published') patch.published_at = a.published_at || now;
       if (next === 'rejected') patch.rejected_at = a.rejected_at || now;
     }
-    const { data: updated, error } = await sb()
-      .from('articles')
-      .update(patch)
-      .eq('id', a.id)
-      .select(PATCH_RETURN_COLS)
-      .single();
-    if (error) throw error;
-    return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
+    try {
+      try {
+        console.error('[nw/article-patch-patch-staff]', JSON.stringify({ articleId: a.id, patchKeys: Object.keys(patch), patchSample: { image1: String(patch.image1 || '').slice(0,200), image2: String(patch.image2 || '').slice(0,200), cover_image_key: patch.cover_image_key || '' } }));
+      } catch (_) {}
+      const { data: updated, error } = await sb()
+        .from('articles')
+        .update(patch)
+        .eq('id', a.id)
+        .select(PATCH_RETURN_COLS)
+        .single();
+      if (error) throw error;
+      return { ok: true, article: mapArticlePatchSnapshot(rowToArticleRecord(updated)) };
+    } catch (e) {
+      try {
+        console.error('[nw/article-update-failed-staff]', JSON.stringify({ articleId: a.id, err: String(e && e.message ? e.message : e) }));
+      } catch (_) {}
+      throw e;
+    }
   },
 
   async updateStatus(id, status) {
