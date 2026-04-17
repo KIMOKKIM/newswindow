@@ -573,12 +573,27 @@ export function mapPublishedListHeroMinimal(a) {
 
 /** Public list/latest/home: no subtitle; sort timestamps + thumb only */
 export function mapPublishedListRowForPublicFeed(a) {
+  if (!a || typeof a !== 'object') return a;
+  // Prefer summary, otherwise extract from rich content fields (content, content1..4), fallback to title.
+  const summaryRaw = String(a.summary ?? '').trim();
+  let contentRaw = '';
+  if (!summaryRaw) {
+    const parts = [];
+    if (a.content) parts.push(String(a.content));
+    for (const k of ['content1', 'content2', 'content3', 'content4']) {
+      if (a[k]) parts.push(String(a[k]));
+    }
+    contentRaw = parts.join(' ').trim();
+  }
+  const snippetSource = summaryRaw || contentRaw || String(a.title || '');
+  const snippet = plainTextSnippetFromRich(snippetSource, 120);
   return {
     id: a.id,
     title: a.title || '',
     category: a.category || '',
     author_name: a.author_name || '',
     summary: a.summary || '',
+    snippet: snippet,
     created_at: a.created_at || '',
     published_at: a.published_at || '',
     submitted_at: a.submitted_at || '',
@@ -590,12 +605,26 @@ export function mapPublishedListRowForPublicFeed(a) {
 }
 
 export function mapPublishedListItem(a) {
+  if (!a || typeof a !== 'object') return a;
+  const summaryRaw = String(a.summary ?? '').trim();
+  let contentRaw = '';
+  if (!summaryRaw) {
+    const parts = [];
+    if (a.content) parts.push(String(a.content));
+    for (const k of ['content1', 'content2', 'content3', 'content4']) {
+      if (a[k]) parts.push(String(a[k]));
+    }
+    contentRaw = parts.join(' ').trim();
+  }
+  const snippetSource = summaryRaw || contentRaw || String(a.title || '');
+  const snippet = plainTextSnippetFromRich(snippetSource, 120);
   return {
     id: a.id,
     title: a.title || '',
     category: a.category || '',
     author_name: a.author_name || '',
     summary: a.summary || '',
+    snippet: snippet,
     published_at: a.published_at || a.updated_at || a.created_at || '',
     views: Number(a.views) || 0,
     thumb: publicThumbUrlOnly(a),

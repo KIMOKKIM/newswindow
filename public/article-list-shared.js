@@ -292,6 +292,9 @@
         authorLinkHtml(it.author_name) +
         ' · ' +
         esc(fmtNewsDate(it.published_at)) +
+        '</p>' +
+        '<p class="aa-card-snippet">' +
+        esc(it.snippet || it.summary || '') +
         '</p></div>' +
         '</a></article>';
     });

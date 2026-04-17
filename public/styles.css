@@ -1690,6 +1690,19 @@ a:hover {
     color: #888;
 }
 
+.aa-card-snippet {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: #444;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: calc(1.4em * 3); /* fallback */
+}
+
 .aa-pager {
     margin-top: 24px;
 }
