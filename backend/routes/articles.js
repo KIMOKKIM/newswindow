@@ -517,8 +517,9 @@ articlesRouter.get('/:id', authMiddleware, async (req, res, next) => {
 articlesRouter.post('/', authMiddleware, async (req, res, next) => {
   const tSave = Date.now();
   try {
-    if (req.user.role !== 'reporter') {
-      return res.status(403).json({ error: '기자만 기사를 작성할 수 있습니다.' });
+    // Allow reporters and admins to create articles.
+    if (req.user.role !== 'reporter' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: '기자 또는 관리자만 기사를 작성할 수 있습니다.' });
     }
     const { title, subtitle, category, content, content1, content2, content3, content4, image1, image2, image3, image4, image1_caption, image2_caption, image3_caption, image4_caption, status, coverImageKey } =
       req.body;

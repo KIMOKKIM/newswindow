@@ -62,7 +62,8 @@ function navFor(session, path) {
 export async function renderArticleForm(app, { navigate, articleId }) {
   const session = getSession();
   const isNew = !articleId;
-  const allowed = isNew ? ['reporter'] : ['reporter', 'editor', 'admin'];
+  // Allow admins and editors to create new articles as well as reporters.
+  const allowed = isNew ? ['reporter', 'editor', 'admin'] : ['reporter', 'editor', 'admin'];
   if (!requireRole(session, allowed)) {
     alert('권한이 없습니다.');
     navigate(session ? dashboardPathForRole(session.role) : '/admin');
